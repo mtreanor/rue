@@ -258,3 +258,7 @@ input.dsl-input-highlighted, textarea.dsl-input-highlighted {
 .state-add > :first-child { flex: 1; min-width: 260px; }
 .fact-code { display: inline; margin: 0; padding: 0; background: none; border: none; white-space: pre-wrap; font-family: var(--mono); font-size: 13px; }
 .fact-code code { font-family: var(--mono); }
+.fact-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; white-space: nowrap; }
+.row-x { opacity: 0; border: none; background: none; color: var(--err); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; transition: opacity 0.08s; }
+.state-table tbody tr:hover .row-x { opacity: 0.75; }
+.row-x:hover { opacity: 1 !important; }

@@ -373,3 +373,57 @@ describe('FactStore — _getCanonicalRecord', () => {
     });
   });
 });
+
+describe('FactStore — remove (hard delete)', () => {
+  it('erases a record from both factHistory and the name index', () => {
+    const store = new FactStore();
+    store.assert(new Fact('knows', 'alice', 'bob'));
+    store.assert(new Fact('knows', 'alice', 'carol'));
+
+    assert.equal(store.remove(new Fact('knows', 'alice', 'bob')), true);
+
+    assert.equal(store.factHistory.length, 1);
+    // The name index must mirror factHistory — the deleted record is gone from both.
+    assert.deepEqual(store.recordsForName('knows').map(r => r.fact.args), [['alice', 'carol']]);
+    assert.equal(store._getCanonicalRecord(new Fact('knows', 'alice', 'bob')), null);
+  });
+
+  it('leaves no tombstone (unlike retract) — the fact is not merely inactive', () => {
+    const store = new FactStore();
+    store.assert(new Fact('happy', 'alice'));
+    store.remove(new Fact('happy', 'alice'));
+    assert.equal(store.factHistory.length, 0);
+    assert.deepEqual(store.recordsForName('happy'), []);
+  });
+
+  it('drops the name bucket entirely when its last record is removed', () => {
+    const store = new FactStore();
+    store.assert(new Fact('happy', 'alice'));
+    store.remove(new Fact('happy', 'alice'));
+    store.assert(new Fact('happy', 'bob')); // re-create the bucket cleanly
+    assert.deepEqual(store.recordsForName('happy').map(r => r.fact.args), [['bob']]);
+  });
+
+  it('removes a numeric fact regardless of its stored value', () => {
+    const store = new FactStore();
+    store.assert(Fact.withValue('trust', ['alice', 'bob'], 80));
+    assert.equal(store.getCurrentValue('trust', ['alice', 'bob']), 80);
+    store.remove(new Fact('trust', 'alice', 'bob'));
+    assert.equal(store.getCurrentValue('trust', ['alice', 'bob']), null);
+  });
+
+  it('matches symmetric predicates in either argument order', () => {
+    const schema = { isSymmetric: (n) => n === 'friends', keyPositions: () => null };
+    const store = new FactStore({ schema });
+    store.assert(new Fact('friends', 'alice', 'bob'));
+    assert.equal(store.remove(new Fact('friends', 'bob', 'alice')), true);
+    assert.equal(store.factHistory.length, 0);
+  });
+
+  it('returns false and no-ops when nothing matches', () => {
+    const store = new FactStore();
+    store.assert(new Fact('knows', 'alice', 'bob'));
+    assert.equal(store.remove(new Fact('knows', 'alice', 'zed')), false);
+    assert.equal(store.factHistory.length, 1);
+  });
+});

@@ -197,6 +197,31 @@ export class FactStore {
     }
   }
 
+  // Hard-remove every canonical record matching a fact's name, args (symmetric
+  // arg order included) and polarity — from both the canonical map and the
+  // by-name index — erasing the record and its history entirely. Unlike
+  // retract(), which appends a `retracted` event and keeps the record, this
+  // leaves no trace. Intended for state-editing tools; the engine's own write
+  // paths stay append-only. Returns true if anything was removed.
+  remove(fact) {
+    const bucket = this.#byName.get(fact.name);
+    if (!bucket) return false;
+    const symmetric = this.schema?.isSymmetric(fact.name) && fact.args.length === 2;
+    const sameArgs = (a) =>
+      (a.length === fact.args.length && a.every((v, i) => v === fact.args[i])) ||
+      (symmetric && a[0] === fact.args[1] && a[1] === fact.args[0]);
+    const matches = (r) => r.fact.negated === fact.negated && sameArgs(r.fact.args);
+    const kept = [];
+    let removed = false;
+    for (const r of bucket) {
+      if (matches(r)) { this._canonicalRecords.delete(this._canonicalKey(r.fact)); removed = true; }
+      else kept.push(r);
+    }
+    if (kept.length) this.#byName.set(fact.name, kept);
+    else this.#byName.delete(fact.name);
+    return removed;
+  }
+
   getCurrentValue(name, args) {
     const record = this.recordsForName(name).findLast(r =>
       r.isCurrentlyActive() && this.factMatches(r.fact, name, args)

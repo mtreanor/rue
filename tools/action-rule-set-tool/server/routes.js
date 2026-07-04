@@ -6,7 +6,7 @@ import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
-import { listFacts, listEntities, runStateQuery, assertFact, reloadStateEngine } from './state.js';
+import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, reloadStateEngine } from './state.js';
 import { repoRoot } from './config.js';
 
 export const router = Router();
@@ -71,6 +71,11 @@ router.post('/state/:scenario/query', h((req, res) => {
 // Assert a fact into the live world store. Body: { text }.
 router.post('/state/:scenario/assert', h((req, res) => {
   res.json({ facts: assertFact(req.params.scenario, req.body.text) });
+}));
+
+// Hard-delete a fact. Body: { owner, name, args, negated }.
+router.post('/state/:scenario/delete', h((req, res) => {
+  res.json({ facts: deleteFact(req.params.scenario, req.body) });
 }));
 
 // Reset the scenario's engine to its seeded state.

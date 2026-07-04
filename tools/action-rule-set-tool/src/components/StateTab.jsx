@@ -87,6 +87,15 @@ export default function StateTab({ scenario, data, highlighter }) {
     finally { setLoading(false); }
   };
 
+  const removeFact = async (f) => {
+    setLoading(true);
+    try {
+      setFacts(await api.stateDelete(scenario, { owner: f.owner, name: f.name, args: f.args, negated: f.negated }));
+      setError(null);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
   const runQuery = async () => {
     if (!isServerQuery) { setQuery(null); return; }
     setLoading(true);
@@ -199,7 +208,7 @@ export default function StateTab({ scenario, data, highlighter }) {
           {loading && <div className="dim">Loading…</div>}
           {!loading && isServerQuery && query && <QueryResults query={query} />}
           {!loading && isServerQuery && !query && <div className="dim">Press <b>Run</b> (or Enter) to evaluate the query.</div>}
-          {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} />}
+          {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} onDelete={removeFact} />}
         </div>
         <EntitySidebar entities={entities} onPick={pickEntity} />
       </div>
@@ -207,7 +216,7 @@ export default function StateTab({ scenario, data, highlighter }) {
   );
 }
 
-function FactList({ facts, total, highlighter }) {
+function FactList({ facts, total, highlighter, onDelete }) {
   if (facts.length === 0) return <div className="dim">No matching facts <span className="dim">({total} total)</span>.</div>;
   return (
     <>
@@ -227,7 +236,10 @@ function FactList({ facts, total, highlighter }) {
               </td>
               <td className="num">{f.value ?? ''}</td>
               <td className="num">{f.tick ?? ''}</td>
-              <td>{f.active ? '' : <span className="dim">retracted</span>}</td>
+              <td className="fact-actions">
+                {f.active ? '' : <span className="dim">retracted</span>}
+                <button className="row-x" onClick={() => onDelete(f)} title="Delete this fact completely">×</button>
+              </td>
             </tr>
           ))}
         </tbody>

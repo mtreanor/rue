@@ -1,4 +1,5 @@
 import { Engine } from '../../../src/Engine.js';
+import { Fact } from '../../../src/Fact.js';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 
 // A live Engine per scenario, cached. State is dynamic: the viewer re-queries
@@ -74,6 +75,17 @@ export function assertFact(name, text) {
   const engine = getStateEngine(name);
   engine.assert(text);
   return listFacts(name);
+}
+
+// Hard-delete a fact from its store (world or a private store), erasing it and
+// its history — the state-editing counterpart to assert. Identified by owner,
+// predicate name, args, and polarity. Returns the refreshed facts.
+export function deleteFact(scenario, { owner = null, name, args, negated = false }) {
+  const engine = getStateEngine(scenario);
+  const store = owner ? engine.world.getPrivateStore(owner) : engine.world.factStore;
+  if (!store) throw new Error(`No store for owner "${owner}"`);
+  store.remove(new Fact(name, ...args, { negated }));
+  return listFacts(scenario);
 }
 
 // Run a query (predicate conjunction, with variables and any time brackets),
