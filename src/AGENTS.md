@@ -79,16 +79,22 @@ For variables with no schema type entry (e.g. string need values), the evaluator
 | `ExplicitNegationPredicate` | `-pred(args)` | Currently active negated fact |
 | `NegationPredicate` | `not pred(args)` | Absence of a positive fact (NAF) |
 | `WeakNegationPredicate` | `~pred(args)` | Absent OR explicitly disbelieved |
-| `HistoricalWindowPredicate` | `hadX(args) within N` | Ever asserted within tick window |
+| `HistoricalWindowPredicate` | `pred(args) [ever]` / `[asserted-during: N]` | Ever asserted at or before now / within the last N ticks (event checks) |
+| `AtTickPredicate` | `pred(args) [tick: N]` / `[ago: N]` | True as of an absolute tick N / at `currentTick − N` (state, point) |
+| `DuringPredicate` | `pred(args) [during: N]` | True at any point in the last N ticks, regardless of when asserted (state, range) |
+| `WhenPredicate` | `pred(args) [when: ?t]` | Binds `?t` to every tick the fact was asserted (event enumeration); a dependent enumeration source |
+| `ClosurePredicate` | `pred(?X, ?Y) [degrees: N]` / `[dist: ?d]` | Bounded transitive closure — `?Y` reachable from `?X` within N hops (BFS); optional distance binding |
 | `DerivedFactPredicate` | derived predicate name | Resolved via `DerivedFactQueryHandler` |
 | `NumericTierPredicate` | `pred.tier(args)` | Numeric value falls within a named tier |
-| `NumericComparisonPredicate` | `pred(args) > N` | Direct numeric comparison |
+| `NumericComparisonPredicate` | `pred(args) > N` | Direct numeric comparison against a literal |
+| `VariableComparisonPredicate` | `?v op rhs` | Compare a bound variable to a literal or another bound variable (filters enumerated vars like `[dist: ?d]`) |
+| `ExpressionComparisonPredicate` | `expr op expr` | Compare two numeric expressions (infix `+ - * /`, `min/max/abs/clamp/pow`); built from `NumericExpression` nodes |
 | `CurrentTimePredicate` | `currentTime in [a,b]` | Current time in range |
-| `AggregatePredicate` | `fn|pred1(args) ^ pred2(args)| op N` | `fn` is `count`, `avg`, `sum`, `max`, or `min` over enumerated `_` wildcards, filtered by the conjunction. Bare `|...|` (no `fn`) is sugar for `count|...|`. `count` has no value predicate — every conjunct is a filter; `avg`/`sum`/`max`/`min` require exactly one numeric predicate in the conjunction as the value being aggregated. |
+| `AggregatePredicate` | `fn|pred1(args) ^ pred2(args)| op N` | `fn` is `count`, `avg`, `sum`, `max`, or `min` over counting variables, filtered by the conjunction. Bare `|...|` is sugar for `count|...|`. Counting vars come from wildcards: a bare `_` is anonymous (fresh, never joins), a named `_n` joins its occurrences; a `[when: _t]` gives a tick-kind counting var (assertion events), a `[degrees:]` target a closure-kind one (reachable nodes). `count` has no value predicate; `avg`/`sum`/`max`/`min` require exactly one numeric predicate as the value. |
 | `TemporalChainPredicate` | multi-step temporal sequence | Chain of events in order |
 | `PrivatePredicate` | `?VAR.pred(args)` | Queries the private store of the bound entity |
 
-Variables inside negation predicates are not enumerated — they must already be bound by positive predicates.
+Variables inside negation predicates are not enumerated — they must already be bound by positive predicates. `RuleLoader` warns at load when a negated (or comparison) variable can never be bound. Numeric expressions in comparisons and effects are built from `NumericExpression` nodes (`src/NumericExpression.js`); the shared arithmetic/function primitives live in `src/numericOps.js` and are reused by the action-utility expression sources (`src/utility/`).
 
 ### Query architecture
 
@@ -117,7 +123,7 @@ Finds proof paths for a target conclusion. `findAll: true` returns all grounded 
 
 ### State operations
 
-`StateOperation` is the unit of world mutation. Types: `assert`, `retract`, `adjust-numeric`. `applyStateChange(operation, binding, queryHandlers, options)` executes one operation. `StateChangeQueue` batches operations for deferred flush.
+`StateOperation` is the unit of world mutation. Types: `assert`, `retract`, `adjust-numeric`, `set-numeric` (plus `new-entity`, `remove-entity`, `record`, and actuator variants). `applyStateChange(operation, binding, queryHandlers, options)` executes one operation. `StateChangeQueue` batches operations for deferred flush. A numeric `delta`/`value` may be a `NumericExpression` (rule effects only) — resolved to a number in `applyEffects` against the binding + evaluation context, then scaled/clamped; a `null` result skips the effect.
 
 ## DSL
 
