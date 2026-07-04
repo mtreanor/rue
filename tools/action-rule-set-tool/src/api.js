@@ -44,5 +44,6 @@ export const api = {
   stateFacts: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/facts`).then(r => r.data.facts ?? []),
   stateEntities: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/entities`).then(r => r.data.entities ?? []),
   stateQuery: (name, text, scopedTo = null) => req('POST', `/api/state/${encodeURIComponent(name)}/query`, { text, scopedTo }).then(r => r.data),
+  stateAssert: (name, text) => req('POST', `/api/state/${encodeURIComponent(name)}/assert`, { text }).then(r => r.data.facts ?? []),
   stateReload: (name) => req('POST', `/api/state/${encodeURIComponent(name)}/reload`),
 };

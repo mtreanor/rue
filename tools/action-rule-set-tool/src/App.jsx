@@ -145,7 +145,7 @@ export default function App() {
               />
             )}
             {data && tab === 'state' && (
-              <StateTab scenario={scenario} />
+              <StateTab scenario={scenario} data={data} highlighter={highlighter} />
             )}
           </main>
         </div>

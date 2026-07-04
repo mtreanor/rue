@@ -7,6 +7,9 @@ import React, { useState } from 'react';
 export default function EntitySidebar({ entities = [], onPick }) {
   const [open, setOpen] = useState(true);
   const [filter, setFilter] = useState('');
+  const [collapsed, setCollapsed] = useState({}); // entity type -> collapsed?
+
+  const toggleType = (type) => setCollapsed(c => ({ ...c, [type]: !c[type] }));
 
   const q = filter.trim().toLowerCase();
   const groups = entities
@@ -39,21 +42,32 @@ export default function EntitySidebar({ entities = [], onPick }) {
       />
       <div className="sidebar-hint">click to add to the filter</div>
       <div className="sidebar-list">
-        {groups.map(g => (
-          <div key={g.type} className="pred-group">
-            <div className="pred-group-title">{g.type} <span className="dim">({g.names.length})</span></div>
-            {g.names.map(n => (
+        {groups.map(g => {
+          // A search query force-expands so matches are never hidden.
+          const shown = q || !collapsed[g.type];
+          return (
+            <div key={g.type} className="pred-group">
               <button
-                key={n}
-                className="pred-insert"
-                onMouseDown={e => { e.preventDefault(); onPick(n); }}
-                title={`Add ${n} to the filter`}
+                className="pred-group-title as-toggle"
+                onClick={() => toggleType(g.type)}
+                title={shown ? 'Collapse' : 'Expand'}
               >
-                <span className="pred-name">{n}</span>
+                <span className="caret">{shown ? '▾' : '▸'}</span>
+                {g.type} <span className="dim">({g.names.length})</span>
               </button>
-            ))}
-          </div>
-        ))}
+              {shown && g.names.map(n => (
+                <button
+                  key={n}
+                  className="pred-insert"
+                  onMouseDown={e => { e.preventDefault(); onPick(n); }}
+                  title={`Add ${n} to the filter`}
+                >
+                  <span className="pred-name">{n}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })}
         {groups.length === 0 && <div className="dim" style={{ padding: '10px' }}>No matches.</div>}
       </div>
     </aside>

@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useInsert } from '../InsertContext.js';
 import EntitySidebar from './EntitySidebar.jsx';
+import DslInput from './DslInput.jsx';
+import HighlightedCode from './HighlightedCode.jsx';
 
 // Insert text at the input's caret (replacing any selection).
 function insertAtCaret(el, current, template) {
@@ -11,13 +13,34 @@ function insertAtCaret(el, current, template) {
   return current.slice(0, start) + template + current.slice(end);
 }
 
-export default function StateTab({ scenario }) {
+// Parse a positional fact pattern `pred(a, b, …)`. Each argument is a concrete
+// value, `_` (any), or `?var` (any). Returns null if the text isn't a closed
+// `pred(...)` call.
+function parsePattern(text) {
+  const m = text.trim().match(/^([A-Za-z_]\w*)\s*\((.*)\)$/s);
+  if (!m) return null;
+  const inner = m[2].trim();
+  const args = inner === '' ? [] : inner.split(',').map(s => s.trim());
+  return { name: m[1], args };
+}
+
+function matchesPattern(fact, pat) {
+  if (fact.name.toLowerCase() !== pat.name.toLowerCase()) return false;
+  if (pat.args.length !== fact.args.length) return false;
+  return pat.args.every((a, i) => {
+    if (a === '' || a === '_' || a.startsWith('?')) return true;               // wildcard
+    return String(fact.args[i]).toLowerCase() === a.toLowerCase();             // concrete
+  });
+}
+
+export default function StateTab({ scenario, data, highlighter }) {
   const insert = useInsert();
   const inputRef = useRef(null);
 
   const [facts, setFacts]       = useState([]);
   const [entities, setEntities] = useState([]);
   const [filter, setFilter]     = useState('');
+  const [newFact, setNewFact]   = useState('');     // the add-fact field
   const [query, setQuery]       = useState(null);   // { vars, rows } from a query, or null in entity mode
   const [error, setError]       = useState(null);
   const [loading, setLoading]   = useState(false);
@@ -25,8 +48,11 @@ export default function StateTab({ scenario }) {
   const [dir, setDir]           = useState('asc');
   const [owner, setOwner]       = useState('all');  // 'all' | 'world' | <entity name>
 
-  // A predicate query if it names a predicate call; otherwise a plain entity filter.
-  const isQuery = filter.includes('(');
+  // Bracketed forms ([tick:], [ever], [degrees:], …) need the engine, so they
+  // run server-side and return bindings. Everything else filters the loaded
+  // facts client-side: a `pred(args)` positional pattern, or entity tokens.
+  const isServerQuery = filter.includes('[');
+  const pattern = useMemo(() => parsePattern(filter), [filter]);
 
   const load = async (name = scenario) => {
     if (!name) return;
@@ -38,18 +64,31 @@ export default function StateTab({ scenario }) {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { setFilter(''); setQuery(null); load(scenario); }, [scenario]);
+  useEffect(() => { setFilter(''); setNewFact(''); setQuery(null); load(scenario); }, [scenario]);
 
-  // Register the filter box as the predicate-sidebar insert target.
-  useEffect(() => {
-    if (!insert) return;
-    const fn = (template) => setFilter(f => insertAtCaret(inputRef.current, f, template));
-    insert.register(fn);
-    return () => insert.clear(fn);
-  }, [insert]);
+  // The filter box registers as the predicate-sidebar insert target while it is
+  // focused; the add-fact field (a DslInput) does the same, so whichever was
+  // focused last receives a sidebar insert.
+  const filterInserter = useCallback(
+    (template) => setFilter(f => insertAtCaret(inputRef.current, f, template)),
+    [],
+  );
+  // Make the filter the default insert target (before any field is focused).
+  useEffect(() => { insert?.register(filterInserter); }, [insert, filterInserter]);
+
+  const addFact = async () => {
+    const text = newFact.trim();
+    if (!text) return;
+    setLoading(true);
+    try {
+      setFacts(await api.stateAssert(scenario, text));
+      setNewFact(''); setError(null);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
 
   const runQuery = async () => {
-    if (!isQuery) { setQuery(null); return; }
+    if (!isServerQuery) { setQuery(null); return; }
     setLoading(true);
     try {
       const scopedTo = owner !== 'all' && owner !== 'world' ? owner : null;
@@ -74,16 +113,22 @@ export default function StateTab({ scenario }) {
     [facts],
   );
 
-  // Entity mode: filter facts client-side by whitespace tokens (predicate name, args, owner).
+  // Client-side filtering of the loaded facts. `pred(a, b, …)` is a positional
+  // pattern (`_`/`?var` = any); otherwise the comma/space-separated tokens must
+  // all appear (predicate name, an argument, or the owner).
   const factRows = useMemo(() => {
+    if (isServerQuery) return [];
     const inStore = f => owner === 'all' || (owner === 'world' ? f.owner === null : f.owner === owner);
-    const tokens = isQuery ? [] : filter.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return facts.filter(inStore).filter(f => {
-      if (tokens.length === 0) return true;
+    const base = facts.filter(inStore);
+    const q = filter.trim();
+    if (q === '') return base;
+    if (pattern) return base.filter(f => matchesPattern(f, pattern));
+    const tokens = q.toLowerCase().split(/[\s,]+/).filter(Boolean);
+    return base.filter(f => {
       const hay = [f.name, ...f.args, f.owner ?? 'world'].join(' ').toLowerCase();
       return tokens.every(t => hay.includes(t));
     });
-  }, [facts, filter, owner, isQuery]);
+  }, [facts, filter, owner, isServerQuery, pattern]);
 
   const sortedFacts = useMemo(() => {
     const cmp = {
@@ -97,17 +142,31 @@ export default function StateTab({ scenario }) {
 
   return (
     <div className="state-tab">
+      <div className="state-add">
+        <DslInput
+          value={newFact}
+          onChange={setNewFact}
+          predicates={data?.predicates ?? []}
+          entityNames={data?.entityNames ?? []}
+          highlighter={highlighter}
+          insertMode="replace"
+          placeholder="assert a fact:  knows(alice, bob)   ·   friendship(alice, bob) = 80"
+        />
+        <button className="btn primary" onClick={addFact} disabled={!newFact.trim()}>Add fact</button>
+      </div>
+
       <div className="state-controls">
         <input
           ref={inputRef}
           className="state-filter"
-          placeholder="entity name, or a query like  knows(?X, ?Y) [tick: 0]"
+          placeholder="oren, silas   ·   friends(_, oren)   ·   knows(?X, ?Y) [tick: 0]"
           value={filter}
           onChange={e => setFilter(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') runQuery(); }}
+          onFocus={() => insert?.register(filterInserter)}
           spellCheck={false}
         />
-        {isQuery && <button className="btn primary" onClick={runQuery}>Run</button>}
+        {isServerQuery && <button className="btn primary" onClick={runQuery}>Run</button>}
         {(filter || query) && <button className="btn ghost" onClick={() => { setFilter(''); setQuery(null); }}>Clear</button>}
 
         <label className="state-ctl">store
@@ -116,7 +175,7 @@ export default function StateTab({ scenario }) {
           </select>
         </label>
 
-        {!isQuery && (
+        {!isServerQuery && (
           <>
             <label className="state-ctl">sort
               <select value={sort} onChange={e => setSort(e.target.value)}>
@@ -138,9 +197,9 @@ export default function StateTab({ scenario }) {
       <div className="state-body">
         <div className="state-results">
           {loading && <div className="dim">Loading…</div>}
-          {!loading && isQuery && query && <QueryResults query={query} />}
-          {!loading && isQuery && !query && <div className="dim">Press <b>Run</b> (or Enter) to evaluate the query.</div>}
-          {!loading && !isQuery && <FactList facts={sortedFacts} total={facts.length} />}
+          {!loading && isServerQuery && query && <QueryResults query={query} />}
+          {!loading && isServerQuery && !query && <div className="dim">Press <b>Run</b> (or Enter) to evaluate the query.</div>}
+          {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} />}
         </div>
         <EntitySidebar entities={entities} onPick={pickEntity} />
       </div>
@@ -148,7 +207,7 @@ export default function StateTab({ scenario }) {
   );
 }
 
-function FactList({ facts, total }) {
+function FactList({ facts, total, highlighter }) {
   if (facts.length === 0) return <div className="dim">No matching facts <span className="dim">({total} total)</span>.</div>;
   return (
     <>
@@ -159,7 +218,13 @@ function FactList({ facts, total }) {
           {facts.map((f, i) => (
             <tr key={i} className={f.active ? '' : 'inactive'}>
               <td className="dim">{f.owner ?? 'world'}</td>
-              <td><code>{f.negated ? '-' : ''}{f.name}({f.args.join(', ')})</code></td>
+              <td>
+                <HighlightedCode
+                  text={`${f.negated ? '-' : ''}${f.name}(${f.args.join(', ')})`}
+                  highlighter={highlighter}
+                  className="fact-code"
+                />
+              </td>
               <td className="num">{f.value ?? ''}</td>
               <td className="num">{f.tick ?? ''}</td>
               <td>{f.active ? '' : <span className="dim">retracted</span>}</td>

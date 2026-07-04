@@ -251,3 +251,10 @@ input.dsl-input-highlighted, textarea.dsl-input-highlighted {
 .state-table code { font-family: var(--mono); color: var(--text); }
 .state-table tr.inactive td code { color: var(--dim); text-decoration: line-through; }
 .state-table tbody tr:hover td { background: var(--panel); }
+.pred-group-title.as-toggle { display: flex; align-items: center; gap: 6px; width: 100%; background: var(--panel); border: none; cursor: pointer; font: inherit; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; }
+.pred-group-title.as-toggle:hover { color: var(--text); }
+.pred-group-title .caret { color: var(--dim); font-size: 9px; width: 9px; display: inline-block; }
+.state-add { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+.state-add > :first-child { flex: 1; min-width: 260px; }
+.fact-code { display: inline; margin: 0; padding: 0; background: none; border: none; white-space: pre-wrap; font-family: var(--mono); font-size: 13px; }
+.fact-code code { font-family: var(--mono); }

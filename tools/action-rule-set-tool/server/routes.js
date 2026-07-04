@@ -6,7 +6,7 @@ import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
-import { listFacts, listEntities, runStateQuery, reloadStateEngine } from './state.js';
+import { listFacts, listEntities, runStateQuery, assertFact, reloadStateEngine } from './state.js';
 import { repoRoot } from './config.js';
 
 export const router = Router();
@@ -66,6 +66,11 @@ router.get('/state/:scenario/entities', h((req, res) => {
 // Run a query against the live state. Body: { text, scopedTo? }.
 router.post('/state/:scenario/query', h((req, res) => {
   res.json(runStateQuery(req.params.scenario, req.body.text, req.body.scopedTo ?? null));
+}));
+
+// Assert a fact into the live world store. Body: { text }.
+router.post('/state/:scenario/assert', h((req, res) => {
+  res.json({ facts: assertFact(req.params.scenario, req.body.text) });
 }));
 
 // Reset the scenario's engine to its seeded state.

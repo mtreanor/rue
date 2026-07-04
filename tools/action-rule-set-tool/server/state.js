@@ -67,6 +67,15 @@ export function listEntities(name) {
   return out;
 }
 
+// Assert a single fact (a complete predicate, e.g. `knows(alice, bob)` or
+// `friendship(alice, bob) = 80`) into the live world store, then return the
+// refreshed facts. Throws (surfaced as a 400) on a parse or schema error.
+export function assertFact(name, text) {
+  const engine = getStateEngine(name);
+  engine.assert(text);
+  return listFacts(name);
+}
+
 // Run a query (predicate conjunction, with variables and any time brackets),
 // optionally scoped to an owner's private store. Returns the free-variable
 // names and one row of bindings per satisfying combination.
