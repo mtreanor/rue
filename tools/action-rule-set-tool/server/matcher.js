@@ -95,12 +95,19 @@ function leaf(node) {
     case 'aggregate':
       return {
         spec: 'aggregate', name: null, fn: node.fn, operator: node.operator,
-        innerNames: node.predicates.map(p => p.name).sort(),
-        terms: node.predicates.flatMap(p => (p.args ?? []).map(term)),
+        innerNames: node.predicates.map(p => unwrapPrivate(p).name).sort(),
+        terms: node.predicates.flatMap(p => (unwrapPrivate(p).args ?? []).map(term)),
       };
     default:
       return null;
   }
+}
+
+// An aggregate's inner conjunct may itself be private-store-owned
+// (?SELF.embarrassedThemselves(...) inside count|...|) — .name/.args live on
+// the wrapped predicate, not the private node itself.
+function unwrapPrivate(p) {
+  return p.type === 'private' ? p.predicate : p;
 }
 
 // Rule effects become descriptors too, so search covers RHS. Numeric deltas/values
@@ -135,7 +142,11 @@ function unify(q, r, map, symmetric) {
   if (q.scope && q.scope !== 'any' && r.origin !== q.scope) return false;
   if (q.partial) return unifyPartial(q, r, map, symmetric);
   if (!polarityOk(q.polarity, r.polarity)) return false;
-  if (q.private !== r.private) return false;
+  // Private-store ownership is intentionally not a match filter: a query for
+  // `embarrassedThemselves(?x, ?y)` should surface a rule's private-store use
+  // (`?SELF.embarrassedThemselves(...)`) too. `r.private` still rides along on
+  // the descriptor (tune.js reads it for evaluability) in case search wants an
+  // explicit private/world toggle later.
 
   if (q.spec === 'plain' && q.polarity === 'pos') {
     // Bare positive reference — matches any positive use of the same predicate.
@@ -279,6 +290,11 @@ export function ruleDescriptors(parsedRule) {
     // names live in `steps`). Also expose each step as a plain descriptor so a
     // predicate used only inside a chain is still findable by name or reference.
     for (const step of temporalSteps(node)) { step.origin = 'lhs'; descs.push(step); }
+    // Same reasoning for aggregates: the combined descriptor's `name` is null
+    // (see `innerNames` in describe()'s 'aggregate' case), so a predicate used
+    // only inside count|...|/avg|...|/etc. would otherwise be invisible to a
+    // plain name/prefix search.
+    for (const step of aggregateSteps(node)) { step.origin = 'lhs'; descs.push(step); }
   }
   for (const effect of parsedRule.effects ?? []) {
     const d = describeEffect(effect);
@@ -293,6 +309,20 @@ function temporalSteps(node) {
     spec: 'plain', polarity: 'pos', private: false,
     name: s.name, terms: (s.args ?? []).map(term),
   }));
+}
+
+function aggregateSteps(node) {
+  if (!node || node.type !== 'aggregate') return [];
+  return node.predicates.map(p => {
+    const priv = p.type === 'private';
+    const inner = priv ? p.predicate : p;
+    const ownerTerm = priv ? (p.ownerVar ? term(p.ownerVar) : term(p.ownerEntity)) : null;
+    const terms = (inner.args ?? []).map(term);
+    return {
+      spec: 'plain', polarity: 'pos', private: priv,
+      name: inner.name, terms: ownerTerm ? [ownerTerm, ...terms] : terms,
+    };
+  });
 }
 
 function entryToNode(entry) {
