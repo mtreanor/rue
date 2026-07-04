@@ -233,3 +233,21 @@ input.dsl-input-highlighted, textarea.dsl-input-highlighted {
 /* ── Modal ── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; z-index: 30; overflow-y: auto; }
 .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 100%; max-width: 760px; }
+
+/* ── State viewer ── */
+.state-tab { display: flex; flex-direction: column; gap: 12px; }
+.state-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.state-filter { flex: 1; min-width: 260px; font-family: var(--mono); }
+.state-ctl { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
+.btn.primary { border-color: var(--accent); color: var(--accent); }
+.btn.sort-dir { min-width: 34px; text-align: center; }
+.state-body { display: flex; align-items: flex-start; gap: 18px; }
+.state-results { flex: 1; min-width: 0; }
+.state-count { margin: 2px 2px 8px; font-size: 12px; }
+.state-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.state-table th { text-align: left; color: var(--dim); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 10px; border-bottom: 1px solid var(--border); }
+.state-table td { padding: 4px 10px; border-bottom: 1px solid var(--panel-2); vertical-align: top; }
+.state-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.state-table code { font-family: var(--mono); color: var(--text); }
+.state-table tr.inactive td code { color: var(--dim); text-decoration: line-through; }
+.state-table tbody tr:hover td { background: var(--panel); }

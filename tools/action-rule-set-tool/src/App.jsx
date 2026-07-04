@@ -3,6 +3,7 @@ import InspectTab from './components/InspectTab.jsx';
 import AddRuleTab from './components/AddRuleTab.jsx';
 import ActionsetsTab from './components/ActionsetsTab.jsx';
 import AddActionTab from './components/AddActionTab.jsx';
+import StateTab from './components/StateTab.jsx';
 import PredicateSidebar from './components/PredicateSidebar.jsx';
 import { InsertContext } from './InsertContext.js';
 import { compileGrammar } from './tmHighlight.js';
@@ -105,6 +106,7 @@ export default function App() {
             <button className={tab === 'add-rule' ? 'active' : ''} onClick={() => goTo('add-rule')}>Add rule</button>
             <button className={tab === 'actionsets' ? 'active' : ''} onClick={() => goTo('actionsets')}>Actionsets</button>
             <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')}>Add action</button>
+            <button className={tab === 'state' ? 'active' : ''} onClick={() => goTo('state')}>State</button>
           </nav>
         </header>
 
@@ -141,6 +143,9 @@ export default function App() {
                 editingAction={editingAction}
                 onExitEdit={exitActionEditor}
               />
+            )}
+            {data && tab === 'state' && (
+              <StateTab scenario={scenario} />
             )}
           </main>
         </div>

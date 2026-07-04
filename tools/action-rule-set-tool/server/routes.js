@@ -6,6 +6,7 @@ import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
+import { listFacts, listEntities, runStateQuery, reloadStateEngine } from './state.js';
 import { repoRoot } from './config.js';
 
 export const router = Router();
@@ -48,6 +49,29 @@ router.get('/scenario/:name', h((req, res) => {
     rulesets: loadRulesets(ctx),
     actionsets: loadActionsets(ctx),
   });
+}));
+
+// ── State viewer ────────────────────────────────────────────────────────────
+
+// All facts across the world store and every private store (world + private).
+router.get('/state/:scenario/facts', h((req, res) => {
+  res.json({ facts: listFacts(req.params.scenario) });
+}));
+
+// Entity types and their named instances, for the entity side panel.
+router.get('/state/:scenario/entities', h((req, res) => {
+  res.json({ entities: listEntities(req.params.scenario) });
+}));
+
+// Run a query against the live state. Body: { text, scopedTo? }.
+router.post('/state/:scenario/query', h((req, res) => {
+  res.json(runStateQuery(req.params.scenario, req.body.text, req.body.scopedTo ?? null));
+}));
+
+// Reset the scenario's engine to its seeded state.
+router.post('/state/:scenario/reload', h((req, res) => {
+  reloadStateEngine(req.params.scenario);
+  res.json({ ok: true });
 }));
 
 // Structural search. Body: { scenario, files: [rulesetName], query }.

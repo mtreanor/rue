@@ -40,4 +40,9 @@ export const api = {
   addAction: (payload) => req('POST', '/api/action', payload),
   editAction: (payload) => req('PUT', '/api/action', payload),
   deleteAction: (payload) => req('DELETE', '/api/action', payload),
+
+  stateFacts: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/facts`).then(r => r.data.facts ?? []),
+  stateEntities: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/entities`).then(r => r.data.entities ?? []),
+  stateQuery: (name, text, scopedTo = null) => req('POST', `/api/state/${encodeURIComponent(name)}/query`, { text, scopedTo }).then(r => r.data),
+  stateReload: (name) => req('POST', `/api/state/${encodeURIComponent(name)}/reload`),
 };
