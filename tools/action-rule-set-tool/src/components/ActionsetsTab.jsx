@@ -64,6 +64,12 @@ export default function ActionsetsTab({ scenario, data, highlighter, onChanged, 
         <span className="filter-label">Actionsets:</span>
         <button className="btn tiny ghost" onClick={() => setSelected(allActionsetNames)}>All</button>
         <button className="btn tiny ghost" onClick={() => setSelected([])}>None</button>
+        <button className="btn tiny" title="Create a new actionset" onClick={async () => {
+          const name = prompt('New actionset name:');
+          if (!name?.trim()) return;
+          try { await api.createSet(scenario, 'actionset', name.trim()); onChanged(); }
+          catch (e) { alert(e.message); }
+        }}>+ set</button>
         {data.actionsets.map(as => (
           <label key={as.name} className="check">
             <input type="checkbox" checked={selected.includes(as.name)} onChange={() => toggleActionset(as.name)} />
