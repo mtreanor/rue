@@ -109,11 +109,17 @@ export default function App() {
             </select>
           </label>
           <nav className="tabs">
-            <button className={tab === 'rulesets' ? 'active' : ''} onClick={() => goTo('rulesets')}>Rulesets</button>
-            <button className={tab === 'add-rule' ? 'active' : ''} onClick={() => goTo('add-rule')}>Add rule</button>
-            <button className={tab === 'actionsets' ? 'active' : ''} onClick={() => goTo('actionsets')}>Actionsets</button>
-            <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')}>Add action</button>
             <button className={tab === 'state' ? 'active' : ''} onClick={() => goTo('state')}>State</button>
+            <div className="tab-groups">
+              <div className="tab-group">
+                <button className={tab === 'rulesets' ? 'active' : ''} onClick={() => goTo('rulesets')}>Rulesets</button>
+                <button className={tab === 'add-rule' ? 'active' : ''} onClick={() => goTo('add-rule')} title="Add rule" aria-label="Add rule">+</button>
+              </div>
+              <div className="tab-group">
+                <button className={tab === 'actionsets' ? 'active' : ''} onClick={() => goTo('actionsets')}>Actionsets</button>
+                <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')} title="Add action" aria-label="Add action">+</button>
+              </div>
+            </div>
           </nav>
         </header>
 

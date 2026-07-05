@@ -158,6 +158,7 @@ export default function StateTab({ scenario, data, highlighter }) {
 
   return (
     <div className="state-tab">
+      <div className="state-main">
       <div className="state-add">
         <DslInput
           value={newFact}
@@ -210,14 +211,15 @@ export default function StateTab({ scenario, data, highlighter }) {
 
       {error && <div className="banner error">{error}</div>}
 
-      <div className="state-body">
-        <div className="state-results">
-          {loading && <div className="dim">Loading…</div>}
-          {!loading && isServerQuery && query && <QueryResults query={query} />}
-          {!loading && isServerQuery && !query && <div className="dim">Press <b>Run</b> (or Enter) to evaluate the query.</div>}
-          {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} onDelete={removeFact} />}
-        </div>
-        <EntitySidebar
+      <div className="state-results">
+        {loading && <div className="dim">Loading…</div>}
+        {!loading && isServerQuery && query && <QueryResults query={query} />}
+        {!loading && isServerQuery && !query && <div className="dim">Press <b>Run</b> (or Enter) to evaluate the query.</div>}
+        {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} onDelete={removeFact} />}
+      </div>
+      </div>
+
+      <EntitySidebar
           types={entityTypes}
           onPick={pickEntity}
           onAddType={(cfg) => runTypeOp(() => api.addEntityType(scenario, cfg))}
@@ -226,8 +228,7 @@ export default function StateTab({ scenario, data, highlighter }) {
           onAddInstance={(type, name) => runTypeOp(() => api.addEntity(scenario, { type, name }))}
           onRenameInstance={(type, oldName, name) => runTypeOp(() => api.renameEntity(scenario, { type, oldName, name }))}
           onDeleteInstance={(type, name) => runTypeOp(() => api.deleteEntity(scenario, { type, name }))}
-        />
-      </div>
+      />
     </div>
   );
 }

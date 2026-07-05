@@ -22,6 +22,7 @@ export default function PredicateSidebar({
   const [open, setOpen] = useState(true);
   const [filter, setFilter] = useState('');
   const [modal, setModal] = useState(null); // { initial } — null closed; { initial: null } = add
+  const [hover, setHover] = useState(null); // hovered predicate name (JS-tracked so it clears reliably)
   const editable = !!(onAdd && onEdit && onDelete);
 
   const insert = (template, e) => {
@@ -67,7 +68,7 @@ export default function PredicateSidebar({
           <div key={g.type} className="pred-group">
             <div className="pred-group-title">{TYPE_LABEL[g.type] ?? g.type}</div>
             {g.items.map(p => (
-              <div key={p.name} className="pred-item">
+              <div key={p.name} className="pred-item" onMouseEnter={() => setHover(p.name)} onMouseLeave={() => setHover(null)}>
                 <div className="pred-item-main">
                   <button
                     className="pred-insert"
@@ -79,9 +80,9 @@ export default function PredicateSidebar({
                     {p.symmetric && <span className="pred-flag">sym</span>}
                   </button>
                   {editable && (
-                    <span className="pred-item-actions">
-                      <button className="row-icon" onClick={() => setModal({ initial: p })} title="Edit predicate">✎</button>
-                      <button className="row-icon del" onClick={() => { if (confirm(`Delete predicate "${p.name}"?`)) onDelete(p.name); }} title="Delete predicate">×</button>
+                    <span className={'pred-item-actions' + (hover === p.name ? ' visible' : '')}>
+                      <button className="row-icon" onClick={() => { setHover(null); setModal({ initial: p }); }} title="Edit predicate">✎</button>
+                      <button className="row-icon del" onClick={() => { setHover(null); if (confirm(`Delete predicate "${p.name}"?`)) onDelete(p.name); }} title="Delete predicate">×</button>
                     </span>
                   )}
                 </div>
