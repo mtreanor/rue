@@ -94,6 +94,45 @@ export function deleteFact(scenario, { owner = null, name, args, negated = false
   return listFacts(scenario);
 }
 
+// Serialize a ProofNode (from engine.explain) to JSON. `maxDepth` limits how
+// far the support tree is walked — 1 for the immediate "why", Infinity for the
+// full recursive "Explain". `childCount` lets a truncated node advertise that
+// more support exists beneath it.
+function serializeProof(node, maxDepth, depth = 0) {
+  const kids = node.support ?? [];
+  return {
+    statement: node.statement,
+    via:       node.via ?? null,
+    tick:      node.tick ?? null,
+    detail:    node.detail ?? null,
+    present:   node.present !== false,
+    childCount: kids.length,
+    support:   depth < maxDepth ? kids.map(c => serializeProof(c, maxDepth, depth + 1)) : [],
+  };
+}
+
+function factText({ name, args }) {
+  return `${name}(${(args ?? []).join(', ')})`;
+}
+
+function proofFor(scenario, fact, maxDepth) {
+  if (fact.owner) {
+    return { supported: false, message: `Provenance is available for world-store facts; ${fact.owner}'s private store isn't wired up yet.` };
+  }
+  const node = getStateEngine(scenario).explain(factText(fact));
+  return { supported: true, proof: serializeProof(node, maxDepth) };
+}
+
+// The immediate reason a fact holds (root + one level of support).
+export function whyFact(scenario, fact) {
+  return proofFor(scenario, fact, 1);
+}
+
+// The full recursive justification, down to given/authored leaves.
+export function explainFact(scenario, fact) {
+  return proofFor(scenario, fact, Infinity);
+}
+
 // Run a query (predicate conjunction, with variables and any time brackets),
 // optionally scoped to an owner's private store. Returns the free-variable
 // names and one row of bindings per satisfying combination.

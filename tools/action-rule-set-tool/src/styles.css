@@ -267,6 +267,22 @@ input.dsl-input-highlighted, textarea.dsl-input-highlighted {
 .state-table code { font-family: var(--mono); color: var(--text); }
 .state-table tr.inactive td code { color: var(--dim); text-decoration: line-through; }
 .state-table tbody tr:hover td { background: var(--panel); }
+/* Provenance expansion */
+.fact-clickable { cursor: pointer; }
+.prov-caret { display: inline-block; width: 12px; color: var(--dim); font-size: 9px; transition: transform 0.1s; }
+.prov-caret.open { transform: rotate(90deg); }
+.prov-row > td { background: var(--bg); padding: 0; }
+.prov-row:hover td { background: var(--bg); }
+.prov-panel { padding: 10px 14px; border-left: 2px solid var(--accent); }
+.prov-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--dim); }
+.prov-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-size: 12px; padding: 1px 0; }
+.prov-statement { font-family: var(--mono); color: var(--text); }
+.prov-via { font-size: 11px; color: var(--accent); }
+.prov-via-given, .prov-via-external, .prov-via-absent, .prov-via-cycle { color: var(--dim); }
+.prov-via-rule, .prov-via-derived, .prov-via-action { color: var(--ok); }
+.prov-tick { color: var(--dim); font-size: 11px; }
+.prov-absent { color: var(--err); }
+.prov-more { font-size: 11px; font-style: italic; }
 .pred-group-title.as-toggle { display: flex; align-items: center; gap: 6px; width: 100%; background: var(--panel); border: none; cursor: pointer; font: inherit; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; }
 .pred-group-title.as-toggle:hover { color: var(--text); }
 .pred-group-title .caret { color: var(--dim); font-size: 9px; width: 9px; display: inline-block; }

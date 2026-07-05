@@ -51,6 +51,8 @@ export const api = {
   stateQuery: (name, text, scopedTo = null) => req('POST', `/api/state/${encodeURIComponent(name)}/query`, { text, scopedTo }).then(r => r.data),
   stateAssert: (name, text) => req('POST', `/api/state/${encodeURIComponent(name)}/assert`, { text }).then(r => r.data.facts ?? []),
   stateDelete: (name, fact) => req('POST', `/api/state/${encodeURIComponent(name)}/delete`, fact).then(r => r.data.facts ?? []),
+  stateWhy: (name, fact) => req('POST', `/api/state/${encodeURIComponent(name)}/why`, fact).then(r => r.data),
+  stateExplain: (name, fact) => req('POST', `/api/state/${encodeURIComponent(name)}/explain`, fact).then(r => r.data),
   stateReload: (name) => req('POST', `/api/state/${encodeURIComponent(name)}/reload`),
 
   entityTypes: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/entity-types`).then(r => r.data.types ?? []),

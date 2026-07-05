@@ -215,7 +215,7 @@ export default function StateTab({ scenario, data, highlighter }) {
         {loading && <div className="dim">Loading…</div>}
         {!loading && isServerQuery && query && <QueryResults query={query} />}
         {!loading && isServerQuery && !query && <div className="dim">Press <b>Run</b> (or Enter) to evaluate the query.</div>}
-        {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} onDelete={removeFact} />}
+        {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} onDelete={removeFact} scenario={scenario} />}
       </div>
       </div>
 
@@ -233,35 +233,113 @@ export default function StateTab({ scenario, data, highlighter }) {
   );
 }
 
-function FactList({ facts, total, highlighter, onDelete }) {
+function FactList({ facts, total, highlighter, onDelete, scenario }) {
   if (facts.length === 0) return <div className="dim">No matching facts <span className="dim">({total} total)</span>.</div>;
   return (
     <>
-      <div className="state-count dim">{facts.length} of {total} facts</div>
+      <div className="state-count dim">{facts.length} of {total} facts · click a row for provenance</div>
       <table className="state-table">
         <thead><tr><th>store</th><th>fact</th><th>value</th><th>tick</th><th></th></tr></thead>
         <tbody>
           {facts.map((f, i) => (
-            <tr key={i} className={f.active ? '' : 'inactive'}>
-              <td className="dim">{f.owner ?? 'world'}</td>
-              <td>
-                <HighlightedCode
-                  text={`${f.negated ? '-' : ''}${f.name}(${f.args.join(', ')})`}
-                  highlighter={highlighter}
-                  className="fact-code"
-                />
-              </td>
-              <td className="num">{f.value ?? ''}</td>
-              <td className="num">{f.tick ?? ''}</td>
-              <td className="fact-actions">
-                {f.active ? '' : <span className="dim">retracted</span>}
-                <button className="row-x" onClick={() => onDelete(f)} title="Delete this fact completely">×</button>
-              </td>
-            </tr>
+            <FactRow
+              key={`${f.owner}:${f.name}:${f.args.join(',')}:${i}`}
+              fact={f} scenario={scenario} highlighter={highlighter} onDelete={onDelete}
+            />
           ))}
         </tbody>
       </table>
     </>
+  );
+}
+
+// A fact row that expands on click to show its provenance (the immediate reason
+// it holds), with an "Explain" button for the full recursive justification.
+function FactRow({ fact, scenario, highlighter, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [why, setWhy] = useState(null);         // { supported, proof|message } — immediate
+  const [explain, setExplain] = useState(null); // { supported, proof|message } — full tree
+  const [busy, setBusy] = useState(false);
+
+  const ref = { name: fact.name, args: fact.args, owner: fact.owner };
+
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (next && !why) {
+      setBusy(true);
+      try { setWhy(await api.stateWhy(scenario, ref)); }
+      catch (e) { setWhy({ supported: false, message: e.message }); }
+      finally { setBusy(false); }
+    }
+  };
+
+  const runExplain = async () => {
+    setBusy(true);
+    try { setExplain(await api.stateExplain(scenario, ref)); }
+    catch (e) { setExplain({ supported: false, message: e.message }); }
+    finally { setBusy(false); }
+  };
+
+  const data = explain ?? why;
+
+  return (
+    <>
+      <tr className={(fact.active ? '' : 'inactive') + ' fact-clickable'} onClick={toggle}>
+        <td className="dim">{fact.owner ?? 'world'}</td>
+        <td>
+          <span className={'prov-caret' + (open ? ' open' : '')}>▸</span>
+          <HighlightedCode
+            text={`${fact.negated ? '-' : ''}${fact.name}(${fact.args.join(', ')})`}
+            highlighter={highlighter} className="fact-code"
+          />
+        </td>
+        <td className="num">{fact.value ?? ''}</td>
+        <td className="num">{fact.tick ?? ''}</td>
+        <td className="fact-actions" onClick={e => e.stopPropagation()}>
+          {fact.active ? '' : <span className="dim">retracted</span>}
+          <button className="row-x" onClick={() => onDelete(fact)} title="Delete this fact completely">×</button>
+        </td>
+      </tr>
+      {open && (
+        <tr className="prov-row">
+          <td colSpan={5}>
+            <div className="prov-panel">
+              {busy && !data && <div className="dim">Loading provenance…</div>}
+              {data && !data.supported && <div className="dim">{data.message}</div>}
+              {data?.proof && (
+                <>
+                  <div className="prov-head">
+                    <span>Provenance</span>
+                    {!explain && <button className="btn tiny" onClick={runExplain} disabled={busy} title="Full recursive justification">Explain ⇣</button>}
+                    {explain && <span className="dim">— full justification</span>}
+                  </div>
+                  <ProofTreeView node={data.proof} />
+                </>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// Renders a ProofNode recursively — statement, how it holds ([via: detail]),
+// tick, an ✗ when it holds because something is absent, and a hint when deeper
+// support exists that only "Explain" fetches.
+function ProofTreeView({ node, depth = 0 }) {
+  return (
+    <div className="prov-node">
+      <div className="prov-line" style={{ paddingLeft: depth * 16 }}>
+        {!node.present && <span className="prov-absent">✗</span>}
+        <code className="prov-statement">{node.statement}</code>
+        {node.via && <span className={'prov-via prov-via-' + node.via}>[{node.via}{node.detail != null ? `: ${node.detail}` : ''}]</span>}
+        {node.tick != null && <span className="prov-tick">@{node.tick}</span>}
+        {node.support.length === 0 && node.childCount > 0 && <span className="dim prov-more">· {node.childCount} more — Explain</span>}
+      </div>
+      {node.support.map((c, i) => <ProofTreeView key={i} node={c} depth={depth + 1} />)}
+    </div>
   );
 }
 

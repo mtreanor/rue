@@ -6,7 +6,7 @@ import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
-import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, reloadStateEngine, clearStateEngines } from './state.js';
+import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines } from './state.js';
 import {
   listEntityTypes, addEntityType, editEntityType, deleteEntityType,
   addEntityInstance, renameEntityInstance, deleteEntityInstance,
@@ -135,6 +135,15 @@ router.delete('/state/:scenario/predicate', h((req, res) => {
 // Run a query against the live state. Body: { text, scopedTo? }.
 router.post('/state/:scenario/query', h((req, res) => {
   res.json(runStateQuery(req.params.scenario, req.body.text, req.body.scopedTo ?? null));
+}));
+
+// Provenance of a fact. Body: { name, args, owner }. `why` = immediate reason,
+// `explain` = the full recursive justification.
+router.post('/state/:scenario/why', h((req, res) => {
+  res.json(whyFact(req.params.scenario, req.body));
+}));
+router.post('/state/:scenario/explain', h((req, res) => {
+  res.json(explainFact(req.params.scenario, req.body));
 }));
 
 // Assert a fact into the live world store. Body: { text }.
