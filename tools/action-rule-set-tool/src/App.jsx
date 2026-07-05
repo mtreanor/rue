@@ -62,13 +62,24 @@ export default function App() {
     api.grammar().then(g => setHighlighter(compileGrammar(g))).catch(() => {});
   }, []);
 
+  const refreshScenarios = () => api.scenarios().then(list => { setScenarios(list); return list; });
+
   useEffect(() => {
-    api.scenarios().then(list => {
-      setScenarios(list);
+    refreshScenarios().then(list => {
       const withRules = list.find(s => s.rulesets.length > 0) ?? list[0];
       if (withRules) setScenario(withRules.name);
     }).catch(e => setError(e.message));
   }, []);
+
+  async function addScenario() {
+    const name = prompt('New scenario name:');
+    if (!name?.trim()) return;
+    try {
+      await api.createScenario(name.trim());
+      await refreshScenarios();
+      setScenario(name.trim()); // switch to the new (empty) scenario
+    } catch (e) { setError(e.message); }
+  }
 
   async function reload(name = scenario) {
     if (!name) return;
@@ -122,6 +133,7 @@ export default function App() {
                 </option>
               ))}
             </select>
+            <button className="btn tiny" onClick={addScenario} title="Create a new scenario" aria-label="Create scenario">+</button>
           </label>
           <nav className="tabs">
             <button className={tab === 'state' ? 'active' : ''} onClick={() => goTo('state')}>State</button>

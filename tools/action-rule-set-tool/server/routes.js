@@ -13,7 +13,7 @@ import {
 } from './entities.js';
 import { addPredicate, editPredicate, deletePredicate, defineTextByPredicate } from './predicates.js';
 import { pendingChanges, saveToFile, discardShadow } from './workspace.js';
-import { createSet } from './sets.js';
+import { createSet, createScenario } from './sets.js';
 import { repoRoot } from './config.js';
 
 export const router = Router();
@@ -59,6 +59,11 @@ router.post('/workspace/discard', h((req, res) => {
 
 router.get('/scenarios', h((req, res) => {
   res.json({ scenarios: listScenarios() });
+}));
+
+// Create a new scenario (starter files + config entry, staged in the shadow).
+router.post('/scenarios', h((req, res) => {
+  res.json(createScenario(req.body.name));
 }));
 
 // Create a new ruleset/actionset. Body: { kind: 'ruleset'|'actionset', name }.

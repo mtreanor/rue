@@ -33,6 +33,7 @@ export const api = {
   workspaceSave: () => req('POST', '/api/workspace/save').then(r => r.data),
   workspaceDiscard: () => req('POST', '/api/workspace/discard').then(r => r.data),
   scenarios: () => req('GET', '/api/scenarios').then(r => r.data.scenarios ?? []),
+  createScenario: (name) => req('POST', '/api/scenarios', { name }).then(r => r.data),
   scenario: (name) => req('GET', `/api/scenario/${encodeURIComponent(name)}`).then(r => r.data),
   createSet: (scenario, kind, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/set`, { kind, name }).then(r => r.data),
   match: (payload) => req('POST', '/api/match', payload).then(r => r.data),
