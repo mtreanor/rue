@@ -239,7 +239,6 @@ input.dsl-input-highlighted, textarea.dsl-input-highlighted {
 .state-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .state-filter { flex: 1; min-width: 260px; font-family: var(--mono); }
 .state-ctl { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
-.btn.primary { border-color: var(--accent); color: var(--accent); }
 .btn.sort-dir { min-width: 34px; text-align: center; }
 .state-body { display: flex; align-items: flex-start; gap: 18px; }
 .state-results { flex: 1; min-width: 0; }
@@ -262,3 +261,28 @@ input.dsl-input-highlighted, textarea.dsl-input-highlighted {
 .row-x { opacity: 0; border: none; background: none; color: var(--err); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; transition: opacity 0.08s; }
 .state-table tbody tr:hover .row-x { opacity: 0.75; }
 .row-x:hover { opacity: 1 !important; }
+
+/* ── Entity panel CRUD ── */
+.sidebar-head-actions { display: flex; align-items: center; gap: 6px; }
+.ent-type-head { display: flex; align-items: center; gap: 4px; }
+.ent-type-head .pred-group-title.as-toggle { flex: 1; min-width: 0; }
+.ent-type-actions, .ent-inst-actions { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 0.08s; }
+.ent-type-head:hover .ent-type-actions, .ent-instance:hover .ent-inst-actions { opacity: 1; }
+.ent-badge { font-size: 9px; background: var(--panel-2); color: var(--accent); border-radius: 4px; padding: 1px 4px; margin-left: 4px; letter-spacing: 0; text-transform: none; }
+.ent-badge.dim { color: var(--dim); }
+.row-icon { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.row-icon:hover { color: var(--text); background: var(--panel-2); }
+.row-icon.del:hover { color: var(--err); }
+.ent-instance { display: flex; align-items: center; }
+.ent-instance .pred-insert { flex: 1; min-width: 0; }
+.ent-add-inst { display: block; width: 100%; text-align: left; border: 1px dashed var(--border); background: none; color: var(--dim); cursor: pointer; border-radius: 6px; padding: 4px 8px; margin-top: 2px; font-size: 12px; }
+.ent-add-inst:hover { color: var(--text); border-color: var(--accent); }
+.ent-inline-input { width: 100%; margin-top: 2px; font-family: var(--mono); font-size: 13px; }
+.ent-modal { max-width: 420px; display: flex; flex-direction: column; gap: 14px; }
+.ent-modal h3 { margin: 0; }
+.ent-field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--dim); }
+.ent-field.indent { margin-left: 22px; }
+.ent-field input, .ent-field select { color: var(--text); }
+.ent-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.ent-check input { width: auto; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }

@@ -13,7 +13,12 @@ export class EntityLoader {
 
     for (const [typeName, typeBlock] of Object.entries(entitiesData)) {
       if (TOP_LEVEL_KEYS.has(typeName)) continue;
-      const typeLevelPrivateStore = typeBlock.privateStore === true;
+      // Type-level private store: `privateStore: true` (lastWins) or the object
+      // form `privateStore: { active: true, contradictionPolicy }` applied to
+      // every member. Per-member config still takes precedence below.
+      const tps = typeBlock.privateStore;
+      const typeLevelPrivateStore = tps === true || (tps !== null && typeof tps === 'object' && tps.active === true);
+      const typeLevelPolicy = (tps !== null && typeof tps === 'object' ? tps.contradictionPolicy : null) ?? 'lastWins';
       const distinct = typeBlock.distinct ?? true;
       const naming = typeBlock.naming ?? null;
       world.setEntityTypeConfig(typeName, { distinct, naming });
@@ -29,7 +34,7 @@ export class EntityLoader {
           const policy = memberProps.privateStore.contradictionPolicy ?? 'lastWins';
           world.registerPrivateStore(memberName, { contradictionPolicy: policy });
         } else if (typeLevelPrivateStore) {
-          world.registerPrivateStore(memberName);
+          world.registerPrivateStore(memberName, { contradictionPolicy: typeLevelPolicy });
         }
       }
     }

@@ -38,7 +38,7 @@ export default function StateTab({ scenario, data, highlighter }) {
   const inputRef = useRef(null);
 
   const [facts, setFacts]       = useState([]);
-  const [entities, setEntities] = useState([]);
+  const [entityTypes, setEntityTypes] = useState([]);
   const [filter, setFilter]     = useState('');
   const [newFact, setNewFact]   = useState('');     // the add-fact field
   const [query, setQuery]       = useState(null);   // { vars, rows } from a query, or null in entity mode
@@ -58,10 +58,17 @@ export default function StateTab({ scenario, data, highlighter }) {
     if (!name) return;
     setLoading(true);
     try {
-      const [f, e] = await Promise.all([api.stateFacts(name), api.stateEntities(name)]);
-      setFacts(f); setEntities(e); setError(null);
+      const [f, t] = await Promise.all([api.stateFacts(name), api.entityTypes(name)]);
+      setFacts(f); setEntityTypes(t); setError(null);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
+  };
+
+  // Entity-definition edits rewrite entities.json and reload the engine, so we
+  // refresh facts too. Each returns true on success (forms clear/close on that).
+  const runTypeOp = async (fn) => {
+    try { setEntityTypes(await fn()); setError(null); await load(); return true; }
+    catch (err) { setError(err.message); return false; }
   };
 
   useEffect(() => { setFilter(''); setNewFact(''); setQuery(null); load(scenario); }, [scenario]);
@@ -210,7 +217,16 @@ export default function StateTab({ scenario, data, highlighter }) {
           {!loading && isServerQuery && !query && <div className="dim">Press <b>Run</b> (or Enter) to evaluate the query.</div>}
           {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} onDelete={removeFact} />}
         </div>
-        <EntitySidebar entities={entities} onPick={pickEntity} />
+        <EntitySidebar
+          types={entityTypes}
+          onPick={pickEntity}
+          onAddType={(cfg) => runTypeOp(() => api.addEntityType(scenario, cfg))}
+          onEditType={(oldType, cfg) => runTypeOp(() => api.editEntityType(scenario, { oldType, ...cfg }))}
+          onDeleteType={(type) => runTypeOp(() => api.deleteEntityType(scenario, { type }))}
+          onAddInstance={(type, name) => runTypeOp(() => api.addEntity(scenario, { type, name }))}
+          onRenameInstance={(type, oldName, name) => runTypeOp(() => api.renameEntity(scenario, { type, oldName, name }))}
+          onDeleteInstance={(type, name) => runTypeOp(() => api.deleteEntity(scenario, { type, name }))}
+        />
       </div>
     </div>
   );

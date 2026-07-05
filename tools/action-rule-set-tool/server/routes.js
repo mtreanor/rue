@@ -7,6 +7,10 @@ import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
 import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, reloadStateEngine } from './state.js';
+import {
+  listEntityTypes, addEntityType, editEntityType, deleteEntityType,
+  addEntityInstance, renameEntityInstance, deleteEntityInstance,
+} from './entities.js';
 import { repoRoot } from './config.js';
 
 export const router = Router();
@@ -61,6 +65,29 @@ router.get('/state/:scenario/facts', h((req, res) => {
 // Entity types and their named instances, for the entity side panel.
 router.get('/state/:scenario/entities', h((req, res) => {
   res.json({ entities: listEntities(req.params.scenario) });
+}));
+
+// ── Entity definitions (durable — rewrite entities.json + reload) ────────────
+router.get('/state/:scenario/entity-types', h((req, res) => {
+  res.json({ types: listEntityTypes(req.params.scenario) });
+}));
+router.post('/state/:scenario/entity-type', h((req, res) => {
+  res.json({ types: addEntityType(req.params.scenario, req.body) });
+}));
+router.put('/state/:scenario/entity-type', h((req, res) => {
+  res.json({ types: editEntityType(req.params.scenario, req.body) });
+}));
+router.delete('/state/:scenario/entity-type', h((req, res) => {
+  res.json({ types: deleteEntityType(req.params.scenario, req.body) });
+}));
+router.post('/state/:scenario/entity', h((req, res) => {
+  res.json({ types: addEntityInstance(req.params.scenario, req.body) });
+}));
+router.put('/state/:scenario/entity', h((req, res) => {
+  res.json({ types: renameEntityInstance(req.params.scenario, req.body) });
+}));
+router.delete('/state/:scenario/entity', h((req, res) => {
+  res.json({ types: deleteEntityInstance(req.params.scenario, req.body) });
 }));
 
 // Run a query against the live state. Body: { text, scopedTo? }.

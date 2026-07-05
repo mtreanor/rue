@@ -47,4 +47,12 @@ export const api = {
   stateAssert: (name, text) => req('POST', `/api/state/${encodeURIComponent(name)}/assert`, { text }).then(r => r.data.facts ?? []),
   stateDelete: (name, fact) => req('POST', `/api/state/${encodeURIComponent(name)}/delete`, fact).then(r => r.data.facts ?? []),
   stateReload: (name) => req('POST', `/api/state/${encodeURIComponent(name)}/reload`),
+
+  entityTypes: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/entity-types`).then(r => r.data.types ?? []),
+  addEntityType: (name, body) => req('POST', `/api/state/${encodeURIComponent(name)}/entity-type`, body).then(r => r.data.types ?? []),
+  editEntityType: (name, body) => req('PUT', `/api/state/${encodeURIComponent(name)}/entity-type`, body).then(r => r.data.types ?? []),
+  deleteEntityType: (name, body) => req('DELETE', `/api/state/${encodeURIComponent(name)}/entity-type`, body).then(r => r.data.types ?? []),
+  addEntity: (name, body) => req('POST', `/api/state/${encodeURIComponent(name)}/entity`, body).then(r => r.data.types ?? []),
+  renameEntity: (name, body) => req('PUT', `/api/state/${encodeURIComponent(name)}/entity`, body).then(r => r.data.types ?? []),
+  deleteEntity: (name, body) => req('DELETE', `/api/state/${encodeURIComponent(name)}/entity`, body).then(r => r.data.types ?? []),
 };
