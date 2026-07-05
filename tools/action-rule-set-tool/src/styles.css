@@ -36,8 +36,6 @@ em { color: var(--dim); font-style: normal; font-size: 12px; }
 }
 .scenario-pick { display: flex; align-items: center; gap: 8px; color: var(--dim); }
 .tabs { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-/* State is a standalone button but wears the same outline as the grouped tabs. */
-.tabs > button { border: 1px solid var(--border); }
 .save-file { margin-left: 12px; }
 .save-file.dirty { background: var(--accent); color: #0b1020; border-color: var(--accent); font-weight: 600; }
 .tabs button {
@@ -45,6 +43,9 @@ em { color: var(--dim); font-style: normal; font-size: 12px; }
   padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 14px;
 }
 .tabs button.active { background: var(--panel-2); color: var(--text); border-color: var(--border); }
+/* State is a standalone button but wears the same outline as the grouped tabs,
+   whether or not it's selected. Placed after the rules above so it wins. */
+.tabs > button { border-color: var(--border); }
 /* Rulesets/+ and Actionsets/+ are two halves of one connected control. */
 .tab-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .tab-group button { border: none; border-radius: 0; }
