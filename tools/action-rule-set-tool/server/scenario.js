@@ -54,6 +54,12 @@ export function schemaForClient(schema) {
       arity: (def.args ?? []).length,
       tiers: def.tiers ? Object.keys(def.tiers) : [],
       symmetric: !!def.symmetric,
+      // Full config for the predicate editor (numeric ranges/tiers, singleValued).
+      minValue: def.minValue,
+      maxValue: def.maxValue,
+      default: def.default,
+      tierRanges: def.tiers ?? null,
+      singleValued: def.singleValued ?? null,
     });
   }
   predicates.sort((a, b) => a.name.localeCompare(b.name));

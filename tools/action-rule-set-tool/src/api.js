@@ -55,4 +55,8 @@ export const api = {
   addEntity: (name, body) => req('POST', `/api/state/${encodeURIComponent(name)}/entity`, body).then(r => r.data.types ?? []),
   renameEntity: (name, body) => req('PUT', `/api/state/${encodeURIComponent(name)}/entity`, body).then(r => r.data.types ?? []),
   deleteEntity: (name, body) => req('DELETE', `/api/state/${encodeURIComponent(name)}/entity`, body).then(r => r.data.types ?? []),
+
+  addPredicate: (name, body) => req('POST', `/api/state/${encodeURIComponent(name)}/predicate`, body).then(r => r.data),
+  editPredicate: (name, body) => req('PUT', `/api/state/${encodeURIComponent(name)}/predicate`, body).then(r => r.data),
+  deletePredicate: (name, body) => req('DELETE', `/api/state/${encodeURIComponent(name)}/predicate`, body).then(r => r.data),
 };

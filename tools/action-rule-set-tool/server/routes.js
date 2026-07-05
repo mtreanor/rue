@@ -11,6 +11,7 @@ import {
   listEntityTypes, addEntityType, editEntityType, deleteEntityType,
   addEntityInstance, renameEntityInstance, deleteEntityInstance,
 } from './entities.js';
+import { addPredicate, editPredicate, deletePredicate, defineTextByPredicate } from './predicates.js';
 import { repoRoot } from './config.js';
 
 export const router = Router();
@@ -45,9 +46,12 @@ router.get('/scenarios', h((req, res) => {
 
 router.get('/scenario/:name', h((req, res) => {
   const ctx = loadScenarioContext(req.params.name);
+  const predicates = schemaForClient(ctx.schema);
+  const defines = defineTextByPredicate(ctx.name);
+  for (const p of predicates) if (p.type === 'derived') p.define = defines[p.name] ?? '';
   res.json({
     name: ctx.name,
-    predicates: schemaForClient(ctx.schema),
+    predicates,
     entityNames: [...ctx.entityNames],
     entityTypeNames: [...ctx.entityTypeNames],
     rulesets: loadRulesets(ctx),
@@ -88,6 +92,17 @@ router.put('/state/:scenario/entity', h((req, res) => {
 }));
 router.delete('/state/:scenario/entity', h((req, res) => {
   res.json({ types: deleteEntityInstance(req.params.scenario, req.body) });
+}));
+
+// ── Predicate schema (durable — rewrite predicates.json / definitions) ───────
+router.post('/state/:scenario/predicate', h((req, res) => {
+  res.json(addPredicate(req.params.scenario, req.body));
+}));
+router.put('/state/:scenario/predicate', h((req, res) => {
+  res.json(editPredicate(req.params.scenario, req.body));
+}));
+router.delete('/state/:scenario/predicate', h((req, res) => {
+  res.json(deletePredicate(req.params.scenario, req.body));
 }));
 
 // Run a query against the live state. Body: { text, scopedTo? }.

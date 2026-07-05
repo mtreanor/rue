@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useInsert } from '../InsertContext.js';
 import { predicateTemplate, tierTemplate } from '../predicateTemplate.js';
+import PredicateModal from './PredicateModal.jsx';
 
 // Order predicate groups the way the schema thinks about them.
 const TYPE_ORDER = ['boolean', 'numeric', 'derived', 'sensor', 'sensor-numeric'];
@@ -11,11 +12,17 @@ const TYPE_LABEL = {
 
 // Collapsible left panel listing every predicate. Clicking one inserts it into
 // the last-focused DSL field (search box or rule body); shift-click adds it as a
-// conjunction. Numeric-tier chips insert `pred.tier(...)`.
-export default function PredicateSidebar({ predicates = [] }) {
+// conjunction. Numeric-tier chips insert `pred.tier(...)`. When the CRUD
+// handlers are supplied, predicates can be added/edited/deleted (durably).
+export default function PredicateSidebar({
+  predicates = [], entityTypeNames = [], entityNames = [], highlighter,
+  onAdd, onEdit, onDelete,
+}) {
   const insertCtx = useInsert();
   const [open, setOpen] = useState(true);
   const [filter, setFilter] = useState('');
+  const [modal, setModal] = useState(null); // { initial } — null closed; { initial: null } = add
+  const editable = !!(onAdd && onEdit && onDelete);
 
   const insert = (template, e) => {
     e.preventDefault(); // keep focus/caret on the target field
@@ -42,7 +49,10 @@ export default function PredicateSidebar({ predicates = [] }) {
     <aside className="sidebar open">
       <div className="sidebar-head">
         <span className="sidebar-title">Predicates <span className="dim">({predicates.length})</span></span>
-        <button className="btn tiny ghost" onClick={() => setOpen(false)} title="Collapse">◀</button>
+        <div className="sidebar-head-actions">
+          {editable && <button className="btn tiny" onClick={() => setModal({ initial: null })} title="Add predicate">+ pred</button>}
+          <button className="btn tiny ghost" onClick={() => setOpen(false)} title="Collapse">◀</button>
+        </div>
       </div>
       <input
         className="sidebar-filter"
@@ -58,15 +68,23 @@ export default function PredicateSidebar({ predicates = [] }) {
             <div className="pred-group-title">{TYPE_LABEL[g.type] ?? g.type}</div>
             {g.items.map(p => (
               <div key={p.name} className="pred-item">
-                <button
-                  className="pred-insert"
-                  onMouseDown={e => insert(predicateTemplate(p), e)}
-                  title="Insert (shift-click to add as a conjunction)"
-                >
-                  <span className="pred-name">{p.name}</span>
-                  <span className="pred-sig">({p.args.join(', ')})</span>
-                  {p.symmetric && <span className="pred-flag">sym</span>}
-                </button>
+                <div className="pred-item-main">
+                  <button
+                    className="pred-insert"
+                    onMouseDown={e => insert(predicateTemplate(p), e)}
+                    title="Insert (shift-click to add as a conjunction)"
+                  >
+                    <span className="pred-name">{p.name}</span>
+                    <span className="pred-sig">({p.args.join(', ')})</span>
+                    {p.symmetric && <span className="pred-flag">sym</span>}
+                  </button>
+                  {editable && (
+                    <span className="pred-item-actions">
+                      <button className="row-icon" onClick={() => setModal({ initial: p })} title="Edit predicate">✎</button>
+                      <button className="row-icon del" onClick={() => { if (confirm(`Delete predicate "${p.name}"?`)) onDelete(p.name); }} title="Delete predicate">×</button>
+                    </span>
+                  )}
+                </div>
                 {p.tiers.length > 0 && (
                   <div className="pred-tiers">
                     {p.tiers.map(t => (
@@ -87,6 +105,20 @@ export default function PredicateSidebar({ predicates = [] }) {
         ))}
         {groups.length === 0 && <div className="dim" style={{ padding: '10px' }}>No matches.</div>}
       </div>
+
+      {modal && (
+        <PredicateModal
+          initial={modal.initial}
+          entityTypeNames={entityTypeNames}
+          predicates={predicates}
+          entityNames={entityNames}
+          highlighter={highlighter}
+          onClose={() => setModal(null)}
+          onSubmit={(payload) => modal.initial
+            ? onEdit(modal.initial.name, payload)
+            : onAdd(payload)}
+        />
+      )}
     </aside>
   );
 }

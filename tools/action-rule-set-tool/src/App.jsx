@@ -86,6 +86,13 @@ export default function App() {
 
   useEffect(() => { reload(scenario); }, [scenario]);
 
+  // Predicate CRUD rewrites predicates.json / definitions, so refetch the whole
+  // scenario (schema, autocomplete). Returns true on success for the modal.
+  async function predOp(fn) {
+    try { await fn(); await reload(); setError(null); return true; }
+    catch (e) { setError(e.message); return false; }
+  }
+
   return (
     <InsertContext.Provider value={insertApi}>
       <div className="app">
@@ -113,7 +120,15 @@ export default function App() {
         {error && <div className="banner error global">{error}</div>}
 
         <div className="layout">
-          <PredicateSidebar predicates={data?.predicates ?? []} />
+          <PredicateSidebar
+            predicates={data?.predicates ?? []}
+            entityTypeNames={data?.entityTypeNames ?? []}
+            entityNames={data?.entityNames ?? []}
+            highlighter={highlighter}
+            onAdd={(payload) => predOp(() => api.addPredicate(scenario, payload))}
+            onEdit={(oldName, payload) => predOp(() => api.editPredicate(scenario, { oldName, ...payload }))}
+            onDelete={(name) => predOp(() => api.deletePredicate(scenario, { name }))}
+          />
           <main className="content">
             {!data && !error && <div className="empty">Loading…</div>}
             {data && tab === 'rulesets' && (

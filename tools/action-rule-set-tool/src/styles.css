@@ -286,3 +286,20 @@ input.dsl-input-highlighted, textarea.dsl-input-highlighted {
 .ent-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 .ent-check input { width: auto; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── Predicate item actions + editor modal ── */
+.pred-item-main { display: flex; align-items: center; }
+.pred-item-main .pred-insert { flex: 1; min-width: 0; }
+.pred-item-actions { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 0.08s; }
+.pred-item:hover .pred-item-actions { opacity: 1; }
+.pred-modal { max-width: 560px; display: flex; flex-direction: column; gap: 14px; max-height: 82vh; overflow-y: auto; }
+.pred-modal h3 { margin: 0; }
+.pred-modal-row { display: flex; gap: 12px; }
+.pred-modal-row .ent-field { flex: 1; }
+.ent-field.grow { flex: 2; }
+.mono { font-family: var(--mono); }
+.pred-arg-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.pred-arg-row .mono { width: 26px; }
+.pred-arg-row select { flex: 1; }
+.pred-tier-row { display: grid; grid-template-columns: 1fr 80px 80px auto; gap: 6px; margin-top: 4px; }
+.pred-modal .ent-field > .btn.tiny { align-self: flex-start; margin-top: 6px; }
