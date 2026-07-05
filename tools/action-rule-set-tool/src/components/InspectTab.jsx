@@ -76,14 +76,14 @@ export default function InspectTab({ scenario, data, highlighter, onChanged, onE
     <div className="inspect">
       <div className="ruleset-filter">
         <span className="filter-label">Rulesets:</span>
-        <button className="btn tiny ghost" onClick={() => setSelected(allRulesetNames)}>All</button>
-        <button className="btn tiny ghost" onClick={() => setSelected([])}>None</button>
         <button className="btn tiny" title="Create a new ruleset" onClick={async () => {
           const name = prompt('New ruleset name:');
           if (!name?.trim()) return;
           try { await api.createSet(scenario, 'ruleset', name.trim()); onChanged(); }
           catch (e) { alert(e.message); }
         }}>+ set</button>
+        <button className="btn tiny ghost" onClick={() => setSelected(allRulesetNames)}>All</button>
+        <button className="btn tiny ghost" onClick={() => setSelected([])}>None</button>
         {data.rulesets.map(rs => (
           <label key={rs.name} className="check">
             <input type="checkbox" checked={selected.includes(rs.name)} onChange={() => toggleRuleset(rs.name)} />
