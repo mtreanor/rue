@@ -7,6 +7,7 @@ import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
 import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines } from './state.js';
+import { listPipelines, savePipeline } from './pipelines.js';
 import {
   listEntityTypes, addEntityType, editEntityType, deleteEntityType,
   addEntityInstance, renameEntityInstance, deleteEntityInstance,
@@ -66,9 +67,23 @@ router.post('/scenarios', h((req, res) => {
   res.json(createScenario(req.body.name));
 }));
 
-// Create a new ruleset/actionset. Body: { kind: 'ruleset'|'actionset', name }.
+// Create a new ruleset/actionset/pipeline. Body: { kind: 'ruleset'|'actionset'|'pipeline', name }.
 router.post('/scenario/:name/set', h((req, res) => {
   res.json(createSet(req.params.name, req.body.kind, req.body.name));
+}));
+
+// ── Pipelines ────────────────────────────────────────────────────────────────
+
+// All pipelines for a scenario (full JSON data for each).
+router.get('/state/:scenario/pipelines', h((req, res) => {
+  res.json({ pipelines: listPipelines(req.params.scenario) });
+}));
+
+// Save (replace) a pipeline's JSON. Body: the full pipeline data object.
+router.put('/state/:scenario/pipeline', h((req, res) => {
+  const { name, ...rest } = req.body;
+  if (!name) throw new Error('Pipeline name is required');
+  res.json({ pipelines: savePipeline(req.params.scenario, name, { name, ...rest }) });
 }));
 
 router.get('/scenario/:name', h((req, res) => {

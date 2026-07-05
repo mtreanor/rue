@@ -66,4 +66,8 @@ export const api = {
   addPredicate: (name, body) => req('POST', `/api/state/${encodeURIComponent(name)}/predicate`, body).then(r => r.data),
   editPredicate: (name, body) => req('PUT', `/api/state/${encodeURIComponent(name)}/predicate`, body).then(r => r.data),
   deletePredicate: (name, body) => req('DELETE', `/api/state/${encodeURIComponent(name)}/predicate`, body).then(r => r.data),
+
+  pipelines: (scenario) => req('GET', `/api/state/${encodeURIComponent(scenario)}/pipelines`).then(r => r.data.pipelines ?? []),
+  savePipeline: (scenario, data) => req('PUT', `/api/state/${encodeURIComponent(scenario)}/pipeline`, data).then(r => r.data.pipelines ?? []),
+  createPipeline: (scenario, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/set`, { kind: 'pipeline', name }).then(r => r.data),
 };

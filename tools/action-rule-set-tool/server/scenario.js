@@ -38,6 +38,7 @@ export function listScenarios() {
     active: name === config.active,
     rulesets: Object.keys(s.rulesets ?? {}),
     actionsets: Object.keys(s.actionsets ?? {}),
+    pipelines: Object.keys(s.pipelines ?? {}),
     hasPredicates: !!s.predicates,
   }));
 }

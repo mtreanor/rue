@@ -128,17 +128,26 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 
 /* ── Autocomplete ── */
 .dsl-wrap { position: relative; }
-.dsl-input { width: 100%; line-height: 1.5; }
+/* font-size, line-height (whole px — 1.5×13=19.5 rounds differently per element),
+   and word-break must match .dsl-highlight-layer exactly so every character and
+   every line renders at the same position in both the textarea and the overlay. */
+.dsl-input { width: 100%; line-height: 20px; font-size: 13px; word-break: break-word; }
 
 /* Live syntax highlighting: the textarea sits on top with transparent text/
    background (only its native caret and selection paint), and the highlighted
    <pre> underneath — identical font/padding/border so glyphs line up exactly
-   — shows through. Scroll position is synced in DslInput's onScroll handler. */
+   — shows through. Scroll position is synced in DslInput's onScroll handler.
+   For multiline textareas, DslInput sets an explicit pixel height on .dsl-wrap
+   and makes BOTH the textarea AND the pre position:absolute inside it.  Both
+   elements then share the exact same containing-block origin (top:0 left:0 of
+   .dsl-wrap), so any browser-internal offset that a form control adds above its
+   content start is also present in the pre (which measures from the same origin)
+   and the alignment is guaranteed to be exact. */
 .dsl-highlight-layer {
   position: absolute; inset: 0; margin: 0;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--panel); color: var(--text);
-  font-family: var(--mono); font-size: 13px; line-height: 1.5;
+  font-family: var(--mono); font-size: 13px; line-height: 20px;
   white-space: pre-wrap; word-break: break-word; overflow: auto;
   pointer-events: none;
 }
@@ -147,9 +156,20 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 /* input[type=text] in the base rule above is (0,1,1)-specific, same as
    .dsl-input-highlighted alone would be if it also lost the tie — qualify
    with the element type so this reliably wins for both <input> and <textarea>. */
-input.dsl-input-highlighted, textarea.dsl-input-highlighted {
-  position: relative; background: transparent; color: transparent; border-color: transparent;
+input.dsl-input-highlighted {
+  position: relative; background: transparent; border-color: transparent;
+  color: transparent; -webkit-text-fill-color: transparent;
   caret-color: var(--text); font-family: var(--mono);
+}
+/* Multiline textarea: absolutely positioned to share the same containing-block
+   as the <pre> overlay.  overflow:hidden still allows the browser to auto-scroll
+   internally to keep the cursor visible (same as react-simple-code-editor). */
+textarea.dsl-input-highlighted {
+  position: absolute; inset: 0;
+  background: transparent; border-color: transparent;
+  color: transparent; -webkit-text-fill-color: transparent;
+  caret-color: var(--text); font-family: var(--mono);
+  overflow: hidden; resize: none;
 }
 
 .dsl-suggest {
@@ -338,3 +358,170 @@ input.dsl-input-highlighted, textarea.dsl-input-highlighted {
 .pred-arg-row select { flex: 1; }
 .pred-tier-row { display: grid; grid-template-columns: 1fr 80px 80px auto; gap: 6px; margin-top: 4px; }
 .pred-modal .ent-field > .btn.tiny { align-self: flex-start; margin-top: 6px; }
+
+/* ── Pipelines tab ─────────────────────────────────────────────────────────── */
+.pipeline-tab { display: flex; flex-direction: column; gap: 0; }
+
+.pipeline-toolbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0 12px; border-bottom: 1px solid var(--border);
+}
+.pipeline-pick { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+
+/* Flex row: scrollable canvas + fixed-width detail panel */
+.pipeline-main { display: flex; align-items: flex-start; gap: 0; margin-top: 16px; }
+
+/* Canvas wrap: grows to fill, relative so the pinned button positions against it */
+.pipeline-canvas-wrap {
+  flex: 1; min-width: 0; position: relative;
+}
+
+/* Scrollable canvas — grows to fit its content.
+   Flex-center so the stage graph is centered in the available space; when the
+   graph is wider than the container it overflows and both scroll directions work. */
+.pipeline-canvas-scroll {
+  width: 100%; min-height: 200px; overflow: auto;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px 0 0 8px;
+  display: flex; justify-content: center; align-items: flex-start;
+}
+
+/* "+ stage" button pinned to bottom-right of the canvas wrap, always in view */
+.stage-add-pin {
+  position: absolute; bottom: 14px; right: 14px; z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* The absolute-positioned stage graph inside the scroll area */
+.stage-graph { position: relative; cursor: default; padding: 8px; }
+
+/* Stage nodes — three-section design (pre-hooks / stage / post-hooks) */
+.stage-node {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden;
+  cursor: default; user-select: none;
+  transition: border-color 0.1s;
+}
+.stage-node:hover    { border-color: var(--accent); }
+.stage-node.selected { border-color: var(--accent); }
+.stage-node.entry    { border-color: var(--ok); }
+
+/* Clickable sections */
+.stage-section { cursor: pointer; transition: background 0.1s; }
+.stage-section:hover       { background: rgba(255,255,255,0.04); }
+.stage-section.section-active { background: rgba(110,168,254,0.10); }
+
+/* Hook sections (pre / post) */
+.hooks-pre  { border-bottom: 1px solid var(--border); }
+.hooks-post { border-top:    1px solid var(--border); }
+.hooks-pre, .hooks-post {
+  padding: 6px 10px; min-height: 26px;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+}
+/* Label is invisible by default; fades in on hover so the section stays minimal
+   when empty but remains discoverable. Chips (non-empty content) always visible. */
+.hook-section-label { font-size: 10px; color: var(--dim); font-style: italic; opacity: 0; transition: opacity 0.15s; }
+.hooks-pre:hover .hook-section-label,
+.hooks-post:hover .hook-section-label { opacity: 1; }
+.hook-chip { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Main stage content */
+.stage-main {
+  padding: 10px 12px;
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+}
+
+.stage-box-name {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stage-entry-badge { color: var(--ok); margin-right: 5px; font-size: 10px; }
+
+.stage-box-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--dim); }
+.stage-actionset { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.stage-routing { background: var(--border); border-radius: 4px; padding: 1px 5px; font-size: 10px; }
+.stage-routing.collect { background: #2a1f3a; color: #b98cf0; }
+
+/* ── Detail panel (right side) — no scroll, grows with content ── */
+.pipeline-panel {
+  width: 360px; flex-shrink: 0;
+  border: 1px solid var(--border); border-left: none; border-radius: 0 8px 8px 0;
+  background: var(--panel);
+  /* No overflow: auto — page scrolls naturally */
+}
+
+.pipeline-detail { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.detail-header {
+  display: flex; align-items: center; gap: 8px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.stage-name-input {
+  flex: 1; font-size: 14px; font-weight: 600;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: var(--text); padding: 4px 6px;
+}
+.stage-name-input:hover, .stage-name-input:focus { border-color: var(--border); background: var(--panel-2); }
+.pipeline-settings-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* Detail fields — stacked label above input, full width */
+.detail-fields { display: flex; flex-direction: column; gap: 10px; }
+
+.detail-field { display: flex; flex-direction: column; gap: 4px; }
+.detail-field > span {
+  font-size: 11px; color: var(--dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+/* Consistent height for all form controls in detail fields */
+.detail-field select,
+.detail-field input[type=number],
+.detail-field input[type=text] { width: 100%; height: 30px; box-sizing: border-box; }
+.detail-field.stacked { gap: 6px; }
+
+/* Two side-by-side fields in one row */
+.detail-field-row { display: flex; gap: 10px; }
+.detail-field.half { flex: 1; }
+
+/* Thin separator between primary and secondary fields */
+.detail-section-divider { border: none; border-top: 1px solid var(--border); margin: 2px 0; }
+
+.pipeline-notes {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  font-family: inherit; font-size: 13px; line-height: 1.5;
+  color: var(--text); background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 9px;
+}
+
+/* RoutesToEditor */
+.routes-to-editor { display: flex; flex-direction: column; gap: 5px; }
+.routes-to-option {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; cursor: pointer; padding: 2px 0;
+}
+.routes-to-option input[type=checkbox] { width: auto; flex-shrink: 0; }
+.routes-to-hint { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+/* HooksEditor */
+.hooks-editor { display: flex; flex-direction: column; gap: 5px; }
+.hooks-label {
+  font-size: 11px; color: var(--dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px;
+}
+.hooks-empty { font-size: 12px; color: var(--dim); padding-left: 2px; }
+.hook-row {
+  display: grid;
+  grid-template-columns: 74px 1fr auto;
+  gap: 4px; align-items: center;
+  background: var(--panel-2); border-radius: 6px; padding: 5px 6px;
+}
+.hook-type { font-size: 12px; }
+/* The middle column: name-row or swap-pair */
+.hook-name-row { display: flex; gap: 4px; }
+.hook-name-row select { flex: 1; font-size: 12px; min-width: 0; }
+.hook-requires { width: 78px; font-size: 12px; flex-shrink: 0; }
+.hook-swap-pair { display: flex; gap: 4px; }
+.hook-swap-pair input { flex: 1; font-size: 12px; min-width: 0; }
+.hook-btns { display: flex; gap: 2px; flex-shrink: 0; }
+.hooks-add { font-size: 12px; align-self: flex-start; padding: 3px 8px; margin-top: 2px; }

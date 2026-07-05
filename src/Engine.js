@@ -408,7 +408,8 @@ export class Engine {
   // `provenance` field) backing it. Works uniformly for boolean and numeric
   // predicates, hiding the difference between the fact store and the numeric
   // handler. Returns [] when nothing backs the fact.
-  why(factText) {
+  // scopedTo: entity name — if provided, look in that entity's private store.
+  why(factText, { scopedTo = null } = {}) {
     const { name, args } = this._groundFact(factText);
 
     if (this.schema.getDefinition(name)?.type === 'numeric') {
@@ -417,9 +418,10 @@ export class Engine {
       return record ? record.events : [];
     }
 
-    return this.world.factStore
-      .getRecords(name, args)
-      .flatMap(record => record.currentReasons());
+    const store = scopedTo
+      ? this.world.getPrivateStore(scopedTo) ?? this.world.factStore
+      : this.world.factStore;
+    return store.getRecords(name, args).flatMap(record => record.currentReasons());
   }
 
   // Like why(), but returns the full recursive proof tree behind a ground fact:
@@ -427,9 +429,14 @@ export class Engine {
   // recorded when each rule fired — the support beneath it, all the way down to
   // given/authored leaves. Returns a ProofNode; call .render() for indented text.
   // Works for boolean and numeric facts.
-  explain(factText) {
+  // scopedTo: entity name — if provided, look in that entity's private store.
+  explain(factText, { scopedTo = null } = {}) {
     const { name, args } = this._groundFact(factText);
-    const ctx = this.world.createEvaluationContext();
+    let ctx = this.world.createEvaluationContext();
+    if (scopedTo) {
+      const store = this.world.getPrivateStore(scopedTo);
+      if (store) ctx = ctx.scopedToStore(store);
+    }
     if (this.schema.getDefinition(name)?.type === 'numeric') {
       return proofNodeForNumeric(name, args, ctx);
     }

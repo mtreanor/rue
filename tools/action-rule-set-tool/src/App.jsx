@@ -4,7 +4,9 @@ import AddRuleTab from './components/AddRuleTab.jsx';
 import ActionsetsTab from './components/ActionsetsTab.jsx';
 import AddActionTab from './components/AddActionTab.jsx';
 import StateTab from './components/StateTab.jsx';
+import PipelinesTab from './components/PipelinesTab.jsx';
 import PredicateSidebar from './components/PredicateSidebar.jsx';
+import EntitySidebar from './components/EntitySidebar.jsx';
 import { InsertContext } from './InsertContext.js';
 import { compileGrammar } from './tmHighlight.js';
 import { api } from './api.js';
@@ -97,6 +99,22 @@ export default function App() {
 
   useEffect(() => { reload(scenario); }, [scenario]);
 
+  // Entity types — fetched once and shared across tabs that show EntitySidebar.
+  const [entityTypes, setEntityTypes] = useState([]);
+  const loadEntityTypes = (name = scenario) => {
+    if (!name) return;
+    api.entityTypes(name).then(setEntityTypes).catch(() => {});
+  };
+  useEffect(() => loadEntityTypes(scenario), [scenario]);
+  const runEntityOp = async (fn) => {
+    try {
+      setEntityTypes(await fn());
+      setError(null);
+      await reload();
+      return true;
+    } catch (e) { setError(e.message); return false; }
+  };
+
   // Shadow-workspace dirty state. Edits stage in a shadow copy of the data
   // files; the topbar "Save to File" button flushes them. Poll so the badge
   // reflects edits from any tab (facts/entities/predicates/rules/actions).
@@ -145,6 +163,7 @@ export default function App() {
               <button className={tab === 'actionsets' ? 'active' : ''} onClick={() => goTo('actionsets')}>Actions</button>
               <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')} title="Add action" aria-label="Add action">+</button>
             </div>
+            <button className={tab === 'pipelines' ? 'active' : ''} onClick={() => goTo('pipelines')}>Pipelines</button>
           </nav>
           <button
             className={'btn save-file' + (pending.length ? ' dirty' : '')}
@@ -158,51 +177,71 @@ export default function App() {
 
         {error && <div className="banner error global">{error}</div>}
 
-        <div className="layout">
-          <PredicateSidebar
-            predicates={data?.predicates ?? []}
-            entityTypeNames={data?.entityTypeNames ?? []}
-            entityNames={data?.entityNames ?? []}
-            highlighter={highlighter}
-            onAdd={(payload) => predOp(() => api.addPredicate(scenario, payload))}
-            onEdit={(oldName, payload) => predOp(() => api.editPredicate(scenario, { oldName, ...payload }))}
-            onDelete={(name) => predOp(() => api.deletePredicate(scenario, { name }))}
-          />
-          <main className="content">
-            {!data && !error && <div className="empty">Loading…</div>}
-            {data && tab === 'rulesets' && (
-              <InspectTab
-                scenario={scenario} data={data} highlighter={highlighter}
-                onChanged={() => reload()} onEdit={startEditRule}
+        {tab === 'pipelines' ? (
+          <PipelinesTab scenario={scenario} data={data} />
+        ) : (
+          <div className="layout">
+            <PredicateSidebar
+              predicates={data?.predicates ?? []}
+              entityTypeNames={data?.entityTypeNames ?? []}
+              entityNames={data?.entityNames ?? []}
+              highlighter={highlighter}
+              onAdd={(payload) => predOp(() => api.addPredicate(scenario, payload))}
+              onEdit={(oldName, payload) => predOp(() => api.editPredicate(scenario, { oldName, ...payload }))}
+              onDelete={(name) => predOp(() => api.deletePredicate(scenario, { name }))}
+            />
+            <main className="content">
+              {!data && !error && <div className="empty">Loading…</div>}
+              {data && tab === 'rulesets' && (
+                <InspectTab
+                  scenario={scenario} data={data} highlighter={highlighter}
+                  onChanged={() => reload()} onEdit={startEditRule}
+                />
+              )}
+              {data && tab === 'add-rule' && (
+                <AddRuleTab
+                  scenario={scenario} data={data}
+                  onChanged={() => reload()}
+                  editingRule={editingRule}
+                  onExitEdit={exitRuleEditor}
+                />
+              )}
+              {data && tab === 'actionsets' && (
+                <ActionsetsTab
+                  scenario={scenario} data={data} highlighter={highlighter}
+                  onChanged={() => reload()} onEdit={startEditAction}
+                />
+              )}
+              {data && tab === 'add-action' && (
+                <AddActionTab
+                  scenario={scenario} data={data} highlighter={highlighter}
+                  onChanged={() => reload()}
+                  editingAction={editingAction}
+                  onExitEdit={exitActionEditor}
+                />
+              )}
+              {data && tab === 'state' && (
+                <StateTab
+                  scenario={scenario} data={data} highlighter={highlighter}
+                  entityTypes={entityTypes}
+                  onEntityTypesChanged={setEntityTypes}
+                  onEntityOp={runEntityOp}
+                />
+              )}
+            </main>
+            {(tab === 'rulesets' || tab === 'actionsets' || tab === 'add-rule' || tab === 'add-action') && (
+              <EntitySidebar
+                types={entityTypes}
+                onAddType={(cfg) => runEntityOp(() => api.addEntityType(scenario, cfg))}
+                onEditType={(oldType, cfg) => runEntityOp(() => api.editEntityType(scenario, { oldType, ...cfg }))}
+                onDeleteType={(type) => runEntityOp(() => api.deleteEntityType(scenario, { type }))}
+                onAddInstance={(type, name) => runEntityOp(() => api.addEntity(scenario, { type, name }))}
+                onRenameInstance={(type, oldName, name) => runEntityOp(() => api.renameEntity(scenario, { type, oldName, name }))}
+                onDeleteInstance={(type, name) => runEntityOp(() => api.deleteEntity(scenario, { type, name }))}
               />
             )}
-            {data && tab === 'add-rule' && (
-              <AddRuleTab
-                scenario={scenario} data={data}
-                onChanged={() => reload()}
-                editingRule={editingRule}
-                onExitEdit={exitRuleEditor}
-              />
-            )}
-            {data && tab === 'actionsets' && (
-              <ActionsetsTab
-                scenario={scenario} data={data} highlighter={highlighter}
-                onChanged={() => reload()} onEdit={startEditAction}
-              />
-            )}
-            {data && tab === 'add-action' && (
-              <AddActionTab
-                scenario={scenario} data={data} highlighter={highlighter}
-                onChanged={() => reload()}
-                editingAction={editingAction}
-                onExitEdit={exitActionEditor}
-              />
-            )}
-            {data && tab === 'state' && (
-              <StateTab scenario={scenario} data={data} highlighter={highlighter} />
-            )}
-          </main>
-        </div>
+          </div>
+        )}
       </div>
     </InsertContext.Provider>
   );

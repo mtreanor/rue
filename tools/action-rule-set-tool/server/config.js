@@ -86,7 +86,8 @@ export function resolveScenarioPaths(scenario) {
     entities:    rel(scenario.entities),
     state:       rel(scenario.state),
     definitions: rel(scenario.definitions),
-    rulesets:    Object.fromEntries(Object.entries(scenario.rulesets ?? {}).map(([k, v]) => [k, rel(v)])),
+    rulesets:    Object.fromEntries(Object.entries(scenario.rulesets  ?? {}).map(([k, v]) => [k, rel(v)])),
     actionsets:  Object.fromEntries(Object.entries(scenario.actionsets ?? {}).map(([k, v]) => [k, rel(v)])),
+    pipelines:   Object.fromEntries(Object.entries(scenario.pipelines  ?? {}).map(([k, v]) => [k, rel(v)])),
   };
 }

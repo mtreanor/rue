@@ -33,24 +33,20 @@ function matchesPattern(fact, pat) {
   });
 }
 
-export default function StateTab({ scenario, data, highlighter }) {
+export default function StateTab({ scenario, data, highlighter, entityTypes = [], onEntityTypesChanged, onEntityOp }) {
   const insert = useInsert();
   const inputRef = useRef(null);
 
-  const [facts, setFacts]       = useState([]);
-  const [entityTypes, setEntityTypes] = useState([]);
-  const [filter, setFilter]     = useState('');
-  const [newFact, setNewFact]   = useState('');     // the add-fact field
-  const [query, setQuery]       = useState(null);   // { vars, rows } from a query, or null in entity mode
-  const [error, setError]       = useState(null);
-  const [loading, setLoading]   = useState(false);
-  const [sort, setSort]         = useState('tick');
-  const [dir, setDir]           = useState('asc');
-  const [owner, setOwner]       = useState('all');  // 'all' | 'world' | <entity name>
+  const [facts, setFacts]     = useState([]);
+  const [filter, setFilter]   = useState('');
+  const [newFact, setNewFact] = useState('');
+  const [query, setQuery]     = useState(null);
+  const [error, setError]     = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [sort, setSort]       = useState('tick');
+  const [dir, setDir]         = useState('asc');
+  const [owner, setOwner]     = useState('all');
 
-  // Bracketed forms ([tick:], [ever], [degrees:], …) need the engine, so they
-  // run server-side and return bindings. Everything else filters the loaded
-  // facts client-side: a `pred(args)` positional pattern, or entity tokens.
   const isServerQuery = filter.includes('[');
   const pattern = useMemo(() => parsePattern(filter), [filter]);
 
@@ -58,18 +54,14 @@ export default function StateTab({ scenario, data, highlighter }) {
     if (!name) return;
     setLoading(true);
     try {
-      const [f, t] = await Promise.all([api.stateFacts(name), api.entityTypes(name)]);
-      setFacts(f); setEntityTypes(t); setError(null);
+      setFacts(await api.stateFacts(name));
+      setError(null);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
 
-  // Entity-definition edits rewrite entities.json and reload the engine, so we
-  // refresh facts too. Each returns true on success (forms clear/close on that).
-  const runTypeOp = async (fn) => {
-    try { setEntityTypes(await fn()); setError(null); await load(); return true; }
-    catch (err) { setError(err.message); return false; }
-  };
+  // Entity mutations are delegated to the parent so entity types stay shared.
+  const runTypeOp = onEntityOp ?? (async () => false);
 
   useEffect(() => { setFilter(''); setNewFact(''); setQuery(null); load(scenario); }, [scenario]);
 

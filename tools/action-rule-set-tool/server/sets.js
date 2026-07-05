@@ -3,10 +3,9 @@ import { dirname, join, resolve } from 'path';
 import { loadProjectConfig, configPath, configDir } from './config.js';
 import { workingPath } from './workspace.js';
 
-// Create a new ruleset/actionset: an empty set file next to the scenario's data,
-// registered in the scenario's project config. Staged in the shadow like every
-// other edit, so it isn't written to real files until "Save to File".
-const KINDS = { ruleset: 'rulesets', actionset: 'actionsets' };
+// Create a new ruleset/actionset/pipeline file registered in the scenario config.
+// Staged in the shadow until "Save to File" writes the real files.
+const KINDS = { ruleset: 'rulesets', actionset: 'actionsets', pipeline: 'pipelines' };
 const NAME_RE = /^[A-Za-z_][\w-]*$/;
 
 function writeConfig(cfg) {
@@ -58,11 +57,34 @@ export function createSet(scenario, kind, name) {
   if (s[cfgKey][name]) throw new Error(`A ${kind} named "${name}" already exists`);
 
   const dataDir = s.predicates ? dirname(s.predicates) : join('data', scenario);
-  const rel = join(dataDir, name);
+
+  // New rulesets go in a rulesets/ subfolder; actionsets in actionsets/; pipelines
+  // in pipelines/ as .json files. Existing paths in the config are unchanged.
+  let rel;
+  let initialContent;
+  if (kind === 'pipeline') {
+    rel = join(dataDir, 'pipelines', `${name}.json`);
+    initialContent = JSON.stringify({
+      name,
+      notes:             '',
+      entry:             null,
+      selectionStrategy: 'highestUtility',
+      preHooks:          [],
+      postHooks:         [],
+      stages:            {},
+    }, null, 2) + '\n';
+  } else if (kind === 'ruleset') {
+    rel = join(dataDir, 'rulesets', name);
+    initialContent = `# ${name}\n`;
+  } else {
+    rel = join(dataDir, 'actionsets', name);
+    initialContent = `# ${name}\n`;
+  }
+
   s[cfgKey][name] = rel;
   writeConfig(cfg);
 
   const abs = workingPath(resolve(configDir, rel));
-  if (!existsSync(abs)) writeFileSync(abs, `# ${name}\n`);
+  if (!existsSync(abs)) writeFileSync(abs, initialContent);
   return { ok: true, name, path: rel };
 }

@@ -136,10 +136,28 @@ export default function DslInput({
 
   const showHighlight = !!highlighter;
 
-  function syncHighlightScroll(e) {
-    if (highlightRef.current) {
-      highlightRef.current.scrollTop = e.target.scrollTop;
-      highlightRef.current.scrollLeft = e.target.scrollLeft;
+  // When the highlight overlay is active on a multiline textarea, we set an
+  // explicit pixel height on the wrapper and make BOTH the <pre> and <textarea>
+  // position:absolute inside it.  Both elements then share the exact same
+  // containing-block origin, so any browser-internal difference in where a
+  // <pre> vs <textarea> starts its content is impossible — they're both
+  // measured from the same zero point.  (When only one element is in flow and
+  // the other is absolute, a hidden browser offset on the form-control side
+  // can't be cancelled by CSS alone.)
+  //
+  // Constants must match the CSS values for .dsl-highlight-layer / .dsl-input:
+  //   line-height: 20px   padding: 8px 10px   border: 1px
+  const WRAP_LINE_H  = 20;
+  const WRAP_PAD_V   =  8;
+  const WRAP_BORDER  =  1;
+  const wrapH = showHighlight && multiline
+    ? rows * WRAP_LINE_H + 2 * WRAP_PAD_V + 2 * WRAP_BORDER
+    : undefined;
+
+  function syncScroll() {
+    if (highlightRef.current && ref.current) {
+      highlightRef.current.scrollTop  = ref.current.scrollTop;
+      highlightRef.current.scrollLeft = ref.current.scrollLeft;
     }
   }
 
@@ -149,17 +167,20 @@ export default function DslInput({
     placeholder,
     className: `dsl-input ${showHighlight ? 'dsl-input-highlighted' : ''} ${className}`,
     spellCheck: false,
-    onChange: (e) => { onChange(e.target.value); },
+    onChange: (e) => {
+      onChange(e.target.value);
+      if (showHighlight) requestAnimationFrame(syncScroll);
+    },
     onKeyUp: autocomplete ? (e) => { if (!['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) refresh(); } : undefined,
     onClick: autocomplete ? refresh : undefined,
     onFocus: autocomplete ? () => { insertCtx?.register(inserter); } : undefined,
     onKeyDown: autocomplete ? onKeyDown : undefined,
     onBlur: autocomplete ? () => setTimeout(() => setOpen(false), 120) : undefined,
-    onScroll: showHighlight ? syncHighlightScroll : undefined,
+    onScroll: showHighlight ? syncScroll : undefined,
   };
 
   return (
-    <div className="dsl-wrap">
+    <div className="dsl-wrap" style={wrapH != null ? { height: wrapH } : undefined}>
       {showHighlight && (
         <pre ref={highlightRef} className={`dsl-highlight-layer ${multiline ? '' : 'single-line'}`} aria-hidden="true">
           <code>{highlightedNodes(highlighter, value)}</code>

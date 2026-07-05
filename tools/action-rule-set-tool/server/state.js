@@ -116,10 +116,8 @@ function factText({ name, args }) {
 }
 
 function proofFor(scenario, fact, maxDepth) {
-  if (fact.owner) {
-    return { supported: false, message: `Provenance is available for world-store facts; ${fact.owner}'s private store isn't wired up yet.` };
-  }
-  const node = getStateEngine(scenario).explain(factText(fact));
+  const scopedTo = fact.owner ?? null;
+  const node = getStateEngine(scenario).explain(factText(fact), { scopedTo });
   return { supported: true, proof: serializeProof(node, maxDepth) };
 }
 
