@@ -23,7 +23,7 @@ h1 { font-size: 16px; margin: 0; font-weight: 600; }
 h3 { margin: 0 0 12px; font-size: 15px; }
 em { color: var(--dim); font-style: normal; font-size: 12px; }
 
-.app { max-width: 1320px; margin: 0 auto; padding: 0 20px 60px; }
+.app { max-width: 1320px; margin: 0 auto; padding: 0 20px 60px; text-align: left; }
 
 .layout { display: flex; align-items: flex-start; gap: 18px; }
 .content { flex: 1; min-width: 0; }
@@ -35,8 +35,11 @@ em { color: var(--dim); font-style: normal; font-size: 12px; }
   background: var(--bg); border-bottom: 1px solid var(--border);
 }
 .scenario-pick { display: flex; align-items: center; gap: 8px; color: var(--dim); }
-.tabs { flex: 1; display: flex; align-items: center; gap: 10px; }
-.tab-groups { margin-left: auto; display: flex; gap: 10px; }
+.tabs { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+/* State is a standalone button but wears the same outline as the grouped tabs. */
+.tabs > button { border: 1px solid var(--border); }
+.save-file { margin-left: 12px; }
+.save-file.dirty { background: var(--accent); color: #0b1020; border-color: var(--accent); font-weight: 600; }
 .tabs button {
   background: transparent; color: var(--dim); border: 1px solid transparent;
   padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 14px;
@@ -57,6 +60,8 @@ select, input:not([type]), input[type=text], input[type=number], input[type=sear
 }
 textarea { resize: vertical; font-family: var(--mono); }
 select:focus, input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+input, textarea { text-align: left; }
+::placeholder { color: var(--dim); opacity: 0.4; }
 input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 .sidebar-filter, .state-filter { background: var(--panel); }
 
@@ -66,8 +71,9 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .dim { color: var(--dim); }
 
-.search-row { display: flex; gap: 10px; align-items: flex-start; }
+.search-row { display: flex; gap: 10px; align-items: stretch; }
 .search-row .dsl-wrap { flex: 1; }
+.search-row select, .search-row .name-search, .search-row .btn { align-self: stretch; }
 .result-count { color: var(--dim); margin: 10px 2px; font-size: 12px; }
 
 .rule-list { display: flex; flex-direction: column; gap: 10px; }

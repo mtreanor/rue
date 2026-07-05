@@ -24,6 +24,12 @@ export function reloadStateEngine(name) {
   return getStateEngine(name);
 }
 
+// Drop all cached engines (e.g. after discarding the shadow) so the next fetch
+// rebuilds from the current files.
+export function clearStateEngines() {
+  engines.clear();
+}
+
 // One row per fact record in a store. `tick` is when the fact reached its
 // current state (its last assertion if active, else its last event); `firstTick`
 // is when it was first asserted; `ticks` are all assertion ticks.

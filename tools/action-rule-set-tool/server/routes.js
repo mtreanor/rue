@@ -6,12 +6,13 @@ import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
-import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, reloadStateEngine } from './state.js';
+import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, reloadStateEngine, clearStateEngines } from './state.js';
 import {
   listEntityTypes, addEntityType, editEntityType, deleteEntityType,
   addEntityInstance, renameEntityInstance, deleteEntityInstance,
 } from './entities.js';
 import { addPredicate, editPredicate, deletePredicate, defineTextByPredicate } from './predicates.js';
+import { pendingChanges, saveToFile, discardShadow } from './workspace.js';
 import { repoRoot } from './config.js';
 
 export const router = Router();
@@ -38,6 +39,21 @@ function symmetricFn(schema) {
 
 router.get('/grammar', h((req, res) => {
   res.json(JSON.parse(readFileSync(GRAMMAR_PATH, 'utf-8')));
+}));
+
+// ── Workspace (shadow staging) ───────────────────────────────────────────────
+// Edits stage in a shadow copy; these expose the pending set and the flush/revert.
+router.get('/workspace/status', h((req, res) => {
+  const pending = pendingChanges();
+  res.json({ pending, dirty: pending.length > 0 });
+}));
+router.post('/workspace/save', h((req, res) => {
+  res.json({ saved: saveToFile() });
+}));
+router.post('/workspace/discard', h((req, res) => {
+  discardShadow();
+  clearStateEngines();
+  res.json({ ok: true });
 }));
 
 router.get('/scenarios', h((req, res) => {

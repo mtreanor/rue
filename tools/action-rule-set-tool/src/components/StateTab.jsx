@@ -167,7 +167,7 @@ export default function StateTab({ scenario, data, highlighter }) {
           entityNames={data?.entityNames ?? []}
           highlighter={highlighter}
           insertMode="replace"
-          placeholder="assert a fact:  knows(alice, bob)   ·   friendship(alice, bob) = 80"
+          placeholder="add a fact…"
         />
         <button className="btn primary" onClick={addFact} disabled={!newFact.trim()}>Add fact</button>
       </div>
@@ -176,7 +176,7 @@ export default function StateTab({ scenario, data, highlighter }) {
         <input
           ref={inputRef}
           className="state-filter"
-          placeholder="oren, silas   ·   friends(_, oren)   ·   knows(?X, ?Y) [tick: 0]"
+          placeholder="filter or query…"
           value={filter}
           onChange={e => setFilter(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') runQuery(); }}

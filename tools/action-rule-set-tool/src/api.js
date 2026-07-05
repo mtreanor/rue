@@ -29,6 +29,9 @@ async function req(method, url, body) {
 
 export const api = {
   grammar: () => req('GET', '/api/grammar').then(r => r.data),
+  workspaceStatus: () => req('GET', '/api/workspace/status').then(r => r.data),
+  workspaceSave: () => req('POST', '/api/workspace/save').then(r => r.data),
+  workspaceDiscard: () => req('POST', '/api/workspace/discard').then(r => r.data),
   scenarios: () => req('GET', '/api/scenarios').then(r => r.data.scenarios ?? []),
   scenario: (name) => req('GET', `/api/scenario/${encodeURIComponent(name)}`).then(r => r.data),
   match: (payload) => req('POST', '/api/match', payload).then(r => r.data),

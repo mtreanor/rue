@@ -82,7 +82,7 @@ export default function EntitySidebar({
         spellCheck={false}
       />
       <div className="sidebar-hint">click a name to add it to the filter</div>
-      <div className="sidebar-list">
+      <div className="sidebar-list" onMouseLeave={() => setHover(null)}>
         {groups.map(g => {
           const shown = q || !collapsed[g.type];
           return (

@@ -63,7 +63,7 @@ export default function PredicateSidebar({
         spellCheck={false}
       />
       <div className="sidebar-hint">click to insert · shift-click to add ^</div>
-      <div className="sidebar-list">
+      <div className="sidebar-list" onMouseLeave={() => setHover(null)}>
         {groups.map(g => (
           <div key={g.type} className="pred-group">
             <div className="pred-group-title">{TYPE_LABEL[g.type] ?? g.type}</div>

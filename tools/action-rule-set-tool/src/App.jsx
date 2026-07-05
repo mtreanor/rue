@@ -86,6 +86,21 @@ export default function App() {
 
   useEffect(() => { reload(scenario); }, [scenario]);
 
+  // Shadow-workspace dirty state. Edits stage in a shadow copy of the data
+  // files; the topbar "Save to File" button flushes them. Poll so the badge
+  // reflects edits from any tab (facts/entities/predicates/rules/actions).
+  const [pending, setPending] = useState([]);
+  const refreshWorkspace = () => api.workspaceStatus().then(s => setPending(s.pending ?? [])).catch(() => {});
+  useEffect(() => {
+    refreshWorkspace();
+    const id = setInterval(refreshWorkspace, 2000);
+    return () => clearInterval(id);
+  }, []);
+  async function saveWorkspace() {
+    try { await api.workspaceSave(); setError(null); } catch (e) { setError(e.message); }
+    refreshWorkspace();
+  }
+
   // Predicate CRUD rewrites predicates.json / definitions, so refetch the whole
   // scenario (schema, autocomplete). Returns true on success for the modal.
   async function predOp(fn) {
@@ -110,17 +125,23 @@ export default function App() {
           </label>
           <nav className="tabs">
             <button className={tab === 'state' ? 'active' : ''} onClick={() => goTo('state')}>State</button>
-            <div className="tab-groups">
-              <div className="tab-group">
-                <button className={tab === 'rulesets' ? 'active' : ''} onClick={() => goTo('rulesets')}>Rulesets</button>
-                <button className={tab === 'add-rule' ? 'active' : ''} onClick={() => goTo('add-rule')} title="Add rule" aria-label="Add rule">+</button>
-              </div>
-              <div className="tab-group">
-                <button className={tab === 'actionsets' ? 'active' : ''} onClick={() => goTo('actionsets')}>Actionsets</button>
-                <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')} title="Add action" aria-label="Add action">+</button>
-              </div>
+            <div className="tab-group">
+              <button className={tab === 'rulesets' ? 'active' : ''} onClick={() => goTo('rulesets')}>Rules</button>
+              <button className={tab === 'add-rule' ? 'active' : ''} onClick={() => goTo('add-rule')} title="Add rule" aria-label="Add rule">+</button>
+            </div>
+            <div className="tab-group">
+              <button className={tab === 'actionsets' ? 'active' : ''} onClick={() => goTo('actionsets')}>Actions</button>
+              <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')} title="Add action" aria-label="Add action">+</button>
             </div>
           </nav>
+          <button
+            className={'btn save-file' + (pending.length ? ' dirty' : '')}
+            onClick={saveWorkspace}
+            disabled={!pending.length}
+            title={pending.length ? `${pending.length} file(s) with unsaved changes` : 'No unsaved changes'}
+          >
+            Save to File{pending.length ? ` · ${pending.length}` : ''}
+          </button>
         </header>
 
         {error && <div className="banner error global">{error}</div>}

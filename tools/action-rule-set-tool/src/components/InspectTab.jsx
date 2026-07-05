@@ -91,7 +91,7 @@ export default function InspectTab({ scenario, data, highlighter, onChanged, onE
         <DslInput
           value={query} onChange={setQuery} predicates={data.predicates} entityNames={data.entityNames}
           insertMode="replace" primary
-          placeholder="search by structure, e.g.  friends(?A, ?B)  — variable names don't matter"
+          placeholder="search by structure…"
         />
         <input
           type="text" className="name-search" value={nameQuery}

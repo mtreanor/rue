@@ -2,6 +2,7 @@ import { readFileSync, existsSync, statSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
+import { workingPath } from './workspace.js';
 
 // tools/action-rule-set-tool/server → the klugh repo root is three levels up. This is
 // used for klugh-shipped assets (the engine in src/, the TextMate grammar) and
@@ -69,14 +70,17 @@ export function loadProjectConfig() {
       `Set KLUGH_CONFIG to your project.config.json (see README).`,
     );
   }
-  return JSON.parse(readFileSync(configPath, 'utf-8'));
+  // Read the config through the shadow so `+ set` edits stay staged too. The
+  // real configPath is still used for resolving relative scenario paths below.
+  return JSON.parse(readFileSync(workingPath(configPath), 'utf-8'));
 }
 
 // Resolve every path a scenario references, relative to the config's directory —
 // mirroring the resolution the engine does, but rooted at the config so the data
-// can live in a parent repo rather than the klugh submodule.
+// can live in a parent repo rather than the klugh submodule. Each resolved path
+// is redirected to its shadow copy (see workspace.js) so all edits are staged.
 export function resolveScenarioPaths(scenario) {
-  const rel = (p) => (p ? resolve(configDir, p) : null);
+  const rel = (p) => (p ? workingPath(resolve(configDir, p)) : null);
   return {
     predicates:  rel(scenario.predicates),
     entities:    rel(scenario.entities),
