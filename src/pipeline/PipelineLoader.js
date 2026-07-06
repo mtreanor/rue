@@ -16,6 +16,8 @@ export function pipelineFromJSON(json) {
       selectionStrategy: s.selectionStrategy ?? null,
       routing:           s.routing,
       routesTo:          s.routesTo          ?? null,
+      perActionRouting:  s.perActionRouting  ?? false,
+      actionRoutes:      s.actionRoutes      ?? {},
       preHooks:          s.preHooks          ?? [],
       postHooks:         s.postHooks         ?? [],
     });
@@ -39,6 +41,8 @@ export function pipelineToJSON(pipeline) {
       actionset:         stage.actionset         ?? null,
       routing:           stage.routing,
       routesTo:          stage.routesTo          ?? null,
+      perActionRouting:  stage.perActionRouting  ?? false,
+      actionRoutes:      stage.actionRoutes      ?? {},
       salienceFloor:     stage.salienceFloor     ?? 0,
       selectionStrategy: stage.selectionStrategy ?? null,
       primingRules:      stage.primingRules      ?? [],

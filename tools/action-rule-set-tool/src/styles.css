@@ -239,6 +239,10 @@ textarea.dsl-input-highlighted {
   border-radius: 5px; padding: 1px 7px; font-size: 11px; cursor: pointer; font-family: var(--mono);
 }
 .tier-chip:hover { border-color: var(--warn); }
+.value-tier {
+  margin-left: 6px; background: var(--panel-2); color: var(--warn); border: 1px solid var(--border);
+  border-radius: 5px; padding: 1px 7px; font-size: 11px; font-family: var(--mono);
+}
 
 /* ── Tune ── */
 .tune { display: flex; flex-direction: column; gap: 14px; }
@@ -320,8 +324,14 @@ textarea.dsl-input-highlighted {
 .sidebar-head-actions { display: flex; align-items: center; gap: 6px; }
 .ent-type-head { display: flex; align-items: center; gap: 4px; }
 .ent-type-head .pred-group-title.as-toggle { flex: 1; min-width: 0; }
+/* Native :hover, not JS-tracked state — a JS hover flag that only clears on
+   mouseleave can get stuck "on" forever if that event is ever missed (fast
+   pointer movement, scrolling the list out from under a stationary cursor,
+   etc.), leaving arbitrarily many rows' icons visible at once. :hover always
+   reflects the real, current pointer position, so it can't get stuck. */
 .ent-type-actions, .ent-inst-actions { display: inline-flex; gap: 2px; opacity: 0; pointer-events: none; transition: opacity 0.08s; }
-.ent-type-actions.visible, .ent-inst-actions.visible { opacity: 1; pointer-events: auto; }
+.ent-type-head:hover .ent-type-actions,
+.ent-instance:hover .ent-inst-actions { opacity: 1; pointer-events: auto; }
 .ent-badge { font-size: 9px; background: var(--panel-2); color: var(--accent); border-radius: 4px; padding: 1px 4px; margin-left: 4px; letter-spacing: 0; text-transform: none; }
 .ent-badge.dim { color: var(--dim); }
 .row-icon { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
@@ -345,7 +355,7 @@ textarea.dsl-input-highlighted {
 .pred-item-main { display: flex; align-items: center; }
 .pred-item-main .pred-insert { flex: 1; min-width: 0; }
 .pred-item-actions { display: inline-flex; gap: 2px; opacity: 0; pointer-events: none; transition: opacity 0.08s; }
-.pred-item-actions.visible { opacity: 1; pointer-events: auto; }
+.pred-item:hover .pred-item-actions { opacity: 1; pointer-events: auto; }
 .pred-conclusion { margin-top: 6px; font-size: 12px; }
 .pred-modal { max-width: 560px; display: flex; flex-direction: column; gap: 14px; max-height: 82vh; overflow-y: auto; }
 .pred-modal h3 { margin: 0; }
@@ -424,6 +434,9 @@ textarea.dsl-input-highlighted {
 .hooks-pre:hover .hook-section-label,
 .hooks-post:hover .hook-section-label { opacity: 1; }
 .hook-chip { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Only shown when a pre/post section has hooks — labels which phase the
+   chips below belong to, at a glance, without hovering. */
+.hook-phase-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: var(--dim); }
 
 /* Main stage content */
 .stage-main {
@@ -441,6 +454,26 @@ textarea.dsl-input-highlighted {
 .stage-actionset { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
 .stage-routing { background: var(--border); border-radius: 4px; padding: 1px 5px; font-size: 10px; }
 .stage-routing.collect { background: #2a1f3a; color: #b98cf0; }
+
+/* Per-action routing section — bottom of the stage node, only when opted in */
+.stage-actions {
+  border-top: 1px solid var(--border);
+  padding: 6px 10px; min-height: 26px;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+}
+.action-route-row {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 11px;
+}
+/* Action name keeps its own space; the target list is the part that can run
+   long (several pooled stages) — it shrinks and ellipsizes instead of
+   overflowing the node, with the full list available as a hover tooltip. */
+.action-route-name { color: var(--text); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+.action-route-target {
+  color: var(--warn); flex: 1; min-width: 0; text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.action-route-target.is-default { color: var(--dim); font-style: italic; }
 
 /* ── Detail panel (right side) — no scroll, grows with content ── */
 .pipeline-panel {
@@ -510,18 +543,20 @@ textarea.dsl-input-highlighted {
   text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px;
 }
 .hooks-empty { font-size: 12px; color: var(--dim); padding-left: 2px; }
+/* Each hook stacks two rows — type + move/remove, then its fields — rather
+   than cramming every control onto one line; the panel is tall and narrow,
+   so fields get more usable width by using that vertical space instead. */
 .hook-row {
-  display: grid;
-  grid-template-columns: 74px 1fr auto;
-  gap: 4px; align-items: center;
-  background: var(--panel-2); border-radius: 6px; padding: 5px 6px;
+  display: flex; flex-direction: column; gap: 5px;
+  background: var(--panel-2); border-radius: 6px; padding: 6px 8px;
 }
-.hook-type { font-size: 12px; }
-/* The middle column: name-row or swap-pair */
+.hook-row-head { display: flex; align-items: center; gap: 6px; }
+.hook-type { flex: 1; font-size: 12px; min-width: 0; }
+.hook-btns { display: flex; gap: 2px; flex-shrink: 0; }
 .hook-name-row { display: flex; gap: 4px; }
 .hook-name-row select { flex: 1; font-size: 12px; min-width: 0; }
-.hook-requires { width: 78px; font-size: 12px; flex-shrink: 0; }
-.hook-swap-pair { display: flex; gap: 4px; }
-.hook-swap-pair input { flex: 1; font-size: 12px; min-width: 0; }
-.hook-btns { display: flex; gap: 2px; flex-shrink: 0; }
+.hook-requires { width: 110px; font-size: 12px; flex-shrink: 0; }
+.hook-swap-pair { display: flex; align-items: center; gap: 6px; }
+.hook-swap-pair select { flex: 1; font-size: 12px; min-width: 0; }
+.hook-swap-arrow { flex-shrink: 0; font-size: 12px; }
 .hooks-add { font-size: 12px; align-self: flex-start; padding: 3px 8px; margin-top: 2px; }

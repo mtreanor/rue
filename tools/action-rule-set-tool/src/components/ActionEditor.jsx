@@ -6,12 +6,14 @@ import { useDebounced } from '../hooks.js';
 const emptyRole = (entityTypeNames = []) => ({ variable: '', type: entityTypeNames[0] ?? '' });
 
 // Shared form for adding and editing an action. Structured fields for roles
-// (repeatable variable:type rows) and routes-to (a select over known
-// actionsets), a plain text field for the content template, and DSL textareas
-// (with the same predicate-autocomplete as rule bodies) for info/preconditions/
-// utility/effects — each its own field rather than one freeform body, since an
-// action's sections are structurally distinct in a way a rule's LHS/RHS isn't.
-// Live-validates against the backend and only enables save when valid.
+// (repeatable variable:type rows), a plain text field for the content
+// template, and DSL textareas (with the same predicate-autocomplete as rule
+// bodies) for info/preconditions/utility/effects — each its own field rather
+// than one freeform body, since an action's sections are structurally distinct
+// in a way a rule's LHS/RHS isn't. Routing is not an action concern — see the
+// Pipelines tab, where a stage opts into per-action routing over its own
+// actionset. Live-validates against the backend and only enables save when
+// valid.
 export default function ActionEditor({
   scenario, actionsets, predicates, entityNames, entityTypeNames = [], highlighter = null,
   mode = 'add', initial = {}, onSaved, onCancel,
@@ -25,7 +27,6 @@ export default function ActionEditor({
   const [utility, setUtility] = useState(initial.utilityText ?? '');
   const [content, setContent] = useState(initial.contentTemplate ?? '');
   const [effects, setEffects] = useState(initial.effectsText ?? '');
-  const [routesTo, setRoutesTo] = useState(initial.routesTo ?? '');
   const [result, setResult] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -34,7 +35,7 @@ export default function ActionEditor({
   // Debounce the rest of the fields as one bundle, so typing in any of them
   // doesn't fire a validate call per keystroke.
   const debRest = useDebounced(
-    JSON.stringify({ roles, info, preconditions, utility, content, effects, routesTo }),
+    JSON.stringify({ roles, info, preconditions, utility, content, effects }),
     300,
   );
 
@@ -50,7 +51,7 @@ export default function ActionEditor({
   async function save() {
     setSaving(true);
     setSaveError(null);
-    const payload = { scenario, actionset, name, comment, roles, info, preconditions, utility, content, effects, routesTo };
+    const payload = { scenario, actionset, name, comment, roles, info, preconditions, utility, content, effects };
     try {
       const r = mode === 'edit'
         ? await api.editAction({ ...payload, originalName: initial.originalName })
@@ -166,15 +167,6 @@ export default function ActionEditor({
           multiline rows={3} insertMode="cursor" primary highlighter={highlighter}
           placeholder={'admiration(?SELF, ?TARGET) += 1'}
         />
-      </label>
-
-      <label className="field">
-        <span>Routes to <em>(optional — the next stage this action leads to)</em></span>
-        <select value={routesTo} onChange={e => setRoutesTo(e.target.value)}>
-          <option value="">(none)</option>
-          <option value="end">end</option>
-          {actionsets.map(as => <option key={as.name} value={as.name}>{as.name}</option>)}
-        </select>
       </label>
 
       <ValidationView result={result} nameEmpty={!name.trim()} />

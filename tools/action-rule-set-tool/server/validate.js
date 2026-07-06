@@ -99,7 +99,7 @@ function buildExistingRules(ctx, loader, path, excludeName) {
 // fixpoints within a ruleset, but actions aren't iterated to a fixpoint — a
 // pipeline stage scores its actionset once and picks a winner — so there's no
 // equivalent hazard for an action's preconditions/effects to trigger.
-export function validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects, routesTo }) {
+export function validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects }) {
   const errors = [];
   const warnings = [];
 
@@ -120,7 +120,7 @@ export function validateAction({ ctx, name, comment, roles, info, preconditions,
   if (errors.length) return { ok: false, errors, warnings };
 
   const loader = new ActionLoader(ctx.schema);
-  const body = buildActionBody({ roles, info, preconditions, utility, content, effects, routesTo });
+  const body = buildActionBody({ roles, info, preconditions, utility, content, effects });
   const source = `action ${JSON.stringify(name)}\n${body}`;
 
   let parsed;

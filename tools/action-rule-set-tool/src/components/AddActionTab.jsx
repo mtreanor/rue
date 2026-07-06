@@ -17,7 +17,7 @@ export default function AddActionTab({ scenario, data, highlighter, onChanged, e
   const initial = editingAction
     ? {
         actionset: editingAction.actionset, name: editingAction.name, comment: editingAction.comment,
-        roles: editingAction.roles, routesTo: editingAction.routesTo, ...editingAction.sections,
+        roles: editingAction.roles, ...editingAction.sections,
         originalName: editingAction.name,
       }
     : {};

@@ -81,14 +81,42 @@ describe('PipelineRunner — single stage, terminal action', () => {
 // ── Two-stage routing ────────────────────────────────────────────────────────
 
 describe('PipelineRunner — routing between stages', () => {
-  it('follows routes-to into a child stage', () => {
+  it('follows a stage default route into a child stage', () => {
     const engine = makeEngine();
     engine.loadActions(`
       action "engage"
         roles: ?SELF: agent
         utility 1.0
         effects acted(?SELF)
-        routes-to: respond-stage
+    `, 'tier1');
+    engine.loadActions(`
+      action "respond"
+        roles: ?SELF: agent, ?OTHER: agent
+        utility 1.0
+        effects responded(?OTHER)
+    `, 'tier2');
+
+    const pipeline = new Pipeline('test', {
+      entry: 'tier1-stage',
+      stages: {
+        'tier1-stage': new Stage({ actionset: 'tier1', routing: 'branch', routesTo: 'respond-stage' }),
+        'respond-stage': new Stage({ actionset: 'tier2', routing: 'branch' }),
+      },
+    });
+
+    new PipelineRunner(engine).run(pipeline, { SELF: 'alice', OTHER: 'bob' });
+
+    assert.ok(engine.world.factStore.contains('acted', 'alice'));
+    assert.ok(engine.world.factStore.contains('responded', 'bob'));
+  });
+
+  it("follows a stage's per-action route into a child stage", () => {
+    const engine = makeEngine();
+    engine.loadActions(`
+      action "engage"
+        roles: ?SELF: agent
+        utility 1.0
+        effects acted(?SELF)
 
       action "skip"
         roles: ?SELF: agent
@@ -105,7 +133,12 @@ describe('PipelineRunner — routing between stages', () => {
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
       stages: {
-        'tier1-stage': new Stage({ actionset: 'tier1', routing: 'branch' }),
+        'tier1-stage': new Stage({
+          actionset: 'tier1',
+          routing: 'branch',
+          perActionRouting: true,
+          actionRoutes: { engage: 'respond-stage' }, // "skip" is absent — falls back to the (unset) stage default, i.e. terminal
+        }),
         'respond-stage': new Stage({ actionset: 'tier2', routing: 'branch' }),
       },
     });
@@ -122,7 +155,6 @@ describe('PipelineRunner — routing between stages', () => {
       action "engage"
         roles: ?SELF: agent
         utility 1.0
-        routes-to: respond-stage
     `, 'tier1');
     engine.loadActions(`
       action "respond"
@@ -140,7 +172,7 @@ describe('PipelineRunner — routing between stages', () => {
       entry: 'tier1-stage',
       postHooks: [{ type: 'ruleset-fixpoint', name: 'post' }],
       stages: {
-        'tier1-stage': new Stage({ actionset: 'tier1', routing: 'branch' }),
+        'tier1-stage': new Stage({ actionset: 'tier1', routing: 'branch', routesTo: 'respond-stage' }),
         'respond-stage': new Stage({ actionset: 'tier2', routing: 'branch' }),
       },
     });
@@ -155,9 +187,9 @@ describe('PipelineRunner — routing between stages', () => {
 // ── branch stage-level default routing ───────────────────────────────────────
 
 describe('PipelineRunner — branch routesTo default', () => {
-  it('routes an action with no routes-to via the stage default', () => {
+  it('routes an action via the stage default when perActionRouting is off', () => {
     const engine = makeEngine();
-    // Neither action carries routes-to — both fall back to the stage default.
+    // perActionRouting isn't enabled — both actions fall back to the stage default.
     engine.loadActions(`
       action "engage"
         roles: ?SELF: agent
@@ -186,14 +218,13 @@ describe('PipelineRunner — branch routesTo default', () => {
       'the winner should follow the stage default route');
   });
 
-  it("lets an action's own routes-to override the stage default", () => {
+  it("lets an action's own actionRoutes entry override the stage default", () => {
     const engine = makeEngine();
     engine.loadActions(`
       action "engage"
         roles: ?SELF: agent
         utility 1.0
         effects acted(?SELF)
-        routes-to: special-stage
     `, 'tier1');
     engine.loadActions(`
       action "respond"
@@ -211,7 +242,13 @@ describe('PipelineRunner — branch routesTo default', () => {
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
       stages: {
-        'tier1-stage':   new Stage({ actionset: 'tier1', routing: 'branch', routesTo: 'default-stage' }),
+        'tier1-stage': new Stage({
+          actionset: 'tier1',
+          routing: 'branch',
+          routesTo: 'default-stage',
+          perActionRouting: true,
+          actionRoutes: { engage: 'special-stage' },
+        }),
         'default-stage': new Stage({ actionset: 'default-tier', routing: 'branch' }),
         'special-stage': new Stage({ actionset: 'special-tier', routing: 'branch' }),
       },
@@ -220,19 +257,18 @@ describe('PipelineRunner — branch routesTo default', () => {
     new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('handoff', 'alice', 'alice'),
-      'the action route should win over the stage default');
+      "the action's own route should win over the stage default");
     assert.ok(!engine.world.factStore.contains('responded', 'alice'),
       'the stage default should not fire when the action routes elsewhere');
   });
 
-  it("treats `routes-to: end` as terminal, beating the stage default", () => {
+  it('treats an actionRoutes entry of `end` as terminal, beating the stage default', () => {
     const engine = makeEngine();
     engine.loadActions(`
       action "engage"
         roles: ?SELF: agent
         utility 1.0
         effects acted(?SELF)
-        routes-to: end
     `, 'tier1');
     engine.loadActions(`
       action "respond"
@@ -244,7 +280,13 @@ describe('PipelineRunner — branch routesTo default', () => {
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
       stages: {
-        'tier1-stage':   new Stage({ actionset: 'tier1', routing: 'branch', routesTo: 'default-stage' }),
+        'tier1-stage': new Stage({
+          actionset: 'tier1',
+          routing: 'branch',
+          routesTo: 'default-stage',
+          perActionRouting: true,
+          actionRoutes: { engage: 'end' },
+        }),
         'default-stage': new Stage({ actionset: 'default-tier', routing: 'branch' }),
       },
     });
@@ -253,17 +295,16 @@ describe('PipelineRunner — branch routesTo default', () => {
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.ok(!engine.world.factStore.contains('responded', 'alice'),
-      'routes-to: end should terminate the branch instead of taking the stage default');
+      'an actionRoutes entry of `end` should terminate the branch instead of taking the stage default');
   });
 
-  it('fires pipeline postHooks when an action ends via routes-to: end', () => {
+  it('fires pipeline postHooks when an action ends via an actionRoutes entry of `end`', () => {
     const engine = makeEngine();
     engine.loadActions(`
       action "engage"
         roles: ?SELF: agent
         utility 1.0
         effects acted(?SELF)
-        routes-to: end
     `, 'tier1');
     engine.loadActions(`
       action "respond"
@@ -281,7 +322,13 @@ describe('PipelineRunner — branch routesTo default', () => {
       entry: 'tier1-stage',
       postHooks: [{ type: 'ruleset-fixpoint', name: 'post' }],
       stages: {
-        'tier1-stage':   new Stage({ actionset: 'tier1', routing: 'branch', routesTo: 'default-stage' }),
+        'tier1-stage': new Stage({
+          actionset: 'tier1',
+          routing: 'branch',
+          routesTo: 'default-stage',
+          perActionRouting: true,
+          actionRoutes: { engage: 'end' },
+        }),
         'default-stage': new Stage({ actionset: 'default-tier', routing: 'branch' }),
       },
     });
@@ -289,7 +336,42 @@ describe('PipelineRunner — branch routesTo default', () => {
     new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('handoff', 'alice', 'alice'),
-      'pipeline postHooks should fire for an action that ends via routes-to: end');
+      'pipeline postHooks should fire for an action that ends via an actionRoutes entry of `end`');
+  });
+
+  it('falls back to the stage default when perActionRouting is on but the entry is blank', () => {
+    const engine = makeEngine();
+    engine.loadActions(`
+      action "engage"
+        roles: ?SELF: agent
+        utility 1.0
+        effects acted(?SELF)
+    `, 'tier1');
+    engine.loadActions(`
+      action "respond"
+        roles: ?SELF: agent
+        utility 1.0
+        effects responded(?SELF)
+    `, 'default-tier');
+
+    const pipeline = new Pipeline('test', {
+      entry: 'tier1-stage',
+      stages: {
+        'tier1-stage': new Stage({
+          actionset: 'tier1',
+          routing: 'branch',
+          routesTo: 'default-stage',
+          perActionRouting: true,
+          actionRoutes: {}, // opted in, but "engage" has no entry
+        }),
+        'default-stage': new Stage({ actionset: 'default-tier', routing: 'branch' }),
+      },
+    });
+
+    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+
+    assert.ok(engine.world.factStore.contains('responded', 'alice'),
+      'a blank actionRoutes entry should fall back to the stage default, not terminate');
   });
 
   it('rejects a pipeline with a stage named "end"', () => {
@@ -311,6 +393,114 @@ describe('PipelineRunner — branch routesTo default', () => {
   });
 });
 
+// ── fan-out routing — a route naming several stages pools their candidates ──
+//
+// Neither branch-routing path (stage.routesTo nor perActionRouting's
+// actionRoutes) had a test proving the array form actually pools candidates
+// across every named stage and picks one winner — as opposed to, say, running
+// each named stage independently. Both paths share the exact same fan-out code
+// in PipelineRunner._commitAndRoute, so one stage-level test and one
+// per-action test (same scenario, routed from a different source) confirm
+// they behave identically.
+
+describe('PipelineRunner — fan-out routing (multiple targets)', () => {
+  function makeFanOutEngine() {
+    return new Engine({
+      predicates: {
+        predicates: {
+          engaged: { type: 'boolean', args: ['agent'] },
+          markA:   { type: 'boolean', args: ['agent'] },
+          markB:   { type: 'boolean', args: ['agent'] },
+        },
+      },
+      entities: { agent: { alice: {} } },
+    });
+  }
+
+  it("stage.routesTo naming two stages pools their candidates and picks one winner", () => {
+    const engine = makeFanOutEngine();
+    engine.loadActions(`
+      action "engage"
+        roles: ?SELF: agent
+        utility 1.0
+        effects engaged(?SELF)
+    `, 'tier1');
+    engine.loadActions(`
+      action "actA"
+        roles: ?SELF: agent
+        utility 5.0
+        effects markA(?SELF)
+    `, 'stage-a');
+    engine.loadActions(`
+      action "actB"
+        roles: ?SELF: agent
+        utility 9.0
+        effects markB(?SELF)
+    `, 'stage-b');
+
+    const pipeline = new Pipeline('test', {
+      entry: 'tier1-stage',
+      stages: {
+        'tier1-stage': new Stage({ actionset: 'tier1', routing: 'branch', routesTo: ['stage-a', 'stage-b'] }),
+        'stage-a':     new Stage({ actionset: 'stage-a', routing: 'branch' }),
+        'stage-b':     new Stage({ actionset: 'stage-b', routing: 'branch' }),
+      },
+    });
+
+    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+
+    assert.ok(engine.world.factStore.contains('engaged', 'alice'));
+    assert.ok(engine.world.factStore.contains('markB', 'alice'),
+      'the higher-scoring candidate (stage-b, utility 9) should win the pooled selection');
+    assert.ok(!engine.world.factStore.contains('markA', 'alice'),
+      'only one winner should execute from the pooled candidates — not one per named stage');
+  });
+
+  it("an actionRoutes entry naming two stages pools their candidates the same way", () => {
+    const engine = makeFanOutEngine();
+    engine.loadActions(`
+      action "engage"
+        roles: ?SELF: agent
+        utility 1.0
+        effects engaged(?SELF)
+    `, 'tier1');
+    engine.loadActions(`
+      action "actA"
+        roles: ?SELF: agent
+        utility 5.0
+        effects markA(?SELF)
+    `, 'stage-a');
+    engine.loadActions(`
+      action "actB"
+        roles: ?SELF: agent
+        utility 9.0
+        effects markB(?SELF)
+    `, 'stage-b');
+
+    const pipeline = new Pipeline('test', {
+      entry: 'tier1-stage',
+      stages: {
+        'tier1-stage': new Stage({
+          actionset: 'tier1',
+          routing: 'branch',
+          perActionRouting: true,
+          actionRoutes: { engage: ['stage-a', 'stage-b'] },
+        }),
+        'stage-a': new Stage({ actionset: 'stage-a', routing: 'branch' }),
+        'stage-b': new Stage({ actionset: 'stage-b', routing: 'branch' }),
+      },
+    });
+
+    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+
+    assert.ok(engine.world.factStore.contains('engaged', 'alice'));
+    assert.ok(engine.world.factStore.contains('markB', 'alice'),
+      'the higher-scoring candidate (stage-b, utility 9) should win the pooled selection, same as the stage.routesTo case');
+    assert.ok(!engine.world.factStore.contains('markA', 'alice'),
+      'only one winner should execute from the pooled candidates — not one per named stage');
+  });
+});
+
 // ── swap-roles hook ──────────────────────────────────────────────────────────
 
 describe('PipelineRunner — swap-roles hook', () => {
@@ -320,7 +510,6 @@ describe('PipelineRunner — swap-roles hook', () => {
       action "initiate"
         roles: ?SELF: agent, ?OTHER: agent
         utility 1.0
-        routes-to: respond-stage
     `, 'tier1');
     engine.loadActions(`
       action "respond"
@@ -336,6 +525,7 @@ describe('PipelineRunner — swap-roles hook', () => {
         'tier1-stage': new Stage({
           actionset: 'tier1',
           routing: 'branch',
+          routesTo: 'respond-stage',
           postHooks: [{ type: 'swap-roles', roles: ['SELF', 'OTHER'] }],
         }),
         'respond-stage': new Stage({ actionset: 'tier2', routing: 'branch' }),
@@ -608,13 +798,13 @@ describe('PipelineRunner — collect routing', () => {
       },
       entities: { agent: { alice: {}, bob: {} } },
     });
-    // Same shape, but the route lives on the action and the stage is branch.
+    // Same shape, but the route lives on the stage's per-action routing table
+    // and the stage is branch.
     engine.loadActions(`
       action "mint"
         roles: ?A: agent
         utility 1.0
         effects minted(?A)
-        routes-to: finish-stage
     `, 'produce');
     engine.loadActions(`
       action "done"
@@ -629,6 +819,8 @@ describe('PipelineRunner — collect routing', () => {
           actionset: 'produce',
           routing: 'branch',
           selectionStrategy: { type: 'highestUtility', groupBy: 'A' },
+          perActionRouting: true,
+          actionRoutes: { mint: 'finish-stage' },
         }),
         'finish-stage': new Stage({ actionset: 'finish', routing: 'branch' }),
       },
@@ -683,34 +875,6 @@ describe('PipelineRunner — collect routing', () => {
     assert.ok(engine.world.factStore.contains('settled', 'alice'));
     assert.ok(engine.world.factStore.contains('settled', 'bob'),
       'postHooks run after the whole group, so both winners are settled');
-  });
-
-  it('rejects a collect stage whose winning action carries routes-to', () => {
-    const engine = new Engine({
-      predicates: { predicates: { acted: { type: 'boolean', args: ['agent'] } } },
-      entities: { agent: { alice: {} } },
-    });
-    engine.loadActions(`
-      action "act"
-        roles: ?A: agent
-        utility 1.0
-        effects acted(?A)
-        routes-to: other-stage
-    `, 'moves');
-
-    const pipeline = new Pipeline('test', {
-      entry: 'm',
-      stages: {
-        m:           new Stage({ actionset: 'moves', routing: 'collect' }),
-        'other-stage': new Stage({ actionset: 'moves', routing: 'branch' }),
-      },
-    });
-
-    assert.throws(
-      () => new PipelineRunner(engine).run(pipeline, { A: 'alice' }),
-      /collect/,
-      'a collect stage routes via its own routesTo, so action routes-to is a conflict',
-    );
   });
 
   it('scores a routed stage against fresh derivations the group just changed', () => {
@@ -773,6 +937,13 @@ describe('Stage — routing validation', () => {
   });
   it('rejects an unknown routing discipline', () => {
     assert.throws(() => new Stage({ actionset: 'x', routing: 'wat' }), /branch.*collect/);
+  });
+  it('rejects perActionRouting on a collect stage', () => {
+    assert.throws(
+      () => new Stage({ actionset: 'x', routing: 'collect', perActionRouting: true }),
+      /collect/,
+      'a collect stage routes via its own routesTo, so per-action routing is a conflict',
+    );
   });
 });
 

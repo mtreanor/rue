@@ -28,7 +28,7 @@ export function deleteAction(path, targetName) {
 
 // The action grammar reads sections in this fixed order; each is optional, but
 // when present they must appear in this sequence (ActionParser.parseAction).
-const SECTION_ORDER = ['roles', 'info', 'preconditions', 'utility', 'content', 'effects', 'routes-to'];
+const SECTION_ORDER = ['roles', 'info', 'preconditions', 'utility', 'content', 'effects'];
 const SECTION_START_RE = {
   roles:          /^\s*roles\s*:/,
   info:           /^\s*info\s*:/,
@@ -36,16 +36,15 @@ const SECTION_START_RE = {
   utility:        /^\s*utility\s*$/,
   content:        /^\s*content\s*$/,
   effects:        /^\s*effects\s*$/,
-  'routes-to':    /^\s*routes-to\s*:/,
 };
 
 // Split an action block's raw body text into its DSL sections, so the
 // structured action editor can prefill separate fields (preconditions,
 // utility, content, effects) from an existing action's exact source text on
 // Edit — mirroring how the rule editor prefills its one body field from the
-// rule's raw bodyText. `roles` and `routes-to` are deliberately not split out
-// here: the editor gets those from the parsed AST instead (structured rows /
-// a select), which is more reliable than re-parsing free text.
+// rule's raw bodyText. `roles` is deliberately not split out here: the editor
+// gets it from the parsed AST instead (structured rows), which is more
+// reliable than re-parsing free text.
 export function splitActionSections(bodyText) {
   const lines = bodyText.split('\n');
   const starts = {};
@@ -110,16 +109,16 @@ function normalizeVariable(v) {
 }
 
 // Assemble the structured action editor's fields (roles rows, per-section DSL
-// text, a plain content template string, and a routes-to target) into the
-// single DSL body string the grammar expects — in the fixed section order
-// ActionParser.parseAction reads (roles, info, preconditions, utility,
-// content, effects, routes-to). Header lines (roles:/routes-to:/info:/etc.)
-// are left unindented here; renderBlock's per-line pass indents them to 2
-// spaces. Nested section bodies are pre-indented to 4 so they read as nested
-// under their header, matching hand-authored actionset files — the DSL
-// itself is whitespace-insensitive, so this is purely cosmetic.
+// text, and a plain content template string) into the single DSL body string
+// the grammar expects — in the fixed section order ActionParser.parseAction
+// reads (roles, info, preconditions, utility, content, effects). Header lines
+// (roles:/info:/etc.) are left unindented here; renderBlock's per-line pass
+// indents them to 2 spaces. Nested section bodies are pre-indented to 4 so
+// they read as nested under their header, matching hand-authored actionset
+// files — the DSL itself is whitespace-insensitive, so this is purely
+// cosmetic.
 export function buildActionBody({
-  roles = [], info = '', preconditions = '', utility = '', content = '', effects = '', routesTo = '',
+  roles = [], info = '', preconditions = '', utility = '', content = '', effects = '',
 }) {
   const lines = [];
 
@@ -149,7 +148,6 @@ export function buildActionBody({
     lines.push('effects');
     lines.push(...indentLines(effects, 4));
   }
-  if (routesTo && routesTo.trim()) lines.push(`routes-to: ${routesTo.trim()}`);
 
   return lines.join('\n');
 }

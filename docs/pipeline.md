@@ -1,8 +1,8 @@
 # Pipelines
 
-A **pipeline** is a named, declarative layer over the engine. Where [actions](actions.md) give you scoreable units of behaviour and `scoreActionset` gives you one pass of *score → pick → execute*, a pipeline strings several of those passes together: a graph of **stages** connected by `routes-to` links, run from an entry stage to a terminal action in one call.
+A **pipeline** is a named, declarative layer over the engine. Where [actions](actions.md) give you scoreable units of behaviour and `scoreActionset` gives you one pass of *score → pick → execute*, a pipeline strings several of those passes together: a graph of **stages** connected by routes, run from an entry stage to a terminal action in one call.
 
-Each stage pairs **priming rules** with an **actionset**. Running a stage means: run its hooks, fire its priming rules to prime scores, score the actionset, filter by a salience floor, pick winners with a selection strategy, execute them, and — if a winning action carries a `routes-to` — continue into the named child stage. When a winner has no `routes-to`, it is *terminal*: the pipeline's `postHooks` fire and that branch ends.
+Each stage pairs **priming rules** with an **actionset**. Running a stage means: run its hooks, fire its priming rules to prime scores, score the actionset, filter by a salience floor, pick winners with a selection strategy, execute them, and — if the stage resolves a route for the winner — continue into the named child stage. When it resolves to nothing, that winner is *terminal*: the pipeline's `postHooks` fire and that branch ends.
 
 ```javascript
 import { Pipeline, Stage, PipelineRunner } from 'klugh';
@@ -17,8 +17,8 @@ const pipeline = new Pipeline('turn', {
 new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
 ```
 
-::: tip DSL surface
-The pipeline *structure* — stages, hooks, selection strategies — is constructed in JavaScript (`new Pipeline`, `new Stage`). The only pipeline-aware DSL is the `routes-to:` clause on an action, which names the stage to continue into. Everything else lives in your ordinary actionset and ruleset files.
+::: tip No pipeline-aware DSL
+The pipeline *structure* — stages, hooks, selection strategies, and all routing (including per-action routing) — is constructed in JavaScript (`new Pipeline`, `new Stage`). Actions carry no routing knowledge of their own; they are plain scoreable units defined in ordinary actionset files. A stage that wants to route differently per action opts in with `perActionRouting` and an `actionRoutes` map — see [Routing disciplines](#routing-disciplines-branch-vs-collect).
 :::
 
 ---
@@ -32,6 +32,9 @@ new Stage({
   routing:           'branch',          // required — 'branch' or 'collect'
   salienceFloor:     0.01,              // drop candidates scoring below this
   selectionStrategy: 'highestUtility',  // string or { type, groupBy }
+  routesTo:          null,              // stage-level destination — the route, or the default under perActionRouting
+  perActionRouting:  false,             // opt in to routing each action's winner differently
+  actionRoutes:      {},                // { actionName: stageName | 'end' } — only consulted when perActionRouting is true
   preHooks:          [],                // run before scoring
   postHooks:         [],                // run after a winner executes
 });
@@ -44,7 +47,9 @@ new Stage({
 | `salienceFloor` | Candidates scoring below this are discarded. Defaults to `0`. |
 | `selectionStrategy` | How winners are picked from the scored candidates — see [Selection strategies](#selection-strategies). Falls back to the pipeline's strategy, then `highestUtility`. |
 | `routing` | **Required.** `'branch'` or `'collect'` — see [Routing disciplines](#routing-disciplines-branch-vs-collect). |
-| `routesTo` | Stage-level destination (a stage name or array). In `collect` routing it is *the* route; in `branch` routing it is the **default** route for winners whose action carries no `routes-to` of its own. |
+| `routesTo` | Stage-level destination (a stage name or array). In `collect` routing it is *the* route; in `branch` routing it is the **default** route for winners with no `actionRoutes` entry of their own (or when `perActionRouting` is off). |
+| `perActionRouting` | Opts this stage into routing each winning action independently — see [Routing disciplines](#routing-disciplines-branch-vs-collect). Only valid on a `'branch'` stage; the `Stage` constructor throws if combined with `routing: 'collect'`. |
+| `actionRoutes` | `{ actionName: stageName \| 'end' }`. Consulted only when `perActionRouting` is true; an action absent from the map (or mapped to a blank entry) falls back to `routesTo`. |
 | `preHooks` / `postHooks` | Ordered [hooks](#hooks) that run before scoring / after a winner executes (`branch`) or once after the group (`collect`). |
 
 A `Pipeline` carries the same `preHooks` / `postHooks` / `selectionStrategy` at the top level. The pipeline's `preHooks` run once at the start; its `postHooks` run each time a **terminal** action executes.
@@ -82,13 +87,13 @@ new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
 // alice rests; fatigue drops by 10.
 ```
 
-With no `routes-to` on `rest`, the action is terminal: the pipeline ends after it executes (and any pipeline `postHooks` fire).
+With no `routesTo` on `rest-stage`, `rest` is terminal: the pipeline ends after it executes (and any pipeline `postHooks` fire).
 
 ---
 
 ## Example 2 — two stages with a responding character
 
-Routing lets one character's choice hand off to another character's reaction. The first stage's winning action carries `routes-to: respond-stage`; before the child stage scores, a `swap-roles` hook flips `?SELF` and `?OTHER` so the *other* agent becomes the actor.
+Routing lets one character's choice hand off to another character's reaction. The `initiate-stage` routes to `respond-stage` for every winner; before the child stage scores, a `swap-roles` hook flips `?SELF` and `?OTHER` so the *other* agent becomes the actor.
 
 ```klugh
 // actions/initiate.klugh
@@ -102,7 +107,6 @@ action "greet"
     friendship(?SELF, ?OTHER)
   effects
     greeted(?SELF, ?OTHER)
-  routes-to: respond-stage
 ```
 
 ```klugh
@@ -133,6 +137,7 @@ const pipeline = new Pipeline('exchange', {
     'initiate-stage': new Stage({
       actionset: 'initiate',
       routing: 'branch',
+      routesTo: 'respond-stage',
       // After alice greets bob, swap so bob is ?SELF for the response.
       postHooks: [{ type: 'swap-roles', roles: ['SELF', 'OTHER'] }],
     }),
@@ -146,38 +151,45 @@ new PipelineRunner(engine).run(pipeline, { SELF: 'alice', OTHER: 'bob' });
 // 3. respond-stage: bob picks the higher-scoring of "greet back" / "ignore".
 ```
 
-The route follows the winning action's `routes-to`. The child stage runs its own hooks and priming rules, scores its actionset against the (swapped) binding, and selects a winner — which may itself be terminal or route onward. Only a terminal action fires the pipeline's `postHooks`; routing actions do not.
+The route follows the stage's `routesTo`. The child stage runs its own hooks and priming rules, scores its actionset against the (swapped) binding, and selects a winner — which may itself be terminal or route onward. Only a terminal winner fires the pipeline's `postHooks`; routing winners do not.
 
 ::: tip Fan-out routing
-A `routes-to` may name several child stages (an array, in JS). Their candidates are **pooled** and one selection runs across the union, using the pipeline-level strategy. A single named route uses that child stage's own strategy.
+A route may name several child stages (an array, in JS — on `routesTo` or on an individual `actionRoutes` entry). Their candidates are **pooled** and one selection runs across the union, using the pipeline-level strategy. A single named route uses that child stage's own strategy.
 :::
 
 ---
 
 ## Routing disciplines: branch vs collect
 
-The examples above use the **branch** discipline: each winning action carries its own continuation, so a stage with *N* winners produces up to *N* independent continuations, and each child stage scores against the world *as that one winner left it*. This is right for agent-turn pipelines — alice greets bob, bob responds; one actor's choice hands to the next.
+The examples above use the **branch** discipline: each winner routes individually, so a stage with *N* winners produces up to *N* independent continuations, and each child stage scores against the world *as that one winner left it*. This is right for agent-turn pipelines — alice greets bob, bob responds; one actor's choice hands to the next.
 
-A winner's continuation is resolved as `action.routes-to ?? stage.routesTo`: an action's own `routes-to` wins, and when it has none the winner falls back to the **stage default**. Because the next stage is so often the same for every action in a stage, set it once on the stage and only annotate the actions that diverge:
+A winner's continuation is resolved by the stage's `routeFor(actionName)`: when the stage has no per-action routing, every winner just takes `routesTo`. Because the next stage is so often the same for every action in a stage, that single default is usually enough:
 
 ```javascript
 new Stage({
   actionset: 'initiate',
   routing: 'branch',
-  routesTo: 'respond-stage',   // default continuation for this stage's winners
+  routesTo: 'respond-stage',   // every winner's continuation
 });
 ```
 
-To make a single action **terminal** despite a stage default — ending that branch and firing the pipeline's `postHooks` — route it to the reserved sentinel `end`:
+When a stage's actions genuinely diverge — some winners should continue somewhere the others shouldn't — the stage opts in with `perActionRouting: true` and an `actionRoutes` map naming each diverging action's own destination. An action absent from the map (or mapped to a blank value) falls back to `routesTo`; routing is a property the *stage* declares over its own actionset, not something an action carries itself:
 
-```klugh
-action "wait"
-  roles: ?SELF: agent
-  utility 0.2
-  routes-to: end          // beats the stage default; this branch stops here
+```javascript
+new Stage({
+  actionset: 'engagement-mode',
+  routing: 'branch',
+  perActionRouting: true,
+  actionRoutes: {
+    wait:      'end',            // explicit terminal — beats the stage default
+    leave:     'end',
+    approach:  'approach-acts',
+    socialize: 'social-acts',
+  },
+});
 ```
 
-`end` is reserved: no stage may be named `end`, and the runner throws if one is.
+The reserved sentinel `end` marks an action **terminal** despite whatever `routesTo` the stage might otherwise default to — that branch stops there and the pipeline's `postHooks` fire. `end` is reserved: no stage may be named `end`, and the runner throws if one is.
 
 Generation/transform pipelines want the opposite: apply the **whole group**, settle, then advance once. "Pick one mechanic per edge, *then* add a single win condition against the finished set." That is the **collect** discipline, set on the `Stage`:
 
@@ -194,11 +206,12 @@ A `collect` stage executes every selected winner, runs its `postHooks` **once**,
 
 | | `branch` | `collect` |
 |---|---|---|
-| route source | each winner's `action.routes-to ?? stage.routesTo` | the stage's `routesTo` |
+| route source | each winner's `stage.routeFor(action.name)` | the stage's `routesTo` |
 | route fires | once per winner | once per stage |
 | `postHooks` | after **each** winner | once, after the **group** |
 | child's starting binding | that winner's (post-hook) binding | the stage's incoming binding |
-| terminal | action with no route and no stage default, or `routes-to: end` | stage with no `routesTo` |
+| terminal | winner resolves to no route (no `routesTo`, and no `actionRoutes` entry, or an entry of `end`) | stage with no `routesTo` |
+| `perActionRouting` | allowed | rejected at construction — a collect stage has no single winner to route individually |
 
 Routing always re-scores the destination against **fresh derivations** — a stage mutates the world the next one queries, so derived-fact caches are invalidated between stages.
 
@@ -293,7 +306,8 @@ A candidate can match several result bindings and so participate in several grou
 | Call | Description |
 |------|-------------|
 | `new Pipeline(name, { entry, selectionStrategy, preHooks, postHooks, stages })` | Builds a pipeline. `stages` maps stage names to `Stage` instances; `entry` names the first. |
-| `new Stage({ primingRules, actionset, salienceFloor, selectionStrategy, routing, routesTo, preHooks, postHooks })` | Builds one stage. `actionset` and `routing` are required; `routing` is `'branch'` or `'collect'`. `routesTo` (a stage name or array) is the route in `collect`, and the default route for `branch` winners whose action has no `routes-to`. `primingRules`, `preHooks`, and `postHooks` are hook arrays. |
+| `new Stage({ primingRules, actionset, salienceFloor, selectionStrategy, routing, routesTo, perActionRouting, actionRoutes, preHooks, postHooks })` | Builds one stage. `actionset` and `routing` are required; `routing` is `'branch'` or `'collect'`. `routesTo` (a stage name or array) is the route in `collect`, and the default route in `branch`. `perActionRouting` (only valid with `routing: 'branch'`) opts the stage into per-action routes, read from `actionRoutes` (`{ actionName: stageName \| 'end' }`); an action absent from the map falls back to `routesTo`. `primingRules`, `preHooks`, and `postHooks` are hook arrays. |
+| `stage.routeFor(actionName)` | The resolved route for a winning action — its own `actionRoutes` entry when `perActionRouting` is on and set, else `routesTo`. What the runner calls internally; useful for inspecting a stage's effective routing. |
 | `new PipelineRunner(engine)` | Wraps an engine for execution. |
 | `runner.run(pipeline, initialBinding)` | Runs the pipeline from its entry stage with the given starting binding (e.g. `{ SELF: 'alice' }`). |
 | `selectCandidates(candidates, strategy, engine?)` | The selection primitive. `engine` is required only for the pattern form of `groupBy`. |

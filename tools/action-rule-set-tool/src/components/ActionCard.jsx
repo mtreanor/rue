@@ -14,7 +14,6 @@ export default function ActionCard({ action, highlighter, onEdit, onDelete }) {
             {action.roleCount} role{action.roleCount === 1 ? '' : 's'} · {action.preconditionCount} precond · {action.effectCount} eff
           </span>
         )}
-        {action.routesTo && <span className="badge">→ {action.routesTo}</span>}
         <span className="spacer" />
         <button className="btn tiny" onClick={() => onEdit(action)}>Edit</button>
         <button className="btn tiny danger" onClick={() => onDelete(action)}>Delete</button>

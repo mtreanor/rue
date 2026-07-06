@@ -2,9 +2,10 @@ import { Binding } from '../Binding.js';
 import { LogicalVariable } from '../LogicalVariable.js';
 import { selectCandidates } from './SelectionStrategy.js';
 
-// The reserved terminal route. Used as an action's `routes-to: end` to opt out
-// of a stage's default route and end that branch (firing the pipeline's
-// postHooks). It is not a stage name — no stage may be called "end".
+// The reserved terminal route. Used as a stage's `routesTo` (or, under
+// perActionRouting, an action's own entry) to opt out of the default route
+// and end that branch (firing the pipeline's postHooks). It is not a stage
+// name — no stage may be called "end".
 export const TERMINAL = 'end';
 
 export class PipelineRunner {
@@ -23,7 +24,7 @@ export class PipelineRunner {
 
   // Runs one stage from scratch: preHooks → priming rules → score → select → route.
   // Routing depends on the stage's discipline:
-  //   'branch'  — each winner executes and follows its own action's routes-to.
+  //   'branch'  — each winner executes and follows the stage's routeFor().
   //   'collect' — the whole winning group executes, then the stage routes once.
   _runStage(pipeline, stageName, binding) {
     const stage = pipeline.stages[stageName];
@@ -46,12 +47,9 @@ export class PipelineRunner {
       // Execute the whole group, settle once, then advance the stage once. The
       // child stage(s) see the world after the entire group committed, scored
       // against the stage's incoming binding (the group has no single winner to
-      // carry a binding onward).
-      for (const winner of winners) {
-        if (winner.action.routesTo) {
-          throw new Error(`Pipeline "${pipeline.name}": action "${winner.action.name}" carries routes-to, but stage "${stageName}" is collect — a collect stage routes via its own routesTo, not per action. Remove the action's routes-to or make the stage 'branch'.`);
-        }
-      }
+      // carry a binding onward). perActionRouting can't be enabled on a collect
+      // stage (Stage's constructor rejects it), so routing here is always the
+      // stage's own routesTo.
       for (const winner of winners) this.engine.execute(winner);
       const outBinding = this._runHooks(stage.postHooks, stageBinding);
       const route = stage.routesTo === TERMINAL ? null : stage.routesTo;
@@ -71,8 +69,9 @@ export class PipelineRunner {
 
   // Executes a selected candidate, fires postHooks, then either routes to child
   // stages (pooling their candidates and selecting one) or fires pipeline postHooks
-  // when terminal. The route is the action's own routes-to when set, else the
-  // stage's routesTo default; `routes-to: end` on the action is an explicit
+  // when terminal. The route is resolved by the stage's routeFor(): the
+  // action's own actionRoutes entry when perActionRouting is enabled and set,
+  // else the stage's routesTo default; an entry of `end` is an explicit
   // terminal that beats the stage default.
   //
   // If the action minted an occurrence (a `record()` effect — not every action
@@ -93,7 +92,7 @@ export class PipelineRunner {
 
     const outBinding = this._runHooks(stage.postHooks, bindingForHooks);
 
-    const resolved = candidate.action.routesTo ?? stage.routesTo;
+    const resolved = stage.routeFor(candidate.action.name);
     const route    = resolved === TERMINAL ? null : resolved;
 
     if (route) {
@@ -115,6 +114,14 @@ export class PipelineRunner {
           .filter(c => c.score >= (childStage.salienceFloor ?? 0));
         pool.push(...childCandidates.map(c => ({ ...c, _stageName: childStageName })));
       }
+
+      // Each stage's own candidates come back sorted highest-score-first, but
+      // concatenating several such arrays does not itself yield a globally
+      // sorted pool — and selectCandidates' ungrouped 'highestUtility' path
+      // just takes index 0, trusting that convention. Re-sort the merged pool
+      // so the true top scorer across every named stage wins, not whichever
+      // stage happened to be pushed first.
+      pool.sort((a, b) => b.score - a.score);
 
       // When multiple stages are pooled, use the pipeline-level strategy; with
       // a single route, the child stage's own strategy applies.

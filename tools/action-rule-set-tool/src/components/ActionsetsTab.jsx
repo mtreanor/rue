@@ -4,8 +4,8 @@ import { api } from '../api.js';
 
 // Browse actions across one or more actionsets. No structural search (the
 // matcher only understands rule shape, not action roles/preconditions/utility/
-// effects/routes-to) — just the actionset checkbox filter, a name filter, and
-// sort, mirroring the non-structural parts of the rulesets Inspect tab. Edit
+// effects) — just the actionset checkbox filter, a name filter, and sort,
+// mirroring the non-structural parts of the rulesets Inspect tab. Edit
 // loads the action into the Add action tab (see App.jsx's onEdit) rather than
 // opening a popup.
 export default function ActionsetsTab({ scenario, data, highlighter, onChanged, onEdit }) {

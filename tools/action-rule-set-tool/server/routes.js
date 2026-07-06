@@ -247,17 +247,17 @@ function requireRulesetPath(ctx, ruleset) {
 }
 
 router.post('/validate-action', h((req, res) => {
-  const { scenario, name, comment, roles, info, preconditions, utility, content, effects, routesTo } = req.body;
+  const { scenario, name, comment, roles, info, preconditions, utility, content, effects } = req.body;
   const ctx = loadScenarioContext(scenario);
-  res.json(validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects, routesTo }));
+  res.json(validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects }));
 }));
 
 router.post('/action', h((req, res) => {
-  const { scenario, actionset, name, comment, roles, info, preconditions, utility, content, effects, routesTo } = req.body;
+  const { scenario, actionset, name, comment, roles, info, preconditions, utility, content, effects } = req.body;
   const ctx = loadScenarioContext(scenario);
   const actionsetPath = requireActionsetPath(ctx, actionset);
 
-  const result = validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects, routesTo });
+  const result = validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects });
   if (!result.ok) return res.status(400).json({ error: 'Validation failed', ...result });
 
   appendAction(actionsetPath, { name, comment, body: result.body });
@@ -265,11 +265,11 @@ router.post('/action', h((req, res) => {
 }));
 
 router.put('/action', h((req, res) => {
-  const { scenario, actionset, originalName, name, comment, roles, info, preconditions, utility, content, effects, routesTo } = req.body;
+  const { scenario, actionset, originalName, name, comment, roles, info, preconditions, utility, content, effects } = req.body;
   const ctx = loadScenarioContext(scenario);
   const actionsetPath = requireActionsetPath(ctx, actionset);
 
-  const result = validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects, routesTo });
+  const result = validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects });
   if (!result.ok) return res.status(400).json({ error: 'Validation failed', ...result });
 
   replaceAction(actionsetPath, originalName, { name, comment, body: result.body });

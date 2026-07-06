@@ -22,7 +22,6 @@ export default function EntitySidebar({
   const [newInstance, setNewInstance] = useState('');
   const [renaming, setRenaming] = useState(null);    // { type, name }
   const [renameText, setRenameText] = useState('');
-  const [hover, setHover] = useState(null);          // hovered row key (JS-tracked so it clears reliably)
 
   const toggleType = (type) => setCollapsed(c => ({ ...c, [type]: !c[type] }));
 
@@ -82,21 +81,21 @@ export default function EntitySidebar({
         spellCheck={false}
       />
       <div className="sidebar-hint">click a name to add it to the filter</div>
-      <div className="sidebar-list" onMouseLeave={() => setHover(null)}>
+      <div className="sidebar-list">
         {groups.map(g => {
           const shown = q || !collapsed[g.type];
           return (
             <div key={g.type} className="pred-group">
-              <div className="ent-type-head" onMouseEnter={() => setHover('t:' + g.type)} onMouseLeave={() => setHover(null)}>
+              <div className="ent-type-head">
                 <button className="pred-group-title as-toggle" onClick={() => toggleType(g.type)} title={shown ? 'Collapse' : 'Expand'}>
                   <span className="caret">{shown ? '▾' : '▸'}</span>
                   {g.type} <span className="dim">({g.names.length})</span>
                   {g.privateStore && <span className="ent-badge" title={`private store · ${g.contradictionPolicy}`}>PS</span>}
                   {!g.distinct && <span className="ent-badge dim" title="args may repeat this type">¬distinct</span>}
                 </button>
-                <span className={'ent-type-actions' + (hover === 't:' + g.type ? ' visible' : '')}>
-                  <button className="row-icon" onClick={() => { setHover(null); openEdit(g); }} title="Edit type">✎</button>
-                  <button className="row-icon del" onClick={() => { setHover(null); if (confirm(`Delete entity type "${g.type}" and its ${g.names.length} entit${g.names.length === 1 ? 'y' : 'ies'}?`)) onDeleteType(g.type); }} title="Delete type">×</button>
+                <span className="ent-type-actions">
+                  <button className="row-icon" onClick={() => openEdit(g)} title="Edit type">✎</button>
+                  <button className="row-icon del" onClick={() => { if (confirm(`Delete entity type "${g.type}" and its ${g.names.length} entit${g.names.length === 1 ? 'y' : 'ies'}?`)) onDeleteType(g.type); }} title="Delete type">×</button>
                 </span>
               </div>
 
@@ -111,13 +110,13 @@ export default function EntitySidebar({
                         onBlur={submitRename} spellCheck={false}
                       />
                     ) : (
-                      <div key={n} className="ent-instance" onMouseEnter={() => setHover('i:' + g.type + ':' + n)} onMouseLeave={() => setHover(null)}>
+                      <div key={n} className="ent-instance">
                         <button className="pred-insert" onMouseDown={e => { e.preventDefault(); onPick(n); }} title={`Add ${n} to the filter`}>
                           <span className="pred-name">{n}</span>
                         </button>
-                        <span className={'ent-inst-actions' + (hover === 'i:' + g.type + ':' + n ? ' visible' : '')}>
-                          <button className="row-icon" onClick={() => { setHover(null); setRenaming({ type: g.type, name: n }); setRenameText(n); }} title="Rename">✎</button>
-                          <button className="row-icon del" onClick={() => { setHover(null); onDeleteInstance(g.type, n); }} title="Delete entity">×</button>
+                        <span className="ent-inst-actions">
+                          <button className="row-icon" onClick={() => { setRenaming({ type: g.type, name: n }); setRenameText(n); }} title="Rename">✎</button>
+                          <button className="row-icon del" onClick={() => onDeleteInstance(g.type, n)} title="Delete entity">×</button>
                         </span>
                       </div>
                     )

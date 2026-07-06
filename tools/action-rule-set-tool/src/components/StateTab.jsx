@@ -33,6 +33,16 @@ function matchesPattern(fact, pat) {
   });
 }
 
+// The tier whose half-open range [lo, hi) contains value, or null if the
+// predicate has no tiers or the value falls in a gap between them.
+function tierLabel(predDef, value) {
+  if (!predDef?.tierRanges || value == null) return null;
+  for (const [name, [lo, hi]] of Object.entries(predDef.tierRanges)) {
+    if (value >= lo && value < hi) return name;
+  }
+  return null;
+}
+
 export default function StateTab({ scenario, data, highlighter, entityTypes = [], onEntityTypesChanged, onEntityOp }) {
   const insert = useInsert();
   const inputRef = useRef(null);
@@ -121,6 +131,11 @@ export default function StateTab({ scenario, data, highlighter, entityTypes = []
     [facts],
   );
 
+  const predsByName = useMemo(
+    () => new Map((data?.predicates ?? []).map(p => [p.name, p])),
+    [data],
+  );
+
   // Client-side filtering of the loaded facts. `pred(a, b, …)` is a positional
   // pattern (`_`/`?var` = any); otherwise the comma/space-separated tokens must
   // all appear (predicate name, an argument, or the owner).
@@ -207,7 +222,7 @@ export default function StateTab({ scenario, data, highlighter, entityTypes = []
         {loading && <div className="dim">Loading…</div>}
         {!loading && isServerQuery && query && <QueryResults query={query} />}
         {!loading && isServerQuery && !query && <div className="dim">Press <b>Run</b> (or Enter) to evaluate the query.</div>}
-        {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} onDelete={removeFact} scenario={scenario} />}
+        {!loading && !isServerQuery && <FactList facts={sortedFacts} total={facts.length} highlighter={highlighter} onDelete={removeFact} scenario={scenario} predsByName={predsByName} />}
       </div>
       </div>
 
@@ -225,7 +240,7 @@ export default function StateTab({ scenario, data, highlighter, entityTypes = []
   );
 }
 
-function FactList({ facts, total, highlighter, onDelete, scenario }) {
+function FactList({ facts, total, highlighter, onDelete, scenario, predsByName }) {
   if (facts.length === 0) return <div className="dim">No matching facts <span className="dim">({total} total)</span>.</div>;
   return (
     <>
@@ -237,6 +252,7 @@ function FactList({ facts, total, highlighter, onDelete, scenario }) {
             <FactRow
               key={`${f.owner}:${f.name}:${f.args.join(',')}:${i}`}
               fact={f} scenario={scenario} highlighter={highlighter} onDelete={onDelete}
+              predDef={predsByName.get(f.name)}
             />
           ))}
         </tbody>
@@ -247,13 +263,14 @@ function FactList({ facts, total, highlighter, onDelete, scenario }) {
 
 // A fact row that expands on click to show its provenance (the immediate reason
 // it holds), with an "Explain" button for the full recursive justification.
-function FactRow({ fact, scenario, highlighter, onDelete }) {
+function FactRow({ fact, scenario, highlighter, onDelete, predDef }) {
   const [open, setOpen] = useState(false);
   const [why, setWhy] = useState(null);         // { supported, proof|message } — immediate
   const [explain, setExplain] = useState(null); // { supported, proof|message } — full tree
   const [busy, setBusy] = useState(false);
 
   const ref = { name: fact.name, args: fact.args, owner: fact.owner };
+  const tier = tierLabel(predDef, fact.value);
 
   const toggle = async () => {
     const next = !open;
@@ -286,7 +303,10 @@ function FactRow({ fact, scenario, highlighter, onDelete }) {
             highlighter={highlighter} className="fact-code"
           />
         </td>
-        <td className="num">{fact.value ?? ''}</td>
+        <td className="num">
+          {fact.value ?? ''}
+          {tier && <span className="value-tier">{tier}</span>}
+        </td>
         <td className="num">{fact.tick ?? ''}</td>
         <td className="fact-actions" onClick={e => e.stopPropagation()}>
           {fact.active ? '' : <span className="dim">retracted</span>}

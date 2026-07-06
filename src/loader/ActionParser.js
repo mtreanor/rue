@@ -106,16 +106,9 @@ class ActionDSLParser extends DSLParser {
     const effects = [];
     if (this.check('IDENT', 'effects')) {
       this.advance();
-      while (!this.check('EOF') && !this.check('IDENT', 'action') && !this.check('IDENT', 'actionset') && !this.check('IDENT', 'routes-to')) {
+      while (!this.check('EOF') && !this.check('IDENT', 'action') && !this.check('IDENT', 'actionset')) {
         effects.push(this.parseStateOperation());
       }
-    }
-
-    let routesTo = null;
-    if (this.check('IDENT', 'routes-to')) {
-      this.advance();
-      this.expect('COLON');
-      routesTo = this.expect('IDENT').value;
     }
 
     const result = { name, effects };
@@ -124,7 +117,6 @@ class ActionDSLParser extends DSLParser {
     if (preconditions.length > 0)  result.preconditions  = preconditions;
     if (utilitySources.length > 0) result.utilitySources = utilitySources;
     if (content !== null)          result.content        = content;
-    if (routesTo !== null)         result.routesTo       = routesTo;
     return result;
   }
 

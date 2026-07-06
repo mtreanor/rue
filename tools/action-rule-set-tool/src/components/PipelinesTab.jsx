@@ -7,6 +7,7 @@ const CENTER_H     = 64;    // height of the stage name / actionset section
 const HOOK_LINE_H  = 17;    // px per hook chip (font-size 11 * line-height ~1.4 + gap 2)
 const HOOK_PAD     = 6;     // top+bottom padding of each hook section (matches CSS padding: 6px 10px)
 const HOOK_EMPTY_H = 26;    // height of an empty hook section (matches CSS min-height: 26px)
+const ACTION_LINE_H = 18;   // px per action-route row
 const COL_STEP     = BOX_W + 28;
 const ROW_GAP      = 48;    // vertical gap between bottom of one node and top of next
 const OX           = 24;
@@ -18,9 +19,70 @@ function hookSecH(hooks) {
   return HOOK_PAD + hooks.length * HOOK_LINE_H + HOOK_PAD;
 }
 
-// Total height of a full stage node (pre + center + post).
-function nodeH(stage) {
-  return hookSecH(stage?.preHooks) + CENTER_H + hookSecH(stage?.postHooks);
+// The actions of the stage's own actionset, or [] if it has none registered.
+function actionsForStage(stage, actionsets = []) {
+  return actionsets.find(a => a.name === stage?.actionset)?.actions ?? [];
+}
+
+// Every distinct role name (bare, no leading '?') declared across every
+// action in the scenario — the swap-roles picker's option list, since a
+// binding variable worth swapping is, in practice, one some action declares
+// as a role.
+function collectRoleNames(actionsets = []) {
+  const names = new Set();
+  for (const as of actionsets) {
+    for (const action of as.actions ?? []) {
+      for (const role of action.roles ?? []) {
+        const name = role.variable?.replace(/^\?/, '');
+        if (name) names.add(name);
+      }
+    }
+  }
+  return [...names].sort();
+}
+
+// An action's routing target: its own actionRoutes entry when perActionRouting
+// is on and non-blank, else the stage's own routesTo default — mirrors
+// Stage.routeFor in the engine. Either may be a single stage name, `end`, or
+// an array of several (fan-out, same as the stage-level default supports).
+function resolvedRouteFor(stage, actionName) {
+  const own = stage.actionRoutes?.[actionName];
+  return isBlank(own) ? (stage.routesTo ?? null) : own;
+}
+
+function isBlank(target) {
+  return target == null || target === '' || (Array.isArray(target) && target.length === 0);
+}
+
+// The real (non-`end`) stage names an action's resolved route points to.
+function targetStageNames(stage, actionName) {
+  return [].concat(resolvedRouteFor(stage, actionName) ?? []).filter(t => t && t !== 'end');
+}
+
+// Human-readable label for an action's resolved route, or null when terminal
+// (no route, or every entry is `end`).
+function targetLabel(stage, actionName) {
+  const names = targetStageNames(stage, actionName);
+  return names.length > 0 ? names.join(', ') : null;
+}
+
+// Height of the per-action routing section — only present when the stage has
+// opted into perActionRouting; one row per action in its actionset.
+function actionsSecH(stage, actionsets) {
+  if (!stage?.perActionRouting) return 0;
+  const actions = actionsForStage(stage, actionsets);
+  return actions.length === 0 ? HOOK_EMPTY_H : HOOK_PAD + actions.length * ACTION_LINE_H + HOOK_PAD;
+}
+
+// Total height of a full stage node (pre + center + actions + post).
+function nodeH(stage, actionsets) {
+  return hookSecH(stage?.preHooks) + CENTER_H + actionsSecH(stage, actionsets) + hookSecH(stage?.postHooks);
+}
+
+// Vertical center (relative to the node's top) of the Nth action-route row —
+// used to anchor that action's own outgoing arrow.
+function actionRowCenterY(stage, index) {
+  return hookSecH(stage.preHooks) + CENTER_H + hookSecH(stage.postHooks) + HOOK_PAD + index * ACTION_LINE_H + ACTION_LINE_H / 2;
 }
 
 // Human-readable label for one hook entry, emphasising the ruleset name.
@@ -38,7 +100,7 @@ function hookLabel(h) {
 // row[n] = BFS depth (vertical); col[n] = sibling order (horizontal).
 // countPerRow[r] = how many stages are at depth r (used for centering).
 // yOf[r] = canvas y for the top of row r (accounts for variable node heights).
-function computeLayout(entry, stages = {}) {
+function computeLayout(entry, stages = {}, actionsets = []) {
   const names  = Object.keys(stages);
   const rowOf  = {};
   const visited = new Set();
@@ -50,7 +112,7 @@ function computeLayout(entry, stages = {}) {
       if (visited.has(name)) continue;
       visited.add(name);
       rowOf[name] = depth;
-      for (const t of routeTargets(stages[name])) {
+      for (const t of routeTargets(stages[name], actionsets)) {
         if (stages[t] && !visited.has(t)) queue.push([t, depth + 1]);
       }
     }
@@ -74,7 +136,7 @@ function computeLayout(entry, stages = {}) {
   const rowMaxH = {};
   for (const n of names) {
     const r = rowOf[n];
-    const h = nodeH(stages[n]);
+    const h = nodeH(stages[n], actionsets);
     rowMaxH[r] = Math.max(rowMaxH[r] ?? 0, h);
   }
   const maxRow = names.length > 0 ? Math.max(...names.map(n => rowOf[n])) : 0;
@@ -89,7 +151,18 @@ function computeLayout(entry, stages = {}) {
   return { col: colOf, row: rowOf, countPerRow: colCount, yOf, totalH };
 }
 
-function routeTargets(stage) {
+// Distinct stage names this stage can route to — the stage default under
+// plain routing, or the union of every action's resolved target under
+// perActionRouting. Used for graph layout (BFS depth); arrow drawing itself
+// (StageGraph) needs the per-action detail this collapses away.
+function routeTargets(stage, actionsets = []) {
+  if (stage?.perActionRouting) {
+    const targets = new Set();
+    for (const action of actionsForStage(stage, actionsets)) {
+      for (const t of targetStageNames(stage, action.name)) targets.add(t);
+    }
+    return [...targets];
+  }
   if (!stage?.routesTo) return [];
   return [].concat(stage.routesTo).filter(t => t !== 'end');
 }
@@ -107,8 +180,26 @@ function vBezier(x1, y1, x2, y2) {
   return `M ${x1} ${y1} C ${x1} ${y1 + cp} ${x2} ${y2 - cp} ${x2} ${y2}`;
 }
 
+// A role-variable picker for swap-roles — options are every role name actually
+// declared across the scenario's actions (collectRoleNames), so picking is by
+// selection rather than free-typing a name that has to match a binding exactly.
+// The current value is kept as an extra option if it doesn't match any known
+// role, so a hand-authored or since-renamed role isn't silently discarded.
+function RoleSelect({ value, options, onChange }) {
+  return (
+    <select className="hook-role-select" value={value} onChange={e => onChange(e.target.value)}>
+      <option value="">— role —</option>
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+      {options.map(r => <option key={r} value={r}>{r}</option>)}
+    </select>
+  );
+}
+
 // ── HooksEditor ───────────────────────────────────────────────────────────────
-function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true }) {
+// Each hook is two stacked rows — type + move/remove controls, then the
+// type-specific fields — so every field gets the panel's full width instead of
+// several controls squeezed onto one line.
+function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true, roleOptions = [] }) {
   function add() { onChange([...hooks, { type: 'ruleset-single', name: '' }]); }
 
   function update(i, patch) {
@@ -133,15 +224,23 @@ function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true }
       {hooks.length === 0 && <div className="hooks-empty dim">none</div>}
       {hooks.map((h, i) => (
         <div key={i} className="hook-row">
-          <select className="hook-type" value={h.type} onChange={e => changeType(i, e.target.value)}>
-            <option value="ruleset-single">single</option>
-            <option value="ruleset-fixpoint">fixpoint</option>
-            {allowSwapRoles && <option value="swap-roles">swap-roles</option>}
-          </select>
+          <div className="hook-row-head">
+            <select className="hook-type" value={h.type} onChange={e => changeType(i, e.target.value)}>
+              <option value="ruleset-single">single</option>
+              <option value="ruleset-fixpoint">fixpoint</option>
+              {allowSwapRoles && <option value="swap-roles">swap-roles</option>}
+            </select>
+            <div className="hook-btns">
+              <button className="btn tiny" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
+              <button className="btn tiny" onClick={() => move(i, 1)} disabled={i === hooks.length - 1}>↓</button>
+              <button className="btn tiny" onClick={() => remove(i)}>×</button>
+            </div>
+          </div>
           {h.type === 'swap-roles' ? (
             <div className="hook-swap-pair">
-              <input placeholder="role A" value={h.roles?.[0] ?? ''} onChange={e => update(i, { roles: [e.target.value, h.roles?.[1] ?? ''] })} />
-              <input placeholder="role B" value={h.roles?.[1] ?? ''} onChange={e => update(i, { roles: [h.roles?.[0] ?? '', e.target.value] })} />
+              <RoleSelect value={h.roles?.[0] ?? ''} options={roleOptions} onChange={v => update(i, { roles: [v, h.roles?.[1] ?? ''] })} />
+              <span className="dim hook-swap-arrow">↔</span>
+              <RoleSelect value={h.roles?.[1] ?? ''} options={roleOptions} onChange={v => update(i, { roles: [h.roles?.[0] ?? '', v] })} />
             </div>
           ) : (
             <div className="hook-name-row">
@@ -161,11 +260,6 @@ function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true }
               )}
             </div>
           )}
-          <div className="hook-btns">
-            <button className="btn tiny" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
-            <button className="btn tiny" onClick={() => move(i, 1)} disabled={i === hooks.length - 1}>↓</button>
-            <button className="btn tiny" onClick={() => remove(i)}>×</button>
-          </div>
         </div>
       ))}
       <button className="btn ghost hooks-add" onClick={add}>+ {label.toLowerCase()}</button>
@@ -174,7 +268,11 @@ function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true }
 }
 
 // ── RoutesToEditor ────────────────────────────────────────────────────────────
-function RoutesToEditor({ value, stages, onChange }) {
+// Reusable checkbox-list route picker: a stage name or two supports fan-out
+// (pooled candidates across every checked stage) same as `end`. Used both for
+// a stage's own "Routes to" default and, per action, in ActionRoutesPanel —
+// same interface, same multi-select semantics, either place a route is picked.
+function RoutesToEditor({ value, stages, onChange, blankHint = 'Unchecked = terminate pipeline' }) {
   const current = value === null ? [] : [].concat(value);
   function toggle(target) {
     const next = current.includes(target) ? current.filter(t => t !== target) : [...current, target];
@@ -192,13 +290,54 @@ function RoutesToEditor({ value, stages, onChange }) {
           <code>{s}</code>
         </label>
       ))}
-      {current.length === 0 && <div className="dim routes-to-hint">Unchecked = terminate pipeline</div>}
+      {current.length === 0 && <div className="dim routes-to-hint">{blankHint}</div>}
+    </div>
+  );
+}
+
+// ── ActionRoutesPanel — right-panel editor for a stage's per-action routing ──
+// Only reachable when the stage has perActionRouting on. Lists every action in
+// the stage's own actionset, each with its own RoutesToEditor — the exact same
+// multi-select interface as the stage's own "Routes to" field, so an action
+// can fan out to several stages just like a stage can. Blank (nothing
+// checked) falls back to the stage's own "Routes to" default.
+function ActionRoutesPanel({ stageName, stage, pipelineData, onChange, actionsets }) {
+  const actions = actionsForStage(stage, actionsets);
+  const otherStages = Object.keys(pipelineData.stages ?? {}).filter(n => n !== stageName);
+  const routes = stage.actionRoutes ?? {};
+
+  function setRoute(actionName, value) {
+    onChange({ ...routes, [actionName]: value });
+  }
+
+  return (
+    <div className="pipeline-detail">
+      <div className="detail-header">
+        <span className="pipeline-settings-title">Per-action routing</span>
+        <span className="dim" style={{ fontSize: 12, marginLeft: 4 }}>{stageName}</span>
+      </div>
+      <div className="detail-fields">
+        {actions.length === 0 && (
+          <div className="dim">No actions in {stage.actionset ?? 'this actionset'}.</div>
+        )}
+        {actions.map(a => (
+          <div key={a.name} className="detail-field stacked">
+            <span>{a.name}</span>
+            <RoutesToEditor
+              value={routes[a.name] ?? null}
+              stages={otherStages}
+              onChange={v => setRoute(a.name, v)}
+              blankHint={`Blank falls back to this stage's own "Routes to" default.`}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 // ── HooksPanel — right-panel editor for pre or post hooks ─────────────────────
-function HooksPanel({ stageName, label, hooks, onChange, rulesets }) {
+function HooksPanel({ stageName, label, hooks, onChange, rulesets, roleOptions }) {
   return (
     <div className="pipeline-detail">
       <div className="detail-header">
@@ -206,7 +345,7 @@ function HooksPanel({ stageName, label, hooks, onChange, rulesets }) {
         <span className="dim" style={{ fontSize: 12, marginLeft: 4 }}>{stageName}</span>
       </div>
       <div className="detail-fields">
-        <HooksEditor label={label} hooks={hooks} onChange={onChange} rulesets={rulesets} />
+        <HooksEditor label={label} hooks={hooks} onChange={onChange} rulesets={rulesets} roleOptions={roleOptions} />
       </div>
     </div>
   );
@@ -251,13 +390,23 @@ function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDele
         </div>
 
         <div className="detail-field stacked">
-          <span>Routes to</span>
+          <span>Routes to <em>{stage.perActionRouting ? '(default for actions with no override)' : ''}</em></span>
           <RoutesToEditor
             value={stage.routesTo ?? null}
             stages={otherStages}
             onChange={v => onUpdate({ routesTo: v })}
           />
         </div>
+
+        <label className="ent-check" title={stage.routing === 'collect' ? 'a collect stage routes via its own routesTo, not per action' : ''}>
+          <input
+            type="checkbox"
+            checked={!!stage.perActionRouting}
+            disabled={stage.routing === 'collect'}
+            onChange={e => onUpdate({ perActionRouting: e.target.checked })}
+          />
+          Per-action routing <span className="dim">— override the route per action; click the stage's actions section to edit</span>
+        </label>
 
         <hr className="detail-section-divider" />
 
@@ -294,8 +443,9 @@ function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDele
 
 // ── PipelineSettings ──────────────────────────────────────────────────────────
 function PipelineSettings({ pipelineData, onUpdate, onEntryChange, data }) {
-  const rulesets = (data?.rulesets ?? []).map(r => r.name);
-  const stages   = Object.keys(pipelineData.stages ?? {});
+  const rulesets    = (data?.rulesets ?? []).map(r => r.name);
+  const roleOptions = collectRoleNames(data?.actionsets ?? []);
+  const stages      = Object.keys(pipelineData.stages ?? {});
   return (
     <div className="pipeline-detail">
       <div className="detail-header">
@@ -317,8 +467,8 @@ function PipelineSettings({ pipelineData, onUpdate, onEntryChange, data }) {
             <option value="random">random</option>
           </select>
         </div>
-        <HooksEditor label="Pre-hooks"  hooks={pipelineData.preHooks  ?? []} onChange={v => onUpdate({ preHooks:  v })} rulesets={rulesets} />
-        <HooksEditor label="Post-hooks" hooks={pipelineData.postHooks ?? []} onChange={v => onUpdate({ postHooks: v })} rulesets={rulesets} />
+        <HooksEditor label="Pre-hooks"  hooks={pipelineData.preHooks  ?? []} onChange={v => onUpdate({ preHooks:  v })} rulesets={rulesets} roleOptions={roleOptions} />
+        <HooksEditor label="Post-hooks" hooks={pipelineData.postHooks ?? []} onChange={v => onUpdate({ postHooks: v })} rulesets={rulesets} roleOptions={roleOptions} />
 
         <div className="detail-field">
           <span>Notes</span>
@@ -336,11 +486,13 @@ function PipelineSettings({ pipelineData, onUpdate, onEntryChange, data }) {
 }
 
 // ── StageNode ─────────────────────────────────────────────────────────────────
-// Three-section box: clickable pre-hooks / stage / post-hooks.
-// `selected` is the section that's currently active: 'stage' | 'pre' | 'post' | null.
-function StageNode({ name, stage, isEntry, selected, x, y, onSelect }) {
+// Clickable sections: pre-hooks / stage / post-hooks, plus a per-action routing
+// list at the bottom when the stage has opted into it.
+// `selected` is the section that's currently active: 'stage' | 'pre' | 'post' | 'actions' | null.
+function StageNode({ name, stage, isEntry, selected, x, y, onSelect, actionsets }) {
   const preHooks  = stage.preHooks  ?? [];
   const postHooks = stage.postHooks ?? [];
+  const actions   = stage.perActionRouting ? actionsForStage(stage, actionsets) : [];
   const anySelected = selected !== null;
 
   return (
@@ -356,7 +508,12 @@ function StageNode({ name, stage, isEntry, selected, x, y, onSelect }) {
       >
         {preHooks.length === 0
           ? <span className="hook-section-label">pre-hooks</span>
-          : preHooks.map((h, i) => <div key={i} className="hook-chip">{hookLabel(h)}</div>)
+          : (
+              <>
+                <span className="hook-phase-badge">PRE</span>
+                {preHooks.map((h, i) => <div key={i} className="hook-chip">{hookLabel(h)}</div>)}
+              </>
+            )
         }
       </div>
 
@@ -383,36 +540,89 @@ function StageNode({ name, stage, isEntry, selected, x, y, onSelect }) {
       >
         {postHooks.length === 0
           ? <span className="hook-section-label">post-hooks</span>
-          : postHooks.map((h, i) => <div key={i} className="hook-chip">{hookLabel(h)}</div>)
+          : (
+              <>
+                <span className="hook-phase-badge">POST</span>
+                {postHooks.map((h, i) => <div key={i} className="hook-chip">{hookLabel(h)}</div>)}
+              </>
+            )
         }
       </div>
+
+      {/* Per-action routing section — only when the stage has opted in */}
+      {stage.perActionRouting && (
+        <div
+          className={'stage-section stage-actions' + (selected === 'actions' ? ' section-active' : '')}
+          onClick={e => { e.stopPropagation(); onSelect('actions'); }}
+          title="Per-action routing — click to edit"
+        >
+          {actions.length === 0
+            ? <span className="hook-section-label">no actions in {stage.actionset ?? 'this actionset'}</span>
+            : actions.map(a => {
+                const label = targetLabel(stage, a.name);
+                const isDefault = isBlank(stage.actionRoutes?.[a.name]);
+                const targetText = label ? `→ ${label}` : '— terminal —';
+                return (
+                  <div key={a.name} className="action-route-row">
+                    <span className="action-route-name" title={a.name}>{a.name}</span>
+                    <span className={'action-route-target' + (isDefault ? ' is-default' : '')} title={targetText}>
+                      {targetText}
+                    </span>
+                  </div>
+                );
+              })
+          }
+        </div>
+      )}
     </div>
   );
 }
 
 // ── StageGraph ────────────────────────────────────────────────────────────────
-function StageGraph({ pipelineData, selected, onSelect }) {
+function StageGraph({ pipelineData, selected, onSelect, actionsets = [] }) {
   const { entry, stages = {} } = pipelineData;
   const names = Object.keys(stages);
-  const { col, row, countPerRow, yOf, totalH } = computeLayout(entry, stages);
+  const { col, row, countPerRow, yOf, totalH } = computeLayout(entry, stages, actionsets);
 
   const maxCount = Math.max(...Object.values(countPerRow), 1);
   const sx = (n) => OX + (maxCount - (countPerRow[row[n]] ?? 1)) * COL_STEP / 2 + col[n] * COL_STEP;
 
   const W = OX * 2 + maxCount * COL_STEP - (COL_STEP - BOX_W);
 
-  // Arrows connect bottom of source node to top of target node.
+  // Arrows connect a source point to the top of the target node. A
+  // perActionRouting stage draws one arrow per action, from that action's own
+  // row — dashed when the action has no override and is merely following the
+  // stage default. Otherwise there's a single arrow per stage-level route,
+  // from the bottom of the box, as before.
   const arrows = [];
   for (const [srcName, stage] of Object.entries(stages)) {
-    for (const tgtName of routeTargets(stage)) {
-      if (!stages[tgtName]) continue;
-      arrows.push({
-        key:  `${srcName}→${tgtName}`,
-        x1:   sx(srcName) + BOX_W / 2,
-        y1:   yOf[row[srcName]] + nodeH(stage),
-        x2:   sx(tgtName) + BOX_W / 2,
-        y2:   yOf[row[tgtName]],
+    if (stage.perActionRouting) {
+      actionsForStage(stage, actionsets).forEach((action, i) => {
+        const isDefault = isBlank(stage.actionRoutes?.[action.name]);
+        for (const tgtName of targetStageNames(stage, action.name)) {
+          if (!stages[tgtName]) continue;
+          arrows.push({
+            key:     `${srcName}:${action.name}→${tgtName}`,
+            x1:      sx(srcName) + BOX_W,
+            y1:      yOf[row[srcName]] + actionRowCenterY(stage, i),
+            x2:      sx(tgtName) + BOX_W / 2,
+            y2:      yOf[row[tgtName]],
+            label:   action.name,
+            dashed:  isDefault,
+          });
+        }
       });
+    } else {
+      for (const tgtName of routeTargets(stage, actionsets)) {
+        if (!stages[tgtName]) continue;
+        arrows.push({
+          key: `${srcName}→${tgtName}`,
+          x1:  sx(srcName) + BOX_W / 2,
+          y1:  yOf[row[srcName]] + nodeH(stage, actionsets),
+          x2:  sx(tgtName) + BOX_W / 2,
+          y2:  yOf[row[tgtName]],
+        });
+      }
     }
   }
 
@@ -443,7 +653,8 @@ function StageGraph({ pipelineData, selected, onSelect }) {
         {arrows.map(a => (
           <path key={a.key}
             d={vBezier(a.x1, a.y1, a.x2, a.y2)}
-            stroke="var(--border)" strokeWidth="1.5" fill="none" markerEnd="url(#pl-arr)" />
+            stroke="var(--border)" strokeWidth="1.5" fill="none" markerEnd="url(#pl-arr)"
+            strokeDasharray={a.dashed ? '4 3' : undefined} />
         ))}
       </svg>
 
@@ -457,6 +668,7 @@ function StageGraph({ pipelineData, selected, onSelect }) {
           x={sx(n)}
           y={yOf[row[n]]}
           onSelect={(section) => onSelect(n, section)}
+          actionsets={actionsets}
         />
       ))}
     </div>
@@ -536,14 +748,17 @@ export default function PipelinesTab({ scenario, data }) {
   // Mutation helpers.
   function patch(update) { userEdit.current = true; setLocalData(d => ({ ...d, ...update })); }
 
-  // Changing entry: remove the new entry from every stage's routesTo to prevent
-  // accidental cycles (the new entry should have no incoming edges).
+  // Changing entry: remove the new entry from every stage's routesTo (and any
+  // per-action routes) to prevent accidental cycles (the new entry should have
+  // no incoming edges).
   function changeEntry(newEntry) {
     userEdit.current = true;
     setLocalData(d => {
       const stages = {};
       for (const [k, v] of Object.entries(d.stages)) {
-        stages[k] = newEntry ? { ...v, routesTo: removeFromRoute(v.routesTo, newEntry) } : v;
+        stages[k] = newEntry
+          ? { ...v, routesTo: removeFromRoute(v.routesTo, newEntry), actionRoutes: removeFromActionRoutes(v.actionRoutes, newEntry) }
+          : v;
       }
       return { ...d, entry: newEntry, stages };
     });
@@ -562,7 +777,14 @@ export default function PipelinesTab({ scenario, data }) {
     userEdit.current = true;
     setLocalData(d => ({
       ...d,
-      stages: { ...d.stages, [n]: { actionset: null, routing: 'branch', routesTo: null, primingRules: [], preHooks: [], postHooks: [], salienceFloor: 0, selectionStrategy: null } },
+      stages: {
+        ...d.stages,
+        [n]: {
+          actionset: null, routing: 'branch', routesTo: null,
+          perActionRouting: false, actionRoutes: {},
+          primingRules: [], preHooks: [], postHooks: [], salienceFloor: 0, selectionStrategy: null,
+        },
+      },
       entry: d.entry ?? n,
     }));
     setSelected({ name: n, section: 'stage' });
@@ -576,7 +798,11 @@ export default function PipelinesTab({ scenario, data }) {
       const stages = {};
       for (const [k, v] of Object.entries(d.stages)) {
         const key = k === oldName ? newName : k;
-        stages[key] = { ...v, routesTo: rewriteRoute(v.routesTo, oldName, newName) };
+        stages[key] = {
+          ...v,
+          routesTo: rewriteRoute(v.routesTo, oldName, newName),
+          actionRoutes: rewriteActionRoutes(v.actionRoutes, oldName, newName),
+        };
       }
       return { ...d, entry: d.entry === oldName ? newName : d.entry, stages };
     });
@@ -590,7 +816,11 @@ export default function PipelinesTab({ scenario, data }) {
       const stages = { ...d.stages };
       delete stages[name];
       for (const [k, v] of Object.entries(stages)) {
-        stages[k] = { ...v, routesTo: removeFromRoute(v.routesTo, name) };
+        stages[k] = {
+          ...v,
+          routesTo: removeFromRoute(v.routesTo, name),
+          actionRoutes: removeFromActionRoutes(v.actionRoutes, name),
+        };
       }
       return { ...d, entry: d.entry === name ? null : d.entry, stages };
     });
@@ -603,7 +833,8 @@ export default function PipelinesTab({ scenario, data }) {
     setSelected(s => (s?.name === name && s?.section === section) ? null : { name, section });
   }
 
-  const rulesets = (data?.rulesets ?? []).map(r => r.name);
+  const rulesets    = (data?.rulesets ?? []).map(r => r.name);
+  const roleOptions = collectRoleNames(data?.actionsets ?? []);
 
   return (
     <div className="pipeline-tab">
@@ -630,7 +861,7 @@ export default function PipelinesTab({ scenario, data }) {
         <div className="pipeline-main">
           <div className="pipeline-canvas-wrap">
             <div className="pipeline-canvas-scroll">
-              <StageGraph pipelineData={localData} selected={selected} onSelect={handleSelect} />
+              <StageGraph pipelineData={localData} selected={selected} onSelect={handleSelect} actionsets={data?.actionsets ?? []} />
             </div>
             <button className="btn primary stage-add-pin" onClick={addStage}>+ stage</button>
           </div>
@@ -657,6 +888,7 @@ export default function PipelinesTab({ scenario, data }) {
                 hooks={localData.stages[selected.name].preHooks ?? []}
                 onChange={v => patchStage(selected.name, { preHooks: v })}
                 rulesets={rulesets}
+                roleOptions={roleOptions}
               />
             )}
             {selected?.section === 'post' && localData.stages[selected.name] && (
@@ -667,6 +899,17 @@ export default function PipelinesTab({ scenario, data }) {
                 hooks={localData.stages[selected.name].postHooks ?? []}
                 onChange={v => patchStage(selected.name, { postHooks: v })}
                 rulesets={rulesets}
+                roleOptions={roleOptions}
+              />
+            )}
+            {selected?.section === 'actions' && localData.stages[selected.name] && (
+              <ActionRoutesPanel
+                key={selected.name + '/actions'}
+                stageName={selected.name}
+                stage={localData.stages[selected.name]}
+                pipelineData={localData}
+                onChange={v => patchStage(selected.name, { actionRoutes: v })}
+                actionsets={data?.actionsets ?? []}
               />
             )}
           </div>
@@ -695,4 +938,20 @@ function removeFromRoute(routesTo, name) {
     return next.length === 0 ? null : next.length === 1 ? next[0] : next;
   }
   return routesTo;
+}
+
+// Same rewrite/remove treatment as routesTo, applied per entry of a stage's
+// actionRoutes map (each entry is a single target: a stage name or 'end').
+function rewriteActionRoutes(actionRoutes, oldName, newName) {
+  if (!actionRoutes) return actionRoutes;
+  return Object.fromEntries(
+    Object.entries(actionRoutes).map(([action, target]) => [action, rewriteRoute(target, oldName, newName)]),
+  );
+}
+
+function removeFromActionRoutes(actionRoutes, name) {
+  if (!actionRoutes) return actionRoutes;
+  return Object.fromEntries(
+    Object.entries(actionRoutes).map(([action, target]) => [action, removeFromRoute(target, name)]),
+  );
 }

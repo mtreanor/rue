@@ -148,7 +148,6 @@ export function loadActionsets(ctx) {
         roleCount: parsed ? (parsed.roles?.length ?? 0) : null,
         preconditionCount: parsed ? (parsed.preconditions?.length ?? 0) : null,
         effectCount: parsed ? (parsed.effects?.length ?? 0) : null,
-        routesTo: parsed?.routesTo ?? null,
         roles: parsed?.roles ?? [],
         sections: splitActionSections(b.bodyText),
         parsed,

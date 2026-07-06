@@ -44,7 +44,6 @@ export class ActionLoader {
       effects,
       utilitySources,
       content,
-      routesTo: data.routesTo ?? null,
     });
   }
 
