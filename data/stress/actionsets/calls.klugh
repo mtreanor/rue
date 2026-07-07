@@ -1,0 +1,22 @@
+# Tier 2 — whom to call on, having decided to go visiting.
+#
+# call-on routes onward to the receptions stage (leap 2 of 2); the calls
+# stage's swap-roles postHook flips ?SELF and ?OTHER so the *host* is ?SELF
+# when the receptions stage scores — the visit hands the turn to the person
+# receiving it. send-word is the terminal fallback for an agent with nobody
+# warm enough to visit (the stage's salienceFloor culls cold calls).
+
+action "call-on"
+  roles: ?SELF: agent, ?OTHER: agent
+  preconditions
+    knows(?SELF, ?OTHER)
+    ^ not feuding(?SELF, ?OTHER)
+  utility
+    call-warmth(?SELF, ?OTHER)
+  content text: "?SELF calls on ?OTHER"
+
+action "send-word"
+  roles: ?SELF: agent
+  utility
+    0.75
+  content text: "?SELF sends word around instead of visiting"

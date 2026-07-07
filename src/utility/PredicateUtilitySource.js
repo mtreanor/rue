@@ -20,6 +20,19 @@ export class PredicateUtilitySource {
     return evaluationContext.scopedToStore(store);
   }
 
+  // The private-store owner this source reads from, resolved against the
+  // binding — or null when it reads the world store. Exposed in the breakdown
+  // so a consumer asking "explain this number" (e.g. PredicateView's onExplain)
+  // scopes the query to the same store the value actually came from, rather
+  // than silently checking the world's copy of a same-named fact.
+  _resolveOwnerName(binding, evaluationContext) {
+    if (!this.owner) return null;
+    const resolved = this.owner instanceof LogicalVariable ? binding.resolve(this.owner) : this.owner;
+    if (resolved == null) return null;
+    const ownerName = toFactArg(resolved);
+    return evaluationContext.privateStores?.get(ownerName) ? ownerName : null;
+  }
+
   evaluate(binding, _entityRegistry, evaluationContext) {
     const numericHandler = evaluationContext.getHandler('numeric');
     if (!numericHandler) return 0;
@@ -41,6 +54,7 @@ export class PredicateUtilitySource {
     const ctx = this._resolveContext(binding, evaluationContext);
     const value       = numericHandler.getValue(this.name, resolvedArgs, ctx);
     const numericRecord = numericHandler.getRecord(this.name, resolvedArgs);
-    return { type: 'predicate', name: this.name, args: resolvedArgs, value, numericRecord, score: value };
+    const owner = this._resolveOwnerName(binding, evaluationContext);
+    return { type: 'predicate', name: this.name, args: resolvedArgs, value, numericRecord, owner, score: value };
   }
 }

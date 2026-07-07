@@ -1,6 +1,7 @@
 import { Binding } from '../Binding.js';
 import { LogicalVariable } from '../LogicalVariable.js';
 import { selectCandidates } from './SelectionStrategy.js';
+import { NULL_RECORDER } from './TraceRecorder.js';
 
 // The reserved terminal route. Used as a stage's `routesTo` (or, under
 // perActionRouting, an action's own entry) to opt out of the default route
@@ -8,40 +9,84 @@ import { selectCandidates } from './SelectionStrategy.js';
 // name — no stage may be called "end".
 export const TERMINAL = 'end';
 
+// The runner's core is a generator that yields a SelectionRequest at every
+// point a winner must be picked — stage selection and pooled-route selection
+// both funnel through the same yield. A driver answers each yield with
+// { winners, source }:
+//
+//   run()            — the sync driver; always answers with defaultWinners
+//                      (what selectCandidates picks). Identical behavior to
+//                      the pre-generator runner; no caller changes.
+//   runInteractive() — the async driver; consults a `decide` callback per
+//                      request. decide may return a subset of
+//                      request.candidates (a player's choice — the Play tool's
+//                      mechanism), or null/undefined to accept the default.
+//                      Returning [] is a legitimate choice: no winner executes.
+//
+// A SelectionRequest:
+//   {
+//     kind: 'selection',
+//     pipeline:       pipeline name,
+//     stageNames:     the stage(s) whose candidates pooled (several = fan-out),
+//     binding:        the Binding the stages scored against,
+//     candidates:     every scored candidate — belowFloor entries included,
+//                     flagged; only eligible (non-belowFloor) ones may win,
+//     strategy:       the selection strategy that produced defaultWinners,
+//     defaultWinners: what the engine would pick unaided,
+//   }
+//
+// The authored selectionStrategy is never overwritten by interactive play —
+// it still computes defaultWinners; a decide callback substitutes the outcome
+// for one firing only.
 export class PipelineRunner {
   constructor(engine) {
     this.engine = engine;
   }
 
-  run(pipeline, initialBinding = {}) {
+  run(pipeline, initialBinding = {}, { recorder = NULL_RECORDER } = {}) {
+    const generator = this._runGenerator(pipeline, initialBinding, recorder);
+    let step = generator.next();
+    while (!step.done) {
+      step = generator.next({ winners: step.value.defaultWinners, source: 'engine' });
+    }
+  }
+
+  async runInteractive(pipeline, initialBinding = {}, { recorder = NULL_RECORDER, decide = null } = {}) {
+    const generator = this._runGenerator(pipeline, initialBinding, recorder);
+    let step = generator.next();
+    while (!step.done) {
+      const request = step.value;
+      const chosen  = decide ? await decide(request) : null;
+      step = generator.next(chosen != null
+        ? { winners: chosen, source: 'player' }
+        : { winners: request.defaultWinners, source: 'engine' });
+    }
+  }
+
+  *_runGenerator(pipeline, initialBinding, recorder) {
     if (pipeline.stages[TERMINAL]) {
       throw new Error(`Pipeline "${pipeline.name}": "${TERMINAL}" is a reserved terminal route and cannot be a stage name`);
     }
     const binding = this.engine.resolveBinding(initialBinding);
-    this._runHooks(pipeline.preHooks, binding);
-    this._runStage(pipeline, pipeline.entry, binding);
+    recorder.pipelineStarted(pipeline.name, binding);
+    this._runHooks(pipeline.preHooks, binding, 'pipeline-pre', recorder);
+    yield* this._runStage(pipeline, pipeline.entry, binding, recorder);
+    recorder.pipelineFinished();
   }
 
   // Runs one stage from scratch: preHooks → priming rules → score → select → route.
   // Routing depends on the stage's discipline:
   //   'branch'  — each winner executes and follows the stage's routeFor().
   //   'collect' — the whole winning group executes, then the stage routes once.
-  _runStage(pipeline, stageName, binding) {
+  *_runStage(pipeline, stageName, binding, recorder) {
     const stage = pipeline.stages[stageName];
     if (!stage) throw new Error(`Pipeline "${pipeline.name}": stage "${stageName}" not found`);
 
-    const stageBinding = this._runHooks(stage.preHooks, binding);
-    // A previous stage may have mutated the world; drop stale derived-fact caches
-    // so this stage's priming rules and scoring see current derivations.
-    this._freshDerivations();
-    this._runHooks(stage.primingRules, stageBinding);
+    recorder.evaluationStarted([stageName], binding, false);
+    const { stageBinding, eligible } = this._evaluateStage(pipeline, stage, stageName, binding, recorder);
 
     const strategy = stage.selectionStrategy ?? pipeline.selectionStrategy ?? 'highestUtility';
-    const floor    = stage.salienceFloor ?? 0;
-
-    const candidates = this.engine.scoreActionset(stage.actionset, this._toPartial(stageBinding))
-      .filter(c => c.score >= floor);
-    const winners = selectCandidates(candidates, strategy, this.engine);
+    const winners  = yield* this._select(eligible, strategy, { pipeline, stageNames: [stageName], binding: stageBinding }, recorder);
 
     if (stage.routing === 'collect') {
       // Execute the whole group, settle once, then advance the stage once. The
@@ -50,21 +95,27 @@ export class PipelineRunner {
       // carry a binding onward). perActionRouting can't be enabled on a collect
       // stage (Stage's constructor rejects it), so routing here is always the
       // stage's own routesTo.
-      for (const winner of winners) this.engine.execute(winner);
-      const outBinding = this._runHooks(stage.postHooks, stageBinding);
+      for (const winner of winners) {
+        const actionRecord = this.engine.execute(winner);
+        recorder.winnerExecuted(winner, stageName, actionRecord, null);
+        recorder.winnerFinished();
+      }
+      const outBinding = this._runHooks(stage.postHooks, stageBinding, 'stage-post', recorder);
       const route = stage.routesTo === TERMINAL ? null : stage.routesTo;
+      recorder.collectRouted(stageName, route ? [].concat(route) : []);
       if (route) {
         for (const childName of [].concat(route)) {
-          this._runStage(pipeline, childName, outBinding);
+          yield* this._runStage(pipeline, childName, outBinding, recorder);
         }
       } else {
-        this._runHooks(pipeline.postHooks, outBinding); // terminal group
+        this._runHooks(pipeline.postHooks, outBinding, 'pipeline-post', recorder); // terminal group
       }
     } else {
       for (const winner of winners) {
-        this._commitAndRoute(pipeline, stageName, winner);
+        yield* this._commitAndRoute(pipeline, winner._stageName ?? stageName, winner, recorder);
       }
     }
+    recorder.evaluationFinished();
   }
 
   // Executes a selected candidate, fires postHooks, then either routes to child
@@ -80,39 +131,39 @@ export class PipelineRunner {
   // winner per call) — the 'collect' path in _runStage can execute several
   // winners at once, so "the" occurrence minted isn't well-defined there and
   // is deliberately not attempted.
-  _commitAndRoute(pipeline, stageName, candidate) {
+  *_commitAndRoute(pipeline, stageName, candidate, recorder) {
     const stage = pipeline.stages[stageName];
 
-    const seqBefore = this.engine.world.occurrenceSeq ?? 0;
-    this.engine.execute(candidate);
-    const minted = this._mintedOccurrence(seqBefore);
+    const seqBefore    = this.engine.world.occurrenceSeq ?? 0;
+    const actionRecord = this.engine.execute(candidate);
+    const minted       = this._mintedOccurrence(seqBefore);
+    recorder.winnerExecuted(candidate, stageName, actionRecord, minted != null ? (minted.name ?? String(minted)) : null);
+
     const bindingForHooks = minted != null
       ? candidate.binding.extend(new LogicalVariable('occ'), minted)
       : candidate.binding;
 
-    const outBinding = this._runHooks(stage.postHooks, bindingForHooks);
+    const outBinding = this._runHooks(stage.postHooks, bindingForHooks, 'stage-post', recorder);
 
     const resolved = stage.routeFor(candidate.action.name);
     const route    = resolved === TERMINAL ? null : resolved;
+    recorder.routeResolved(stageName, candidate.action.name, route ? [].concat(route) : []);
 
     if (route) {
       const childStageNames = [].concat(route);
-      const pool = [];
 
       // Executing the candidate may have changed the world; drop stale derived
       // caches before the child stages score against it.
       this._freshDerivations();
 
+      recorder.evaluationStarted(childStageNames, outBinding, childStageNames.length > 1);
+
+      const pool = [];
       for (const childStageName of childStageNames) {
         const childStage = pipeline.stages[childStageName];
         if (!childStage) throw new Error(`Pipeline "${pipeline.name}": stage "${childStageName}" not found (routed from "${candidate.action.name}")`);
-
-        const childBinding = this._runHooks(childStage.preHooks, outBinding);
-        this._runHooks(childStage.primingRules, childBinding);
-
-        const childCandidates = this.engine.scoreActionset(childStage.actionset, this._toPartial(childBinding))
-          .filter(c => c.score >= (childStage.salienceFloor ?? 0));
-        pool.push(...childCandidates.map(c => ({ ...c, _stageName: childStageName })));
+        const { eligible } = this._evaluateStage(pipeline, childStage, childStageName, outBinding, recorder);
+        pool.push(...eligible);
       }
 
       // Each stage's own candidates come back sorted highest-score-first, but
@@ -129,13 +180,59 @@ export class PipelineRunner {
         ? (pipeline.stages[childStageNames[0]].selectionStrategy ?? pipeline.selectionStrategy ?? 'highestUtility')
         : (pipeline.selectionStrategy ?? 'highestUtility');
 
-      const childWinners = selectCandidates(pool, childStrategy, this.engine);
+      const childWinners = yield* this._select(pool, childStrategy, { pipeline, stageNames: childStageNames, binding: outBinding }, recorder);
       for (const childWinner of childWinners) {
-        this._commitAndRoute(pipeline, childWinner._stageName, childWinner);
+        yield* this._commitAndRoute(pipeline, childWinner._stageName, childWinner, recorder);
       }
+      recorder.evaluationFinished();
     } else {
-      this._runHooks(pipeline.postHooks, outBinding);
+      this._runHooks(pipeline.postHooks, outBinding, 'pipeline-post', recorder);
     }
+    recorder.winnerFinished();
+  }
+
+  // One stage's evaluation: preHooks → derived-cache refresh → priming rules →
+  // score. Returns every candidate — the eligible ones (score ≥ salienceFloor,
+  // tagged with their stage for pooled selection) plus below-floor ones, which
+  // are recorded for inspection but can never win.
+  _evaluateStage(pipeline, stage, stageName, binding, recorder) {
+    recorder.stageEvaluationStarted(stageName, binding);
+    const stageBinding = this._runHooks(stage.preHooks, binding, 'stage-pre', recorder);
+    // A previous stage may have mutated the world; drop stale derived-fact caches
+    // so this stage's priming rules and scoring see current derivations.
+    this._freshDerivations();
+    this._runHooks(stage.primingRules, stageBinding, 'priming', recorder);
+
+    const floor      = stage.salienceFloor ?? 0;
+    const scored     = this.engine.scoreActionset(stage.actionset, this._toPartial(stageBinding));
+    const candidates = scored.map(c => ({ ...c, _stageName: stageName, belowFloor: c.score < floor }));
+    recorder.stageScored(stageName, candidates, floor);
+
+    return { stageBinding, eligible: candidates.filter(c => !c.belowFloor) };
+  }
+
+  // Yields the SelectionRequest and applies the driver's answer. An empty pool
+  // never yields — there is nothing to decide — but the (empty) selection is
+  // still recorded so the trace shows the stage came up dry.
+  *_select(pool, strategy, { pipeline, stageNames, binding }, recorder) {
+    const defaultWinners = selectCandidates(pool, strategy, this.engine);
+    let winners = defaultWinners;
+    let source  = 'engine';
+    if (pool.length > 0) {
+      const outcome = yield {
+        kind:       'selection',
+        pipeline:   pipeline.name,
+        stageNames,
+        binding,
+        candidates: pool,
+        strategy,
+        defaultWinners,
+      };
+      winners = outcome.winners;
+      source  = outcome.source;
+    }
+    recorder.selectionMade(winners, strategy, source);
+    return winners;
   }
 
   // Invalidate derived-fact caches. The derived query handler caches per tick on
@@ -144,18 +241,6 @@ export class PipelineRunner {
   // stage is about to score against a world a prior stage may have changed.
   _freshDerivations() {
     this.engine.world.queryHandlers.getHandler('derived')?.clearCache();
-  }
-
-  // Runs a named ruleset single-pass, scoped to the given binding — delegates
-  // to Engine.runRulesetSingle (which itself delegates to World.applyOnce),
-  // so this is a thin adapter rather than a separate evaluation path. Used
-  // for 'ruleset-single' hooks and stage primingRules entries: the only safe
-  // mechanism for +=/-= accumulation into ephemeral numerics, since a
-  // fixpoint pass (runRulesetFixpoint) keeps re-firing a satisfiable
-  // accumulating rule every pass, driving the value to its min/max clamp
-  // instead of applying once.
-  _runRulesetSingle(rulesetName, binding) {
-    this.engine.runRulesetSingle(rulesetName, { startingBinding: this._toPartial(binding) });
   }
 
   // Which occurrence (if any) the action just executed just minted, as an
@@ -169,22 +254,26 @@ export class PipelineRunner {
   }
 
   // Runs a hook array in order, threading the binding through any hooks that
-  // transform it (swap-roles). Returns the final binding.
-  _runHooks(hooks, binding) {
+  // transform it (swap-roles). Returns the final binding. Each hook's firing
+  // (or its `requires`-skip) is reported to the recorder under the boundary's
+  // scope label.
+  _runHooks(hooks, binding, scope, recorder) {
     let current = binding;
     for (const hook of hooks) {
-      const next = this._applyHook(hook, current);
+      const next = this._applyHook(hook, current, scope, recorder);
       if (next != null) current = next;
     }
     return current;
   }
 
-  _applyHook(hook, binding) {
+  _applyHook(hook, binding, scope, recorder) {
     if (hook.type === 'ruleset-fixpoint' || hook.type === 'ruleset-single') {
-      return this._applyRulesetHook(hook, binding);
+      return this._applyRulesetHook(hook, binding, scope, recorder);
     }
     if (hook.type === 'swap-roles') {
-      return this._swapRoles(hook.roles, binding);
+      const swapped = this._swapRoles(hook.roles, binding);
+      recorder.hookRan(scope, hook, { skipped: false, applications: [], bindingAfter: swapped });
+      return swapped;
     }
     throw new Error(`Unknown hook type: "${hook.type}"`);
   }
@@ -201,23 +290,24 @@ export class PipelineRunner {
   // distinct from whatever's already bound, breaking rules meant to apply
   // globally); 'ruleset-single' uses the whole incoming binding (e.g. the
   // self-state-rules preHook, scoped to ?SELF via the pipeline's own binding).
-  _applyRulesetHook(hook, binding) {
+  _applyRulesetHook(hook, binding, scope, recorder) {
     if (hook.requires) {
       const missing = hook.requires.some(name => !binding.isBound(new LogicalVariable(name)));
-      if (missing) return null;
-      const startingBinding = this._pick(binding, hook.requires);
-      if (hook.type === 'ruleset-fixpoint') {
-        this.engine.runRulesetFixpoint(hook.name, { startingBinding });
-      } else {
-        this.engine.runRulesetSingle(hook.name, { startingBinding });
+      if (missing) {
+        recorder.hookRan(scope, hook, { skipped: true, applications: [] });
+        return null;
       }
+      const startingBinding = this._pick(binding, hook.requires);
+      const applications = hook.type === 'ruleset-fixpoint'
+        ? this.engine.runRulesetFixpoint(hook.name, { startingBinding })
+        : this.engine.runRulesetSingle(hook.name, { startingBinding });
+      recorder.hookRan(scope, hook, { skipped: false, applications });
       return null;
     }
-    if (hook.type === 'ruleset-fixpoint') {
-      this.engine.runRulesetFixpoint(hook.name);
-    } else {
-      this._runRulesetSingle(hook.name, binding);
-    }
+    const applications = hook.type === 'ruleset-fixpoint'
+      ? this.engine.runRulesetFixpoint(hook.name)
+      : this.engine.runRulesetSingle(hook.name, { startingBinding: this._toPartial(binding) });
+    recorder.hookRan(scope, hook, { skipped: false, applications });
     return null;
   }
 

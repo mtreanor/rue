@@ -301,6 +301,62 @@ A candidate can match several result bindings and so participate in several grou
 
 ---
 
+## Tracing and interactive runs
+
+A run can be observed and driven from outside without touching the authored
+data. Both features hang off the same internal seam: the runner's core is a
+generator that pauses at every selection point (stage selection and
+pooled-route selection alike).
+
+**Tracing** — pass a `TraceRecorder` to retain the decision process the run
+otherwise discards: every candidate each stage considered (losers and
+below-salience-floor entries included, flagged), each candidate's utility
+breakdown, every hook and priming pass's `RuleApplication`s, each winner's
+route and minted occurrence. The recorder's tree mirrors the run's recursion
+(evaluations → winners → child evaluations); `serializePipelineTrace` /
+`serializeTickTrace` turn it into self-contained JSON, expanding each numeric
+utility leaf into its full event history (delta, resulting value, and the
+rule or action that made each adjustment, with that firing's premises).
+
+```javascript
+const recorder = new TraceRecorder();
+runner.run(pipeline, { SELF: 'alice' }, { recorder });
+const json = serializePipelineTrace(recorder.trace);
+```
+
+**Interactive runs** — `runInteractive` consults an async `decide` callback at
+each selection point. It receives `{ pipeline, stageNames, binding,
+candidates, strategy, defaultWinners }` and may return a subset of
+`candidates` to force (a player's choice — `[]` means no winner executes), a
+promise of one (suspending the run until it resolves), or `null` to accept
+the engine's default. The authored `selectionStrategy` still computes
+`defaultWinners` every time; `decide` substitutes the outcome for one firing
+only.
+
+**TickLoop** — declarative per-tick orchestration (which pipeline runs per
+entity, which consequence rulesets fire between phases), so a generic host
+can run a scenario's tick from config instead of scenario-specific driver
+code. Returns a per-tick trace covering every entity's pipeline run and every
+ruleset phase's firings.
+
+```javascript
+const loop = new TickLoop(engine, { day: dayPipeline }, {
+  entityType: 'agent',
+  phases: [
+    { pipeline: 'day', role: 'SELF' },      // once per agent
+    { ruleset: 'day-consequences' },        // fixpoint, once per tick
+  ],
+});
+const tickTrace = await loop.runTick({ decide });
+```
+
+The action-rule-set-tool's **Play** tab is the reference host: it steps a
+scenario's TickLoop against a live engine, renders the full trace, and routes
+selection points matching its player-control config through the suspended
+`decide` path.
+
+---
+
 ## API
 
 | Call | Description |
@@ -309,7 +365,11 @@ A candidate can match several result bindings and so participate in several grou
 | `new Stage({ primingRules, actionset, salienceFloor, selectionStrategy, routing, routesTo, perActionRouting, actionRoutes, preHooks, postHooks })` | Builds one stage. `actionset` and `routing` are required; `routing` is `'branch'` or `'collect'`. `routesTo` (a stage name or array) is the route in `collect`, and the default route in `branch`. `perActionRouting` (only valid with `routing: 'branch'`) opts the stage into per-action routes, read from `actionRoutes` (`{ actionName: stageName \| 'end' }`); an action absent from the map falls back to `routesTo`. `primingRules`, `preHooks`, and `postHooks` are hook arrays. |
 | `stage.routeFor(actionName)` | The resolved route for a winning action — its own `actionRoutes` entry when `perActionRouting` is on and set, else `routesTo`. What the runner calls internally; useful for inspecting a stage's effective routing. |
 | `new PipelineRunner(engine)` | Wraps an engine for execution. |
-| `runner.run(pipeline, initialBinding)` | Runs the pipeline from its entry stage with the given starting binding (e.g. `{ SELF: 'alice' }`). |
+| `runner.run(pipeline, initialBinding, { recorder }?)` | Runs the pipeline from its entry stage with the given starting binding (e.g. `{ SELF: 'alice' }`). Synchronous; the engine's selection strategy decides every winner. |
+| `runner.runInteractive(pipeline, initialBinding, { recorder, decide }?)` | Async variant; `decide(request)` may force winners, suspend on a promise, or return `null` for the default. |
+| `new TickLoop(engine, pipelines, { entityType, phases })` | Declarative tick orchestration; `loop.runTick({ decide }?)` returns a TickTrace. |
+| `new TraceRecorder()` / `NULL_RECORDER` | The decision-trace recorder and its no-op default. |
+| `serializePipelineTrace(trace)` / `serializeTickTrace(tickTrace)` | Trace tree → self-contained JSON (breakdowns, numeric histories, rule firings rendered). |
 | `selectCandidates(candidates, strategy, engine?)` | The selection primitive. `engine` is required only for the pattern form of `groupBy`. |
 
 See [Actions](actions.md) for how candidates are scored, [Rules](rules.md) for ruleset semantics, and [Action records](action-records.md) for the breakdowns a stage's scoring produces.

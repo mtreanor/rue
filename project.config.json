@@ -2,9 +2,9 @@
   "active": "demo",
   "scenarios": {
     "landing-page-demo": {
-      "predicates":  "data/landing-page-demo/predicates.json",
-      "entities":    "data/landing-page-demo/entities.json",
-      "state":       "data/landing-page-demo/state",
+      "predicates": "data/landing-page-demo/predicates.json",
+      "entities": "data/landing-page-demo/entities.json",
+      "state": "data/landing-page-demo/state",
       "definitions": "data/landing-page-demo/definitions",
       "rulesets": {
         "main": "data/landing-page-demo/rules"
@@ -14,29 +14,67 @@
       }
     },
     "quickstart": {
-      "predicates":  "data/quickstart/predicates.json",
-      "entities":    "data/quickstart/entities.json",
-      "state":       "data/quickstart/state",
+      "predicates": "data/quickstart/predicates.json",
+      "entities": "data/quickstart/entities.json",
+      "state": "data/quickstart/state",
       "actionsets": {
         "social": "data/quickstart/actions"
       }
     },
     "demo": {
-      "predicates":  "data/demo-volition/predicates.json",
-      "entities":    "data/demo-volition/entities.json",
-      "state":       "data/demo-volition/state",
+      "predicates": "data/demo-volition/predicates.json",
+      "entities": "data/demo-volition/entities.json",
+      "state": "data/demo-volition/state",
       "definitions": "data/demo-volition/definitions"
     },
     "stress": {
-      "predicates":  "data/stress/predicates.json",
-      "entities":    "data/stress/entities.json",
-      "state":       "data/stress/state",
+      "predicates": "data/stress/predicates.json",
+      "entities": "data/stress/entities.json",
+      "state": "data/stress/state",
       "definitions": "data/stress/definitions",
       "rulesets": {
-        "main": "data/stress/rules"
+        "main": "data/stress/rules",
+        "day-mode-rules": "data/stress/rulesets/day-mode-rules.klugh",
+        "call-rules": "data/stress/rulesets/call-rules.klugh",
+        "reception-rules": "data/stress/rulesets/reception-rules.klugh",
+        "confront-rules": "data/stress/rulesets/confront-rules.klugh",
+        "scheme-rules": "data/stress/rulesets/scheme-rules.klugh",
+        "visit-consequences": "data/stress/rulesets/visit-consequences.klugh",
+        "day-consequences": "data/stress/rulesets/day-consequences.klugh",
+        "reaction-rules": "data/stress/rulesets/reaction-rules.klugh"
       },
       "actionsets": {
-        "social": "data/stress/actions"
+        "social": "data/stress/actions",
+        "day-modes": "data/stress/actionsets/day-modes.klugh",
+        "calls": "data/stress/actionsets/calls.klugh",
+        "receptions": "data/stress/actionsets/receptions.klugh",
+        "confrontations": "data/stress/actionsets/confrontations.klugh",
+        "schemes": "data/stress/actionsets/schemes.klugh",
+        "reactions": "data/stress/actionsets/reactions.klugh"
+      },
+      "pipelines": {
+        "day": "data/stress/pipelines/day.json",
+        "react": "data/stress/pipelines/react.json"
+      },
+      "play": {
+        "entityType": "agent",
+        "phases": [
+          {
+            "pipeline": "day",
+            "loop": [
+              "SELF"
+            ]
+          },
+          {
+            "ruleset": "day-consequences"
+          },
+          {
+            "pipeline": "react",
+            "loop": [
+              "SELF"
+            ]
+          }
+        ]
       }
     }
   }

@@ -1,0 +1,67 @@
+# React-pipeline priming — how each witness reads what they saw. Run
+# single-pass, scoped to ?SELF (the witness), once per agent in the react
+# phase. Accumulates read-* numerics keyed by (witness, occurrence); the
+# reactions actionset turns the strongest reading per occurrence into one
+# committed reaction.
+#
+# This is the attribution machinery in miniature: the same act weighs
+# differently per witness, because these rules read the witness's own
+# relationships and private store.
+
+# ── kindness readings ────────────────────────────────────────────────────────
+
+rule "a welcome reads as kindness"
+  witnessed(?occ, ?SELF)
+  ^ actionType(?occ, welcome-in)
+  => read-kindness(?SELF, ?occ) += 1
+
+rule "kindness to an outsider counts double"
+  witnessed(?occ, ?SELF)
+  ^ actionType(?occ, welcome-in)
+  ^ role(?occ, OTHER, ?V)
+  ^ outsider(?V)
+  => read-kindness(?SELF, ?occ) += 1.5
+
+# ── affront readings ─────────────────────────────────────────────────────────
+
+rule "being turned away is an affront to oneself"
+  witnessed(?occ, ?SELF)
+  ^ actionType(?occ, turn-away)
+  ^ role(?occ, OTHER, ?SELF)
+  => read-affront(?SELF, ?occ) += 3
+
+rule "an ally turned away is an affront"
+  witnessed(?occ, ?SELF)
+  ^ actionType(?occ, turn-away)
+  ^ role(?occ, OTHER, ?V)
+  ^ closeAllies(?SELF, ?V)
+  => read-affront(?SELF, ?occ) += 2.5
+
+rule "a friend confronted is an affront"
+  witnessed(?occ, ?SELF)
+  ^ actionType(?occ, demand-apology)
+  ^ role(?occ, FOE, ?F)
+  ^ closeAllies(?SELF, ?F)
+  => read-affront(?SELF, ?occ) += 2
+
+rule "being confronted stings"
+  witnessed(?occ, ?SELF)
+  ^ actionType(?occ, demand-apology)
+  ^ role(?occ, FOE, ?SELF)
+  => read-affront(?SELF, ?occ) += 2
+
+# ── slander readings ─────────────────────────────────────────────────────────
+
+rule "gossip about an acquaintance reads as slander"
+  witnessed(?occ, ?SELF)
+  ^ actionType(?occ, spread-gossip)
+  ^ role(?occ, MARK, ?M)
+  ^ knows(?SELF, ?M)
+  => read-slander(?SELF, ?occ) += 2
+
+rule "schadenfreude blunts the offence"
+  witnessed(?occ, ?SELF)
+  ^ actionType(?occ, spread-gossip)
+  ^ role(?occ, MARK, ?M)
+  ^ ?SELF.grudgeAgainst(?SELF, ?M)
+  => read-slander(?SELF, ?occ) -= 1.5

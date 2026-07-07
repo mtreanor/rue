@@ -1,52 +1,98 @@
 {
   "agent": {
     "distinct": true,
-    "mara":  { "privateStore": { "active": true } },
-    "oren":  { "privateStore": { "active": true } },
-    "petra": { "privateStore": { "active": true, "contradictionPolicy": "allow" } },
-    "silas": { "privateStore": { "active": true, "contradictionPolicy": "block" } },
-    "talia": { "privateStore": { "active": true } },
-    "una":   { "privateStore": { "active": true } },
-    "viggo": { "privateStore": { "active": true } },
-    "wren":  { "privateStore": { "active": true } },
-    "yara":  { "privateStore": { "active": true } },
-    "zeke":  {}
+    "mara": {
+      "privateStore": {
+        "active": true
+      }
+    },
+    "oren": {
+      "privateStore": {
+        "active": true
+      }
+    },
+    "petra": {
+      "privateStore": {
+        "active": true,
+        "contradictionPolicy": "allow"
+      }
+    },
+    "silas": {
+      "privateStore": {
+        "active": true,
+        "contradictionPolicy": "block"
+      }
+    },
+    "talia": {
+      "privateStore": {
+        "active": true
+      }
+    },
+    "una": {
+      "privateStore": {
+        "active": true
+      }
+    },
+    "viggo": {
+      "privateStore": {
+        "active": true
+      }
+    },
+    "wren": {
+      "privateStore": {
+        "active": true
+      }
+    },
+    "yara": {
+      "privateStore": {
+        "active": true
+      }
+    },
+    "zeke": {}
   },
   "place": {
     "distinct": false,
     "tavern": {},
     "market": {},
     "chapel": {},
-    "mill":   {}
+    "mill": {}
   },
   "mood": {
     "distinct": false,
-    "content":  {},
-    "anxious":  {},
+    "content": {},
+    "anxious": {},
     "grieving": {},
-    "hopeful":  {}
+    "hopeful": {}
   },
   "craft": {
     "distinct": false,
-    "farming":   {},
-    "smithing":  {},
+    "farming": {},
+    "smithing": {},
     "herbalism": {},
-    "weaving":   {}
+    "weaving": {}
   },
   "item": {
     "heirloomRing": {},
-    "prizeGoat":    {},
-    "ledger":       {}
+    "prizeGoat": {},
+    "ledger": {}
   },
   "pact": {},
   "actionTag": {
     "distinct": false,
-    "prosocial":      {},
-    "antisocial":     {},
+    "prosocial": {},
+    "antisocial": {},
     "reconciliation": {},
-    "aggressive":     {},
-    "economic":       {},
-    "leadership":     {},
-    "private":        {}
+    "aggressive": {},
+    "economic": {},
+    "leadership": {},
+    "private": {}
+  },
+  "occurrence": {},
+  "roleName": {
+    "distinct": true,
+    "SELF": {},
+    "OTHER": {},
+    "MARK": {},
+    "FOE": {}
   }
 }

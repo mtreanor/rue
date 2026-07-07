@@ -1,0 +1,39 @@
+# Tier 1 — how an agent spends the day. The pipeline's entry actionset.
+#
+# Routing (declared in pipelines/day.json, not here — actions are plain
+# scoreable units):
+#   keep-to-yourself → end            (explicit terminal)
+#   tend-your-work   → end            (terminal, with effects)
+#   go-visiting      → calls          (leap 1 of 2)
+#   settle-scores    → confrontations + schemes   (pooled fan-out)
+#
+# Utilities read the ephemeral mode-* numerics primed by day-mode-rules.
+# keep-to-yourself holds a 1.0 baseline every other mode must beat.
+
+action "keep-to-yourself"
+  roles: ?SELF: agent
+  utility
+    1.0
+  content text: "?SELF keeps to themselves"
+
+action "tend-your-work"
+  roles: ?SELF: agent
+  preconditions
+    worksAt(?SELF, ?P)
+  utility
+    mode-work(?SELF)
+  content text: "?SELF puts in a hard day at the ?P"
+  effects
+    prosperity(?SELF) += 2
+
+action "go-visiting"
+  roles: ?SELF: agent
+  utility
+    mode-visit(?SELF)
+  content text: "?SELF goes visiting"
+
+action "settle-scores"
+  roles: ?SELF: agent
+  utility
+    mode-settle(?SELF)
+  content text: "?SELF sets out to settle a score"

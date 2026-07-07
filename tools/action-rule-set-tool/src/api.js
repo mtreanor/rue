@@ -46,6 +46,25 @@ export const api = {
   editAction: (payload) => req('PUT', '/api/action', payload),
   deleteAction: (payload) => req('DELETE', '/api/action', payload),
 
+  playSession: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/session`).then(r => r.data),
+  playStart: (name, controlled) => req('POST', `/api/play/${encodeURIComponent(name)}/start`, { controlled }).then(r => r.data),
+  playStep: (name) => req('POST', `/api/play/${encodeURIComponent(name)}/step`).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
+  playChoose: (name, indexes) => req('POST', `/api/play/${encodeURIComponent(name)}/choose`, { indexes }).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
+  playConfig: (name, controlled) => req('POST', `/api/play/${encodeURIComponent(name)}/config`, { controlled }).then(r => r.data),
+  playPlan: (name, plan) => req('POST', `/api/play/${encodeURIComponent(name)}/plan`, { plan }).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
+  playTrace: (name, tick) => req('GET', `/api/play/${encodeURIComponent(name)}/trace/${tick}`).then(r => r.data),
+  playReset: (name) => req('POST', `/api/play/${encodeURIComponent(name)}/reset`).then(r => r.data),
+
+  // Play's live state — same shapes as state* below (fact = {name, args, owner?}),
+  // called against the play session's own ticked-forward engine, not state.js's.
+  playFacts: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/facts`).then(r => r.data.facts ?? []),
+  playEntities: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/entities`).then(r => r.data.entities ?? []),
+  playQuery: (name, text, scopedTo = null) => req('POST', `/api/play/${encodeURIComponent(name)}/query`, { text, scopedTo }).then(r => r.data),
+  playAssert: (name, text) => req('POST', `/api/play/${encodeURIComponent(name)}/assert`, { text }).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data.facts ?? []; }),
+  playDelete: (name, fact) => req('POST', `/api/play/${encodeURIComponent(name)}/delete`, fact).then(r => r.data.facts ?? []),
+  playWhy: (name, fact) => req('POST', `/api/play/${encodeURIComponent(name)}/why`, fact).then(r => r.data),
+  playExplain: (name, fact) => req('POST', `/api/play/${encodeURIComponent(name)}/explain`, fact).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
+
   stateFacts: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/facts`).then(r => r.data.facts ?? []),
   stateEntities: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/entities`).then(r => r.data.entities ?? []),
   stateQuery: (name, text, scopedTo = null) => req('POST', `/api/state/${encodeURIComponent(name)}/query`, { text, scopedTo }).then(r => r.data),

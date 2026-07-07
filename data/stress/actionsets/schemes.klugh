@@ -1,0 +1,14 @@
+# Tier 2b — the indirect route. Pooled with confrontations.klugh under the
+# settle-scores fan-out.
+
+action "spread-gossip"
+  roles: ?SELF: agent, ?MARK: agent
+  preconditions
+    knows(?SELF, ?MARK)
+  utility
+    urge-scheme(?SELF, ?MARK)
+  content text: "?SELF spreads gossip about ?MARK"
+  effects
+    gossipedAbout(?SELF, ?MARK)
+    reputation(?MARK) -= 3
+    record(?occ)

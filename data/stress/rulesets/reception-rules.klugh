@@ -1,0 +1,31 @@
+# Tier-3 priming for the receptions stage. The calls stage's swap-roles hook
+# has already flipped the binding: ?SELF is the host deciding at the door,
+# ?OTHER the visitor standing on it.
+
+rule "trust opens the door"
+  trust.high(?SELF, ?OTHER)
+  => reception-welcome(?SELF, ?OTHER) += 2.5
+
+rule "a debt of kindness opens it wider"
+  helped(?OTHER, ?SELF) [ever]
+  => reception-welcome(?SELF, ?OTHER) += 1.5
+
+rule "basic hospitality to the familiar"
+  knows(?SELF, ?OTHER)
+  => reception-welcome(?SELF, ?OTHER) += 1
+
+rule "a host who wants visitors"
+  wantsVisitors(?SELF)
+  => reception-welcome(?SELF, ?OTHER) += 1
+
+rule "suspicion bars the door"
+  ?SELF.suspects(?SELF, ?OTHER)
+  => reception-rebuff(?SELF, ?OTHER) += 2
+
+rule "a grudge slams it"
+  ?SELF.grudgeAgainst(?SELF, ?OTHER)
+  => reception-rebuff(?SELF, ?OTHER) += 3
+
+rule "grief wants no company"
+  feels(?SELF, grieving)
+  => reception-rebuff(?SELF, ?OTHER) += 1.5

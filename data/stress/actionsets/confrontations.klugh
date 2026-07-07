@@ -1,0 +1,16 @@
+# Tier 2b — open confrontation. Pooled with schemes.klugh when settle-scores
+# routes: both stages score, the candidates merge, and one winner is picked
+# across the union — so a direct confrontation competes with a whisper
+# campaign on utility alone.
+
+action "demand-apology"
+  roles: ?SELF: agent, ?FOE: agent
+  preconditions
+    oldWound(?SELF, ?FOE)
+  utility
+    urge-confront(?SELF, ?FOE)
+  content text: "?SELF confronts ?FOE and demands an apology"
+  effects
+    tension(?SELF, ?FOE) += 2
+    tension(?FOE, ?SELF) += 2
+    record(?occ)

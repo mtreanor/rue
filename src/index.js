@@ -36,3 +36,7 @@ export { Pipeline } from './pipeline/Pipeline.js';
 export { Stage } from './pipeline/Stage.js';
 export { PipelineRunner, TERMINAL } from './pipeline/PipelineRunner.js';
 export { selectCandidates } from './pipeline/SelectionStrategy.js';
+export { TraceRecorder, NULL_RECORDER } from './pipeline/TraceRecorder.js';
+export { TickLoop } from './pipeline/TickLoop.js';
+export { serializeTickTrace, serializePipelineTrace } from './pipeline/serializeTrace.js';
+export { entryStageRoles, entryStageRolesPlain } from './pipeline/pipelineRoles.js';

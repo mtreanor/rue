@@ -1,0 +1,13 @@
+{
+  "name": "react",
+  "entry": "reactions",
+  "stages": {
+    "reactions": {
+      "actionset": "reactions",
+      "routing": "branch",
+      "primingRules": [{ "type": "ruleset-single", "name": "reaction-rules" }],
+      "salienceFloor": 0.01,
+      "selectionStrategy": { "type": "highestUtility", "groupBy": "occ" }
+    }
+  }
+}

@@ -5,6 +5,7 @@ import ActionsetsTab from './components/ActionsetsTab.jsx';
 import AddActionTab from './components/AddActionTab.jsx';
 import StateTab from './components/StateTab.jsx';
 import PipelinesTab from './components/PipelinesTab.jsx';
+import PlayTab from './components/PlayTab.jsx';
 import PredicateSidebar from './components/PredicateSidebar.jsx';
 import EntitySidebar from './components/EntitySidebar.jsx';
 import { InsertContext } from './InsertContext.js';
@@ -164,6 +165,7 @@ export default function App() {
               <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')} title="Add action" aria-label="Add action">+</button>
             </div>
             <button className={tab === 'pipelines' ? 'active' : ''} onClick={() => goTo('pipelines')}>Pipelines</button>
+            <button className={tab === 'play' ? 'active' : ''} onClick={() => goTo('play')}>Play</button>
           </nav>
           <button
             className={'btn save-file' + (pending.length ? ' dirty' : '')}
@@ -179,6 +181,8 @@ export default function App() {
 
         {tab === 'pipelines' ? (
           <PipelinesTab scenario={scenario} data={data} />
+        ) : tab === 'play' ? (
+          <PlayTab scenario={scenario} highlighter={highlighter} />
         ) : (
           <div className="layout">
             <PredicateSidebar

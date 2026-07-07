@@ -308,12 +308,19 @@ export class Engine {
       const preconditionTypes = this.inferVariableTypes(action.preconditions.map(e => e.predicate));
       const variableTypes     = new Map([...action.roleTypes, ...preconditionTypes]);
 
+      // The evaluation context and precondition entries enable the fact-based
+      // fallback for arg types with no entity registry (e.g. `role`'s open
+      // `entity` slot): when the registry has no entities of a variable's
+      // type, its candidates are drawn from the values actually stored at
+      // that argument position — the same fallback rule evaluation gets.
       const allBindings = freeVars.length > 0
         ? this.ruleEvaluator.generateAllBindings(
             freeVars,
             variableTypes,
             this.world.entityRegistry,
-            actionBinding
+            actionBinding,
+            ctx,
+            action.preconditions
           )
         : [actionBinding];
 

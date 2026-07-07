@@ -1,0 +1,52 @@
+{
+  "name": "day",
+  "entry": "day-modes",
+  "selectionStrategy": "highestUtility",
+  "postHooks": [
+    { "type": "ruleset-fixpoint", "name": "visit-consequences", "requires": ["occ"] }
+  ],
+  "stages": {
+    "day-modes": {
+      "actionset": "day-modes",
+      "routing": "branch",
+      "primingRules": [{ "type": "ruleset-single", "name": "day-mode-rules" }],
+      "perActionRouting": true,
+      "actionRoutes": {
+        "keep-to-yourself": "end",
+        "tend-your-work": "end",
+        "go-visiting": "calls",
+        "settle-scores": ["confrontations", "schemes"]
+      }
+    },
+    "calls": {
+      "actionset": "calls",
+      "routing": "branch",
+      "primingRules": [{ "type": "ruleset-single", "name": "call-rules" }],
+      "salienceFloor": 0.5,
+      "perActionRouting": true,
+      "actionRoutes": {
+        "call-on": "receptions",
+        "send-word": "end"
+      },
+      "postHooks": [{ "type": "swap-roles", "roles": ["SELF", "OTHER"] }]
+    },
+    "receptions": {
+      "actionset": "receptions",
+      "routing": "branch",
+      "primingRules": [{ "type": "ruleset-single", "name": "reception-rules" }],
+      "salienceFloor": 0.25
+    },
+    "confrontations": {
+      "actionset": "confrontations",
+      "routing": "branch",
+      "primingRules": [{ "type": "ruleset-single", "name": "confront-rules" }],
+      "salienceFloor": 0.5
+    },
+    "schemes": {
+      "actionset": "schemes",
+      "routing": "branch",
+      "primingRules": [{ "type": "ruleset-single", "name": "scheme-rules" }],
+      "salienceFloor": 0.5
+    }
+  }
+}

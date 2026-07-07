@@ -1,0 +1,16 @@
+# Priming for the confrontations stage (pooled with schemes under the
+# settle-scores fan-out — each pooled stage runs its own priming ruleset
+# exactly once, so the two must not share one file: a shared ruleset would
+# run twice and double-count).
+
+rule "an unforgiven betrayal demands an answer"
+  oldWound(?SELF, ?FOE)
+  => urge-confront(?SELF, ?FOE) += 3
+
+rule "a grudge sharpens the demand"
+  ?SELF.grudgeAgainst(?SELF, ?FOE)
+  => urge-confront(?SELF, ?FOE) += 1.5
+
+rule "standing tension boils toward words"
+  tension(?SELF, ?FOE) > 5
+  => urge-confront(?SELF, ?FOE) += 1.5

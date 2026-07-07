@@ -1,0 +1,35 @@
+# The react pipeline's single stage: each witness takes at most one reading
+# per witnessed occurrence (selectionStrategy groupBy: occ — one winner per
+# distinct ?occ). Utilities read the ephemeral read-* numerics primed by
+# reaction-rules; the salience floor lets an occurrence go unremarked when
+# nothing about it moved the witness.
+#
+# reactedTo is the consumption marker: a witness reads an occurrence once.
+
+action "resent-conduct"
+  roles: ?SELF: agent, ?occ: occurrence
+  preconditions
+    witnessed(?occ, ?SELF)
+    ^ role(?occ, SELF, ?A)
+    ^ not reactedTo(?SELF, ?occ)
+  utility
+    read-affront(?SELF, ?occ)
+    read-slander(?SELF, ?occ)
+  content text: "?SELF thinks worse of ?A for it"
+  effects
+    trust(?SELF, ?A) -= 3
+    tension(?SELF, ?A) += 1
+    reactedTo(?SELF, ?occ)
+
+action "admire-conduct"
+  roles: ?SELF: agent, ?occ: occurrence
+  preconditions
+    witnessed(?occ, ?SELF)
+    ^ role(?occ, SELF, ?A)
+    ^ not reactedTo(?SELF, ?occ)
+  utility
+    read-kindness(?SELF, ?occ)
+  content text: "?SELF thinks better of ?A for it"
+  effects
+    trust(?SELF, ?A) += 2
+    reactedTo(?SELF, ?occ)

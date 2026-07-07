@@ -1,0 +1,46 @@
+# Tier-1 priming — accumulates the ephemeral mode-* numerics the day-modes
+# actionset reads as utility. Run single-pass, scoped to ?SELF, once per agent
+# per tick (the day pipeline's entry stage primingRules).
+#
+# keep-to-yourself holds a 1.0 baseline in the actionset; every rule here is a
+# reason to beat it.
+
+# ── work ─────────────────────────────────────────────────────────────────────
+
+rule "contentment settles into industry"
+  feels(?SELF, content)
+  => mode-work(?SELF) += 2
+
+rule "poverty demands work"
+  prosperity.poor(?SELF)
+  => mode-work(?SELF) += 3
+
+# ── visiting ─────────────────────────────────────────────────────────────────
+
+rule "hope seeks company"
+  feels(?SELF, hopeful)
+  => mode-visit(?SELF) += 3.5
+
+rule "the well-connected go visiting"
+  |knows(?SELF, _)| >= 5
+  => mode-visit(?SELF) += 2.5
+
+rule "grief keeps one home"
+  feels(?SELF, grieving)
+  => mode-visit(?SELF) -= 2
+
+# ── settling scores ──────────────────────────────────────────────────────────
+# These fire once per matching pair, so an agent with two grievances feels
+# both — accumulation over bindings is the point.
+
+rule "an old wound demands settling"
+  oldWound(?SELF, ?Y)
+  => mode-settle(?SELF) += 2
+
+rule "a nursed grudge wants an outing"
+  ?SELF.grudgeAgainst(?SELF, ?Y)
+  => mode-settle(?SELF) += 1.5
+
+rule "an open feud keeps the blood up"
+  feuding(?SELF, ?Y)
+  => mode-settle(?SELF) += 1.5

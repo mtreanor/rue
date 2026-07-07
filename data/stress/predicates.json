@@ -1,95 +1,611 @@
 {
   "predicates": {
-    "knows":          { "type": "boolean", "symmetric": true, "args": ["agent", "agent"] },
-    "feuding":        { "type": "boolean", "symmetric": true, "args": ["agent", "agent"] },
-    "helped":         { "type": "boolean", "args": ["agent", "agent"] },
-    "betrayed":       { "type": "boolean", "args": ["agent", "agent"] },
-    "apologized":     { "type": "boolean", "args": ["agent", "agent"] },
-    "forgave":        { "type": "boolean", "args": ["agent", "agent"] },
-    "insulted":       { "type": "boolean", "args": ["agent", "agent"] },
-    "gossipedAbout":  { "type": "boolean", "args": ["agent", "agent"] },
-    "feels":          { "type": "boolean", "args": ["agent", "mood"], "singleValued": [1] },
-    "livesAt":        { "type": "boolean", "args": ["agent", "place"] },
-    "worksAt":        { "type": "boolean", "args": ["agent", "place"] },
-    "practices":      { "type": "boolean", "args": ["agent", "craft"] },
-    "owns":           { "type": "boolean", "args": ["agent", "item"] },
-    "covets":         { "type": "boolean", "args": ["agent", "item"] },
-    "hasNeed":        { "type": "boolean", "args": ["agent", "string"] },
-    "canProvide":     { "type": "boolean", "args": ["agent", "string"] },
-    "outsider":       { "type": "boolean", "args": ["agent"] },
-    "wantsVisitors":  { "type": "boolean", "args": ["agent"] },
-    "nominatedElder": { "type": "boolean", "args": ["agent"] },
-    "electedElder":   { "type": "boolean", "args": ["agent"] },
-    "invitedTo":      { "type": "boolean", "args": ["agent", "place"] },
-
-    "suspects":      { "type": "boolean", "args": ["agent", "agent"] },
-    "admires":       { "type": "boolean", "args": ["agent", "agent"] },
-    "grudgeAgainst": { "type": "boolean", "args": ["agent", "agent"] },
-
+    "knows": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "feuding": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "helped": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "betrayed": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "apologized": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "forgave": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "insulted": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "gossipedAbout": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "feels": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "mood"
+      ],
+      "singleValued": [
+        1
+      ]
+    },
+    "livesAt": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "place"
+      ]
+    },
+    "worksAt": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "place"
+      ]
+    },
+    "practices": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "craft"
+      ]
+    },
+    "owns": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "item"
+      ]
+    },
+    "covets": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "item"
+      ]
+    },
+    "hasNeed": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "string"
+      ]
+    },
+    "canProvide": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "string"
+      ]
+    },
+    "outsider": {
+      "type": "boolean",
+      "args": [
+        "agent"
+      ]
+    },
+    "wantsVisitors": {
+      "type": "boolean",
+      "args": [
+        "agent"
+      ]
+    },
+    "nominatedElder": {
+      "type": "boolean",
+      "args": [
+        "agent"
+      ]
+    },
+    "electedElder": {
+      "type": "boolean",
+      "args": [
+        "agent"
+      ]
+    },
+    "invitedTo": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "place"
+      ]
+    },
+    "suspects": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "admires": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "grudgeAgainst": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
     "trust": {
-      "type": "numeric", "args": ["agent", "agent"],
-      "minValue": 0, "maxValue": 100, "default": 50,
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 50,
       "tiers": {
-        "none":    [0,  20],
-        "low":     [20, 40],
-        "mid":     [40, 60],
-        "high":    [60, 80],
-        "devoted": [80, 100]
+        "none": [
+          0,
+          20
+        ],
+        "low": [
+          20,
+          40
+        ],
+        "mid": [
+          40,
+          60
+        ],
+        "high": [
+          60,
+          80
+        ],
+        "devoted": [
+          80,
+          100
+        ]
       }
     },
     "reputation": {
-      "type": "numeric", "args": ["agent"],
-      "minValue": 0, "maxValue": 100, "default": 50,
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 50,
       "tiers": {
-        "pariah":  [0,  25],
-        "dubious": [25, 50],
-        "decent":  [50, 75],
-        "admired": [75, 100]
+        "pariah": [
+          0,
+          25
+        ],
+        "dubious": [
+          25,
+          50
+        ],
+        "decent": [
+          50,
+          75
+        ],
+        "admired": [
+          75,
+          100
+        ]
       }
     },
     "prosperity": {
-      "type": "numeric", "args": ["agent"],
-      "minValue": 0, "maxValue": 100, "default": 30,
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 30,
       "tiers": {
-        "poor":   [0,  35],
-        "stable": [35, 70],
-        "rich":   [70, 100]
+        "poor": [
+          0,
+          35
+        ],
+        "stable": [
+          35,
+          70
+        ],
+        "rich": [
+          70,
+          100
+        ]
       }
     },
-    "tension":  { "type": "numeric", "args": ["agent", "agent"], "minValue": 0, "maxValue": 999, "default": 0 },
-    "goodwill": { "type": "numeric", "args": ["agent", "agent"], "minValue": 0, "maxValue": 999, "default": 0, "annotations": { "ephemeral": true } },
-    "precedence": { "type": "numeric", "args": ["agent", "agent"], "minValue": 0, "maxValue": 999, "default": 0 },
-
-    "near": { "type": "sensor", "args": ["agent", "agent"] },
+    "tension": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0
+    },
+    "goodwill": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "precedence": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0
+    },
+    "near": {
+      "type": "sensor",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
     "distanceTo": {
-      "type": "sensor-numeric", "args": ["agent", "place"],
-      "minValue": 0, "maxValue": 999, "default": 999,
+      "type": "sensor-numeric",
+      "args": [
+        "agent",
+        "place"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 999,
       "tiers": {
-        "close":    [0,  3],
-        "walkable": [3,  10],
-        "far":      [10, 999]
+        "close": [
+          0,
+          3
+        ],
+        "walkable": [
+          3,
+          10
+        ],
+        "far": [
+          10,
+          999
+        ]
       }
     },
-
-    "acquaintedPair":   { "type": "derived", "args": ["agent", "agent"] },
-    "closeAllies":      { "type": "derived", "args": ["agent", "agent"] },
-    "rivals":           { "type": "derived", "args": ["agent", "agent"] },
-    "respectedElder":   { "type": "derived", "args": ["agent"] },
-    "communityPillar":  { "type": "derived", "args": ["agent"] },
-    "mentorFigure":     { "type": "derived", "args": ["agent", "agent"] },
-    "canConsole":       { "type": "derived", "args": ["agent", "agent"] },
-    "oldWound":         { "type": "derived", "args": ["agent", "agent"] },
-    "healedRift":       { "type": "derived", "args": ["agent", "agent"] },
-    "whisperTarget":    { "type": "derived", "args": ["agent"] },
-    "privateEnemy":     { "type": "derived", "args": ["agent", "agent"] },
-    "trustedConfidant": { "type": "derived", "args": ["agent", "agent"] },
-    "companionAtHand":  { "type": "derived", "args": ["agent", "agent"] },
-    "marketRival":      { "type": "derived", "args": ["agent", "agent"] },
-    "kinOf":            { "type": "derived", "args": ["agent", "agent"] },
-
-    "tag":              { "type": "boolean", "args": ["action", "actionTag"] },
-
-    "pactMembers":      { "type": "boolean", "args": ["pact", "agent", "agent"] },
-    "pactBroken":       { "type": "boolean", "args": ["pact"] }
+    "acquaintedPair": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "closeAllies": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "rivals": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "respectedElder": {
+      "type": "derived",
+      "args": [
+        "agent"
+      ]
+    },
+    "communityPillar": {
+      "type": "derived",
+      "args": [
+        "agent"
+      ]
+    },
+    "mentorFigure": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "canConsole": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "oldWound": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "healedRift": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "whisperTarget": {
+      "type": "derived",
+      "args": [
+        "agent"
+      ]
+    },
+    "privateEnemy": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "trustedConfidant": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "companionAtHand": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "marketRival": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "kinOf": {
+      "type": "derived",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "tag": {
+      "type": "boolean",
+      "args": [
+        "action",
+        "actionTag"
+      ]
+    },
+    "pactMembers": {
+      "type": "boolean",
+      "args": [
+        "pact",
+        "agent",
+        "agent"
+      ]
+    },
+    "pactBroken": {
+      "type": "boolean",
+      "args": [
+        "pact"
+      ]
+    },
+    "actionType": {
+      "type": "boolean",
+      "args": [
+        "occurrence",
+        "action"
+      ]
+    },
+    "role": {
+      "type": "boolean",
+      "args": [
+        "occurrence",
+        "roleName",
+        "entity"
+      ]
+    },
+    "witnessed": {
+      "type": "boolean",
+      "args": [
+        "occurrence",
+        "agent"
+      ]
+    },
+    "reactedTo": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "occurrence"
+      ]
+    },
+    "mode-work": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "mode-visit": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "mode-settle": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "call-warmth": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "reception-welcome": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "reception-rebuff": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "urge-confront": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "urge-scheme": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "read-kindness": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "occurrence"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "read-affront": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "occurrence"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "read-slander": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "occurrence"
+      ],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    }
   }
 }

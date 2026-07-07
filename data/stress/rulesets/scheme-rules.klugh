@@ -1,0 +1,14 @@
+# Priming for the schemes stage (pooled with confrontations — see
+# confront-rules.klugh for why the pooled stages keep separate rulesets).
+
+rule "a grudge whispers"
+  ?SELF.grudgeAgainst(?SELF, ?MARK)
+  => urge-scheme(?SELF, ?MARK) += 2
+
+rule "gossip repays gossip"
+  gossipedAbout(?MARK, ?SELF) [ever]
+  => urge-scheme(?SELF, ?MARK) += 2.5
+
+rule "feuds are fought sideways too"
+  feuding(?SELF, ?MARK)
+  => urge-scheme(?SELF, ?MARK) += 1
