@@ -77,15 +77,16 @@ export function renderBlock({ keyword, name, comment, body }) {
   const lines = [];
   if (comment && comment.trim()) {
     for (const line of comment.replace(/\s+$/, '').split('\n')) {
-      lines.push(line.trim() ? `# ${line}` : '#');
+      lines.push(line.trim() ? `  # ${line}` : '  #');
     }
   }
-  lines.push(`${keyword} "${name}"`);
-  // Indent body lines to two spaces if the author didn't already indent.
+  lines.push(`  ${keyword} "${name}"`);
+  // Indent body lines to four spaces if the author didn't already indent.
+  // If they provided their own indentation (starts with space), we shift it right by 2 spaces.
   for (const raw of body.replace(/\s+$/, '').split('\n')) {
     const line = raw.replace(/\s+$/, '');
     if (line === '') { lines.push(''); continue; }
-    lines.push(/^\s/.test(line) ? line : `  ${line}`);
+    lines.push(/^\s/.test(line) ? `  ${line}` : `    ${line}`);
   }
   return lines.join('\n');
 }

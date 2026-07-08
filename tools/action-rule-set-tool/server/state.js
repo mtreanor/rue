@@ -24,7 +24,7 @@ export function getStateEngine(name) {
   const config = loadProjectConfig();
   const scenario = config.scenarios[name];
   if (!scenario) throw new Error(`Unknown scenario "${name}"`);
-  if (!scenario.state) throw new Error(`Scenario "${name}" has no state file to view`);
+  if (typeof scenario !== 'string' && !scenario.state && !scenario.dir) throw new Error(`Scenario "${name}" has no state file to view`);
   const engine = new Engine(resolveScenarioPaths(scenario));
   engines.set(name, engine);
   return engine;

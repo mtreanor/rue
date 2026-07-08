@@ -80,8 +80,9 @@ export function loadProjectConfig() {
 // derived by convention. Each resolved path is redirected through the shadow
 // workspace so edits are staged before "Save to File" writes real files.
 export function resolveScenarioPaths(scenario) {
-  const dir = workingPath(resolve(configDir, typeof scenario === 'string' ? scenario : scenario.dir ?? ''));
-  const rel = (sub) => workingPath(resolve(dir, sub));
+  const realDir = resolve(configDir, typeof scenario === 'string' ? scenario : scenario.dir ?? '');
+  const dir = workingPath(realDir);
+  const rel = (sub) => workingPath(resolve(realDir, sub));
   return {
     dir,
     klughDir:    dir,

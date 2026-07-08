@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, rmSync, statSync, cpSync, readdirSync } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
 import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
@@ -26,32 +26,85 @@ export function workingPath(realPath) {
   let shadow = mirrored.get(abs);
   if (!shadow) { shadow = shadowFor(abs); mirrored.set(abs, shadow); }
   if (!existsSync(shadow) && existsSync(abs)) {
-    mkdirSync(dirname(shadow), { recursive: true });
-    copyFileSync(abs, shadow);
+    if (statSync(abs).isFile()) {
+      mkdirSync(dirname(shadow), { recursive: true });
+      copyFileSync(abs, shadow);
+    } else if (statSync(abs).isDirectory()) {
+      mkdirSync(dirname(shadow), { recursive: true });
+      cpSync(abs, shadow, { recursive: true });
+    }
   }
   return shadow;
 }
 
-const read = (p) => (existsSync(p) ? readFileSync(p, 'utf-8') : null);
+const read = (p) => (existsSync(p) && statSync(p).isFile() ? readFileSync(p, 'utf-8') : null);
 
 // Real paths whose shadow has diverged — the unsaved edits.
 export function pendingChanges() {
   const changed = [];
-  for (const [real, shadow] of mirrored) if (read(shadow) !== read(real)) changed.push(real);
+  
+  function check(real, shadow) {
+    if (existsSync(real) && statSync(real).isDirectory()) {
+      // It's a mirrored directory. Crawl all files recursively.
+      if (!existsSync(shadow)) return;
+      function walk(dirReal, dirShadow) {
+        const items = readdirSync(dirShadow);
+        for (const item of items) {
+          const itemReal = join(dirReal, item);
+          const itemShadow = join(dirShadow, item);
+          if (statSync(itemShadow).isDirectory()) {
+            walk(itemReal, itemShadow);
+          } else {
+            if (read(itemShadow) !== read(itemReal)) changed.push(itemReal);
+          }
+        }
+      }
+      walk(real, shadow);
+    } else {
+      if (read(shadow) !== read(real)) changed.push(real);
+    }
+  }
+
+  for (const [real, shadow] of mirrored) check(real, shadow);
   return changed.sort();
 }
 
-// Flush every diverged shadow file back to its real path. Returns what was saved.
+// Flush every diverged shadow file back to its real  Returns what was saved.
 export function saveToFile() {
   const saved = [];
-  for (const [real, shadow] of mirrored) {
-    const s = read(shadow);
-    if (s !== null && s !== read(real)) {
-      mkdirSync(dirname(real), { recursive: true });
-      writeFileSync(real, s);
-      saved.push(real);
+  
+  function flush(real, shadow) {
+    if (existsSync(real) && statSync(real).isDirectory()) {
+      if (!existsSync(shadow)) return;
+      function walk(dirReal, dirShadow) {
+        const items = readdirSync(dirShadow);
+        for (const item of items) {
+          const itemReal = join(dirReal, item);
+          const itemShadow = join(dirShadow, item);
+          if (statSync(itemShadow).isDirectory()) {
+            walk(itemReal, itemShadow);
+          } else {
+            const s = read(itemShadow);
+            if (s !== null && s !== read(itemReal)) {
+              mkdirSync(dirname(itemReal), { recursive: true });
+              writeFileSync(itemReal, s);
+              saved.push(itemReal);
+            }
+          }
+        }
+      }
+      walk(real, shadow);
+    } else {
+      const s = read(shadow);
+      if (s !== null && s !== read(real)) {
+        mkdirSync(dirname(real), { recursive: true });
+        writeFileSync(real, s);
+        saved.push(real);
+      }
     }
   }
+
+  for (const [real, shadow] of mirrored) flush(real, shadow);
   return saved;
 }
 

@@ -127,16 +127,23 @@ export function validateAction({ ctx, name, comment, roles, info, preconditions,
 
   const loader = new ActionLoader(ctx.schema);
   const body = buildActionBody({ roles, info, preconditions, utility, content, effects });
-  const source = `action ${JSON.stringify(name)}\n${body}`;
+  const actionSource = `action ${JSON.stringify(name)}\n${body}`;
+  const indented = actionSource.split('\n').map(l => `  ${l}`).join('\n');
+  const source = `actionset "_validate_"\n${indented}`;
 
   let parsed;
   try {
     const result = ctx.actionParser.parse(source);
-    if (!result.actions || result.actions.length === 0) {
+    const actions = result.actionsets['_validate_'] ?? [];
+    if (actions.length === 0) {
       errors.push('Could not parse an action from the input.');
       return { ok: false, errors, warnings };
     }
-    parsed = result.actions[0];
+    if (actions.length > 1) {
+      errors.push('Input contains more than one action — add them one at a time.');
+      return { ok: false, errors, warnings };
+    }
+    parsed = actions[0];
   } catch (err) {
     errors.push(`Syntax error: ${err.message}`);
     return { ok: false, errors, warnings };

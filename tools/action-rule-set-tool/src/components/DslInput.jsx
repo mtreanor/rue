@@ -126,6 +126,20 @@ export default function DslInput({
   }
 
   function onKeyDown(e) {
+    if (e.key === 'Tab' && (!open || suggestions.length === 0)) {
+      e.preventDefault();
+      const el = ref.current;
+      if (!el) return;
+      const caret = el.selectionStart;
+      const next = el.value.slice(0, caret) + '  ' + el.value.slice(el.selectionEnd);
+      onChange(next);
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(caret + 2, caret + 2);
+      });
+      return;
+    }
+
     if (!open || suggestions.length === 0) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => (a + 1) % suggestions.length); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => (a - 1 + suggestions.length) % suggestions.length); }

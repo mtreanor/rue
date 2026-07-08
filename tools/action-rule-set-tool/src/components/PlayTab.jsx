@@ -334,6 +334,22 @@ export default function PlayTab({ scenario, highlighter }) {
           <div className="play-plan-head">
             <span className="filter-label" title="Which pipelines/rulesets the next Step tick runs, and in what order">Pipeline plan:</span>
             <button className="btn tiny ghost" onClick={() => applyPlan(null)} disabled={busy}>Reset to configured</button>
+            <button
+              className="btn tiny primary"
+              disabled={busy}
+              title="Save the current plan to play.json (staged — press Save to File to flush)"
+              onClick={() => run(async () => {
+                const phases = (session.activePlan ?? []).map(entry => {
+                  if (entry.pipeline) {
+                    const phase = { pipeline: entry.pipeline, loop: [...(entry.loop ?? [])] };
+                    if (Object.keys(entry.bindings ?? {}).length > 0) phase.bindings = { ...entry.bindings };
+                    return phase;
+                  }
+                  return { ruleset: entry.ruleset, mode: entry.mode };
+                });
+                await api.putPlayConfig(scenario, { entityType: session.entityType, phases });
+              })}
+            >Save</button>
           </div>
           <div className="play-plan-list">
             {(session.activePlan ?? []).map((entry, i) => (
