@@ -22,20 +22,23 @@ export function validateRule({ ctx, name, comment, body, rulesetPath = null, exc
   if (errors.length) return { ok: false, errors, warnings };
 
   const loader = new RuleLoader(ctx.schema);
-  const source = `rule ${JSON.stringify(name)}\n${body}`;
+  const ruleSource = `rule ${JSON.stringify(name)}\n${body}`;
+  const indented = ruleSource.split('\n').map(l => `  ${l}`).join('\n');
+  const source = `ruleset "_validate_"\n${indented}`;
 
   let parsed;
   try {
     const result = ctx.ruleParser.parse(source);
-    if (!result.rules || result.rules.length === 0) {
+    const rules = result.rulesets['_validate_'] ?? [];
+    if (rules.length === 0) {
       errors.push('Could not parse a rule from the input.');
       return { ok: false, errors, warnings };
     }
-    if (result.rules.length > 1) {
+    if (rules.length > 1) {
       errors.push('Input contains more than one rule — add them one at a time.');
       return { ok: false, errors, warnings };
     }
-    parsed = result.rules[0];
+    parsed = rules[0];
   } catch (err) {
     errors.push(`Syntax error: ${err.message}`);
     return { ok: false, errors, warnings };
@@ -80,7 +83,10 @@ function buildExistingRules(ctx, loader, path, excludeName) {
   for (const block of parseRuleBlocks(text)) {
     if (block.name === excludeName) continue;
     try {
-      const { rules: parsed } = ctx.ruleParser.parse(`rule ${JSON.stringify(block.name)}\n${block.bodyText}`);
+      const ruleSource = `rule ${JSON.stringify(block.name)}\n${block.bodyText}`;
+      const indented = ruleSource.split('\n').map(l => `  ${l}`).join('\n');
+      const { rulesets } = ctx.ruleParser.parse(`ruleset "_check_"\n${indented}`);
+      const parsed = rulesets['_check_'] ?? [];
       if (parsed[0]) rules.push(loader.buildRule(parsed[0]));
     } catch {
       // Skip unparsable/unbuildable existing rules.

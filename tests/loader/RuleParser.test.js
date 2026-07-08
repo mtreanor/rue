@@ -5,10 +5,15 @@ import { PredicateSchema } from '../../src/PredicateSchema.js';
 
 const parser = new RuleParser();
 
+function parseRules(src) {
+  const { rulesets } = parser.parse(`ruleset "test"\n${src}`);
+  return rulesets['test'];
+}
+
 describe('RuleParser', () => {
   describe('rules — predicates', () => {
     it('parses a single predicate as type fact by default', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => exploitative(?SELF, ?Y) += 3.0
@@ -18,7 +23,7 @@ describe('RuleParser', () => {
     });
 
     it('parses ^ conjunction into multiple predicates', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           ^ canHaveNeedMet(?SELF, ?Y)
@@ -30,7 +35,7 @@ describe('RuleParser', () => {
     });
 
     it('parses ~ as weak-negation (sugar: absent OR explicitly disbelieved)', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           ~hasNeed(?SELF, _)
           => considerate(?SELF, ?Y) += 1.5
@@ -43,7 +48,7 @@ describe('RuleParser', () => {
     });
 
     it('parses not pred as NAF (absence check)', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           not hasNeed(?SELF, _)
           => considerate(?SELF, ?Y) += 1.5
@@ -56,7 +61,7 @@ describe('RuleParser', () => {
     });
 
     it('parses -pred LHS as explicit-negation (active disbelief present)', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           -hasNeed(?SELF, _)
           => relieved(?SELF) += 1.0
@@ -69,7 +74,7 @@ describe('RuleParser', () => {
     });
 
     it('parses not -pred LHS as not-negated (no explicit disbelief present)', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           not -hasNeed(?SELF, _)
           => uncertain(?SELF) += 1.0
@@ -82,7 +87,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [ever] as a historical-window predicate with no window', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           hadConflict(?SELF, ?Y) [ever]
           => cautious(?SELF, ?Y) += 2.0
@@ -92,7 +97,7 @@ describe('RuleParser', () => {
     });
 
     it('parses dot notation as a numeric-tier predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           friendship.strong(?SELF, ?Y)
           => respectful(?SELF, ?Y) += 3.0
@@ -102,7 +107,7 @@ describe('RuleParser', () => {
     });
 
     it('parses _ as a null wildcard argument', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           hasNeed(?SELF, _)
           => test(?SELF, ?Y) += 1.0
@@ -112,7 +117,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [importance: N] and wraps the predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [importance: 2.0]
           => exploitative(?SELF, ?Y) += 3.0
@@ -125,7 +130,7 @@ describe('RuleParser', () => {
     });
 
     it('leaves predicates without brackets at default importance', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => exploitative(?SELF, ?Y) += 3.0
@@ -139,7 +144,7 @@ describe('RuleParser', () => {
 
   describe('rules — history and temporal predicates', () => {
     it('parses [ever] as a historical-window predicate with no window', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [ever]
           => test(?SELF, ?Y) += 1.0
@@ -151,7 +156,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [asserted-during: N] as a historical-window predicate with a window', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [asserted-during: 5]
           => test(?SELF, ?Y) += 1.0
@@ -163,7 +168,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [during: N] as a during (state-range) predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [during: 5]
           => test(?SELF, ?Y) += 1.0
@@ -175,7 +180,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [when: ?t] as a when (event-enumeration) predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [when: ?T]
           => test(?SELF, ?Y) += 1.0
@@ -187,7 +192,7 @@ describe('RuleParser', () => {
     });
 
     it('parses a bare variable-to-variable comparison', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?X, ?Y) ^ ?X != ?Y
           => close(?X, ?Y) += 1.0
@@ -196,7 +201,7 @@ describe('RuleParser', () => {
     });
 
     it('parses a bare variable-to-literal comparison', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           score(?X) > 0 ^ ?X != carol
           => flag(?X) += 1.0
@@ -205,7 +210,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [degrees: N] [dist: ?d] as a closure predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?X, ?Y) [degrees: 3] [dist: ?d]
           => reachable(?X, ?Y) += 1.0
@@ -218,14 +223,15 @@ describe('RuleParser', () => {
 
     it('rejects [dist: ?d] without [degrees: N]', () => {
       assert.throws(() => parser.parse(`
-        rule "R1"
-          knows(?X, ?Y) [dist: ?d]
-          => reachable(?X, ?Y) += 1.0
+        ruleset "test"
+          rule "R1"
+            knows(?X, ?Y) [dist: ?d]
+            => reachable(?X, ?Y) += 1.0
       `), /requires a \[degrees/);
     });
 
     it('parses closure context args after the two endpoints', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           trades(?X, ?Y, wine) [degrees: 2]
           => reachable(?X, ?Y) += 1.0
@@ -237,7 +243,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [tick: N] as an absolute at-tick rule condition', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [tick: -3]
           => test(?SELF, ?Y) += 1.0
@@ -251,7 +257,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [ago: N] as a relative at-tick rule condition', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [ago: 5]
           => test(?SELF, ?Y) += 1.0
@@ -265,7 +271,7 @@ describe('RuleParser', () => {
     });
 
     it('parses stacked [ever] [importance: N] setting both modifiers', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [ever] [importance: 2]
           => test(?SELF, ?Y) += 1.0
@@ -278,7 +284,7 @@ describe('RuleParser', () => {
     });
 
     it('parses a two-step temporal chain with then', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) then hadConflict(?SELF, ?Y)
           => test(?SELF, ?Y) += 1.0
@@ -294,7 +300,7 @@ describe('RuleParser', () => {
     });
 
     it('parses then[N] as a temporal chain step with a within constraint', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) then[5] hadConflict(?SELF, ?Y)
           => test(?SELF, ?Y) += 1.0
@@ -310,7 +316,7 @@ describe('RuleParser', () => {
     });
 
     it('parses a three-step temporal chain', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) then[5] hadConflict(?SELF, ?Y) then[3] madeUp(?SELF, ?Y)
           => test(?SELF, ?Y) += 1.0
@@ -322,7 +328,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [asserted-during: N] on the first step of a temporal chain', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) [asserted-during: 5] then hadConflict(?SELF, ?Y)
           => test(?SELF, ?Y) += 1.0
@@ -334,7 +340,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [importance] on a temporal chain', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y) then hadConflict(?SELF, ?Y) [importance: 2]
           => test(?SELF, ?Y) += 1.0
@@ -355,7 +361,7 @@ describe('RuleParser', () => {
 
   describe('rules — effects', () => {
     it('parses => tag(args) += weight as a tag contribution', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => exploitative(?SELF, ?Y) += 3.0
@@ -368,7 +374,7 @@ describe('RuleParser', () => {
     });
 
     it('parses hyphenated tag names in effects', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => self-serving(?SELF, ?Y) += 2.0
@@ -378,7 +384,7 @@ describe('RuleParser', () => {
     });
 
     it('records rule name', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "My rule name"
           knows(?SELF, ?Y)
           => test(?SELF, ?Y) += 1.0
@@ -388,7 +394,7 @@ describe('RuleParser', () => {
     });
 
     it('parses not pred RHS as retract of positive fact', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => not knows(?SELF, ?Y)
@@ -401,7 +407,7 @@ describe('RuleParser', () => {
     });
 
     it('parses not -pred RHS as retract of negated fact', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => not -knows(?SELF, ?Y)
@@ -414,7 +420,7 @@ describe('RuleParser', () => {
     });
 
     it('parses -pred RHS as assert with negated: true', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => -perceivedThreat(?SELF, ?Y)
@@ -429,7 +435,7 @@ describe('RuleParser', () => {
 
   describe('multiple top-level declarations', () => {
     it('parses multiple rules', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => exploitative(?SELF, ?Y) += 3.0
@@ -452,8 +458,13 @@ describe('RuleParser', () => {
     });
     const schemaParser = new RuleParser(schema);
 
+    function parseSchemaRules(src) {
+      const { rulesets } = schemaParser.parse(`ruleset "test"\n${src}`);
+      return rulesets['test'];
+    }
+
     it('infers fact for boolean predicates', () => {
-      const { rules } = schemaParser.parse(`
+      const rules = parseSchemaRules(`
         rule "R1"
           knows(?SELF, ?Y)
           => test(?SELF, ?Y) += 1.0
@@ -463,7 +474,7 @@ describe('RuleParser', () => {
     });
 
     it('infers derived for derived predicates', () => {
-      const { rules } = schemaParser.parse(`
+      const rules = parseSchemaRules(`
         rule "R1"
           canHaveNeedMet(?SELF, ?Y)
           => test(?SELF, ?Y) += 1.0
@@ -473,7 +484,7 @@ describe('RuleParser', () => {
     });
 
     it('falls back to fact for predicates not in the schema', () => {
-      const { rules } = schemaParser.parse(`
+      const rules = parseSchemaRules(`
         rule "R1"
           unknownPredicate(?SELF, ?Y)
           => test(?SELF, ?Y) += 1.0
@@ -522,7 +533,7 @@ describe('RuleParser', () => {
 
     it('rejects [strength: N] on a += / -= adjustment', () => {
       assert.throws(
-        () => parser.parse('rule "r"\n  knows(?X, ?Y)\n  => trust(?X, ?Y) += 5 [strength: 0.5]'),
+        () => parser.parse('ruleset "test"\n  rule "r"\n    knows(?X, ?Y)\n    => trust(?X, ?Y) += 5 [strength: 0.5]'),
         /strength.*not allowed.*adjustment/,
       );
     });
@@ -560,25 +571,25 @@ describe('RuleParser', () => {
 
   describe('error handling', () => {
     it('ignores # line comments', () => {
-      const src = `
-        # this is a comment
-        rule "R1"
-          knows(?SELF, ?Y) # inline comment
-          => toward(?SELF, ?Y) += 1.0
-      `;
-      const result = parser.parse(src);
-      assert.equal(result.rules[0].name, 'R1');
-      assert.equal(result.rules[0].predicates.length, 1);
+      const result = parser.parse(`
+        ruleset "test"
+          # this is a comment
+          rule "R1"
+            knows(?SELF, ?Y) # inline comment
+            => toward(?SELF, ?Y) += 1.0
+      `);
+      assert.equal(result.rulesets['test'][0].name, 'R1');
+      assert.equal(result.rulesets['test'][0].predicates.length, 1);
     });
 
     it('throws when rule or world keyword is missing', () => {
-      assert.throws(() => parser.parse('knows(?SELF, ?Y) => test += 1.0'), /Expected 'rule'/);
+      assert.throws(() => parser.parse('knows(?SELF, ?Y) => test += 1.0'), /Expected 'ruleset'/);
       assert.throws(() => parser.parse('world\n  knows(alice, bob)'), /state file/);
     });
 
     it('throws when a rule has no predicates', () => {
       assert.throws(
-        () => parser.parse('rule "R1" => test(?SELF, ?Y) += 1.0'),
+        () => parser.parse('ruleset "test"\n  rule "R1" => test(?SELF, ?Y) += 1.0'),
         /no predicates/
       );
     });
@@ -586,7 +597,7 @@ describe('RuleParser', () => {
 
   describe('count predicates (bare |...| — sugar for count|...|)', () => {
     it('parses |pred| > N as an aggregate (fn: count) predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           |friendship.strong(?SELF, _)| > 4
           => popular(?SELF) += 2.0
@@ -602,7 +613,7 @@ describe('RuleParser', () => {
     });
 
     it('parses |pred| < N as an aggregate (fn: count) predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           |knows(?SELF, _)| < 2
           => isolated(?SELF) += 1.0
@@ -618,7 +629,7 @@ describe('RuleParser', () => {
     });
 
     it('parses |pred| = N as an aggregate (fn: count) predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           |knows(?SELF, _)| = 1
           => lonely(?SELF) += 1.0
@@ -629,7 +640,7 @@ describe('RuleParser', () => {
     });
 
     it('parses a named wildcard _name as a wildcard marker distinct from _', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           count|knows(?SELF, _a) ^ trusts(?SELF, _a) ^ feuding(?SELF, _)| >= 1
           => close(?SELF) += 1.0
@@ -643,7 +654,7 @@ describe('RuleParser', () => {
     });
 
     it('parses [when: _t] inside an aggregate as a when atom with a wildcard tick var', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           count|knows(?SELF, ?OTHER) [when: _t]| > 3
           => close(?SELF) += 1.0
@@ -657,7 +668,7 @@ describe('RuleParser', () => {
     });
 
     it('parses a conjunction inside bare |...| the same as count|...|', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           |knows(?SELF, _) ^ trusted(?SELF, _)| >= 1
           => close(?SELF) += 1.0
@@ -671,7 +682,7 @@ describe('RuleParser', () => {
 
   describe('numeric-value predicates', () => {
     it('parses name(args) < N as a numeric-value predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           friendship(?SELF, ?Y) < -3
           => wary(?SELF, ?Y) += 2.0
@@ -687,7 +698,7 @@ describe('RuleParser', () => {
     });
 
     it('parses name(args) > N as a numeric-value predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           friendship(?SELF, ?Y) > 50
           => close(?SELF, ?Y) += 1.0
@@ -699,7 +710,7 @@ describe('RuleParser', () => {
     });
 
     it('parses name(args) = N as a numeric-value predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           friendship(?SELF, ?Y) = 0
           => neutral(?SELF, ?Y) += 1.0
@@ -710,7 +721,7 @@ describe('RuleParser', () => {
     });
 
     it('parses name(args) >= N as a numeric-value predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           friendship(?SELF, ?Y) >= 60
           => close(?SELF, ?Y) += 1.0
@@ -721,7 +732,7 @@ describe('RuleParser', () => {
     });
 
     it('parses name(args) <= N as a numeric-value predicate', () => {
-      const { rules } = parser.parse(`
+      const rules = parseRules(`
         rule "R1"
           friendship(?SELF, ?Y) <= 20
           => distant(?SELF, ?Y) += 1.0

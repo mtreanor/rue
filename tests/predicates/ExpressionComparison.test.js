@@ -47,8 +47,8 @@ const Y = new LogicalVariable('Y');
 
 // Returns the ?Y values for ?X = alice where the rule is fully satisfied.
 function firesForAlice(comparisonSrc) {
-  const ast = parser.parse(`rule "R1"\n  anchor(?X, ?Y) ^ ${comparisonSrc}\n  => tag(?X, ?Y) += 1.0`);
-  const rule = loader.load(ast).rules[0];
+  const ast = parser.parse(`ruleset "test"\n  rule "R1"\n    anchor(?X, ?Y) ^ ${comparisonSrc}\n    => tag(?X, ?Y) += 1.0`);
+  const rule = loader.load(ast).rulesets['test'][0];
   const active = new RuleEvaluator({ minimumSatisfactionScore: 1 })
     .evaluate([rule], new Map([['agent', agents]]), ctx(), new Binding(), schema);
   return (active.get(rule) ?? [])
@@ -79,20 +79,20 @@ describe('ExpressionComparisonPredicate', () => {
 
   it('leaves simple comparisons on the existing path (no regression)', () => {
     // health(?Y) >= 40 is a plain numeric-value comparison, not expr-comparison.
-    const ast = parser.parse(`rule "R1"\n  anchor(?X, ?Y) ^ health(?Y) >= 40\n  => tag(?X, ?Y) += 1.0`);
-    assert.equal(ast.rules[0].predicates[1].type, 'numeric-value');
+    const ast = parser.parse(`ruleset "test"\n  rule "R1"\n    anchor(?X, ?Y) ^ health(?Y) >= 40\n    => tag(?X, ?Y) += 1.0`);
+    assert.equal(ast.rulesets['test'][0].predicates[1].type, 'numeric-value');
   });
 
   it('parses an arithmetic comparison to an expr-comparison node', () => {
-    const ast = parser.parse(`rule "R1"\n  health(?X) - health(?Y) > 10\n  => tag(?X, ?Y) += 1.0`);
-    assert.equal(ast.rules[0].predicates[0].type, 'expr-comparison');
+    const ast = parser.parse(`ruleset "test"\n  rule "R1"\n    health(?X) - health(?Y) > 10\n    => tag(?X, ?Y) += 1.0`);
+    assert.equal(ast.rulesets['test'][0].predicates[0].type, 'expr-comparison');
   });
 
   it('round-trips through the serializer', () => {
-    const ast = parser.parse(`rule "R1"\n  min(health(?X), health(?Y)) / 2 >= 10\n  => tag(?X, ?Y) += 1.0`);
-    const dsl = new RuleSerializer().serialize(ast);
-    const reparsed = parser.parse(dsl);
-    assert.equal(reparsed.rules[0].predicates[0].type, 'expr-comparison');
+    const ast = parser.parse(`ruleset "test"\n  rule "R1"\n    min(health(?X), health(?Y)) / 2 >= 10\n    => tag(?X, ?Y) += 1.0`);
+    const dsl = new RuleSerializer().serialize({ rules: ast.rulesets['test'] });
+    const reparsed = parser.parse(`ruleset "test"\n${dsl}`);
+    assert.equal(reparsed.rulesets['test'][0].predicates[0].type, 'expr-comparison');
     assert.ok(dsl.includes('min(health(?X), health(?Y))'));
   });
 });

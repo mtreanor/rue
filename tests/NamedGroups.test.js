@@ -24,28 +24,28 @@ function buildEngine() {
 describe('addRuleset / loadRules', () => {
   it('loadRules creates a named ruleset', () => {
     const engine = buildEngine();
-    engine.loadRules('rule "R" knows(?X,?Y) => likes(?X,?Y)', 'social');
+    engine.loadRules('ruleset "social"\n  rule "R" knows(?X,?Y) => likes(?X,?Y)');
     assert.equal(engine.rulesets.get('social').length, 1);
   });
 
-  it('addRuleset replaces the group by default', () => {
+  it('addRuleset merges when the same name is loaded again', () => {
     const engine = buildEngine();
-    engine.loadRules('rule "R1" knows(?X,?Y) => likes(?X,?Y)', 'social');
-    engine.loadRules('rule "R2" knows(?X,?Y) => met(?X,?Y)', 'social');
-    assert.equal(engine.rulesets.get('social').length, 1);
+    engine.loadRules('ruleset "social"\n  rule "R1" knows(?X,?Y) => likes(?X,?Y)');
+    engine.loadRules('ruleset "social"\n  rule "R2" knows(?X,?Y) => met(?X,?Y)');
+    assert.equal(engine.rulesets.get('social').length, 2);
   });
 
-  it('addRuleset with merge:true appends to the existing group', () => {
+  it('successive loads of the same name accumulate rules', () => {
     const engine = buildEngine();
-    engine.loadRules('rule "R1" knows(?X,?Y) => likes(?X,?Y)', 'social');
-    engine.loadRules('rule "R2" knows(?X,?Y) => met(?X,?Y)', 'social', { merge: true });
+    engine.loadRules('ruleset "social"\n  rule "R1" knows(?X,?Y) => likes(?X,?Y)');
+    engine.loadRules('ruleset "social"\n  rule "R2" knows(?X,?Y) => met(?X,?Y)');
     assert.equal(engine.rulesets.get('social').length, 2);
   });
 
   it('two independently named rulesets coexist', () => {
     const engine = buildEngine();
-    engine.loadRules('rule "R1" knows(?X,?Y) => likes(?X,?Y)', 'social');
-    engine.loadRules('rule "R2" knows(?X,?Y) => met(?X,?Y)', 'norms');
+    engine.loadRules('ruleset "social"\n  rule "R1" knows(?X,?Y) => likes(?X,?Y)');
+    engine.loadRules('ruleset "norms"\n  rule "R2" knows(?X,?Y) => met(?X,?Y)');
     assert.equal(engine.rulesets.get('social').length, 1);
     assert.equal(engine.rulesets.get('norms').length, 1);
   });
@@ -53,34 +53,31 @@ describe('addRuleset / loadRules', () => {
 
 // ─── actionsets ──────────────────────────────────────────────────────────────
 
-const ACTION_A = 'action "greet" effects knows(?SELF, ?Y)';
-const ACTION_B = 'action "meet"  effects met(?SELF, ?Y)';
-
 describe('addActionset / loadActions', () => {
   it('loadActions creates a named actionset', () => {
     const engine = buildEngine();
-    engine.loadActions(ACTION_A, 'social');
+    engine.loadActions('actionset "social"\n  action "greet" effects knows(?SELF, ?Y)');
     assert.equal(engine.actionsets.get('social').length, 1);
   });
 
-  it('addActionset replaces the group by default', () => {
+  it('addActionset merges when the same name is loaded again', () => {
     const engine = buildEngine();
-    engine.loadActions(ACTION_A, 'social');
-    engine.loadActions(ACTION_B, 'social');
-    assert.equal(engine.actionsets.get('social').length, 1);
+    engine.loadActions('actionset "social"\n  action "greet" effects knows(?SELF, ?Y)');
+    engine.loadActions('actionset "social"\n  action "meet" effects met(?SELF, ?Y)');
+    assert.equal(engine.actionsets.get('social').length, 2);
   });
 
-  it('addActionset with merge:true appends to the existing group', () => {
+  it('successive loads of the same name accumulate actions', () => {
     const engine = buildEngine();
-    engine.loadActions(ACTION_A, 'social');
-    engine.loadActions(ACTION_B, 'social', { merge: true });
+    engine.loadActions('actionset "social"\n  action "greet" effects knows(?SELF, ?Y)');
+    engine.loadActions('actionset "social"\n  action "meet" effects met(?SELF, ?Y)');
     assert.equal(engine.actionsets.get('social').length, 2);
   });
 
   it('two independently named actionsets coexist', () => {
     const engine = buildEngine();
-    engine.loadActions(ACTION_A, 'social');
-    engine.loadActions(ACTION_B, 'norms');
+    engine.loadActions('actionset "social"\n  action "greet" effects knows(?SELF, ?Y)');
+    engine.loadActions('actionset "norms"\n  action "meet" effects met(?SELF, ?Y)');
     assert.equal(engine.actionsets.get('social').length, 1);
     assert.equal(engine.actionsets.get('norms').length, 1);
   });
@@ -93,14 +90,14 @@ describe('config — array paths for rulesets and actionsets', () => {
     const engine = new Engine({
       predicates: join(stressDir, 'predicates.json'),
       entities:   join(stressDir, 'entities.json'),
-      rulesets:   { main: join(stressDir, 'rules') },
+      rulesets:   { main: join(stressDir, 'rulesets/main.klugh') },
     });
     assert.ok(engine.rulesets.get('main').length > 0);
   });
 
   it('accepts an array of paths and merges them into one named ruleset', () => {
     // Point the same file twice — the group should have double the rules.
-    const rulesPath = join(stressDir, 'rules');
+    const rulesPath = join(stressDir, 'rulesets/main.klugh');
     const single = new Engine({
       predicates: join(stressDir, 'predicates.json'),
       entities:   join(stressDir, 'entities.json'),
@@ -115,7 +112,7 @@ describe('config — array paths for rulesets and actionsets', () => {
   });
 
   it('accepts an array of paths for actionsets (array form equals string form)', () => {
-    const actionsPath = join(stressDir, 'actions');
+    const actionsPath = join(stressDir, 'actionsets/social.klugh');
     const withString = new Engine({
       predicates: join(stressDir, 'predicates.json'),
       entities:   join(stressDir, 'entities.json'),

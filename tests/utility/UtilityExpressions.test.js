@@ -50,7 +50,7 @@ describe('utility arithmetic sources', () => {
 describe('utility expression parsing', () => {
   const parser = new ActionParser();
   const src = (utilLine) =>
-    parser.parse(`action "a"\n  utility\n    ${utilLine}\n  effects\n    flagged(?X)`).actions[0].utilitySources[0];
+    parser.parse(`actionset "test"\n  action "a"\n    utility\n      ${utilLine}\n    effects\n      flagged(?X)`).actionsets['test'][0].utilitySources[0];
 
   it('parses + and - as arithmetic', () => {
     const s = src('warmth(?X, ?Y) + trust(?X, ?Y)');
@@ -102,8 +102,8 @@ describe('utility expression loading', () => {
   it('builds an ArithmeticUtilitySource from an action utility expression', () => {
     const parser = new ActionParser(schema);
     const loader = new ActionLoader(schema);
-    const ast = parser.parse(`action "a"\n  roles: ?SELF: agent\n  utility\n    warmth(?SELF, ?SELF) + trust(?SELF, ?SELF) / 2\n  effects\n    flagged(?SELF)`);
-    const action = loader.load(ast).actions[0];
+    const ast = parser.parse(`actionset "test"\n  action "a"\n    roles: ?SELF: agent\n    utility\n      warmth(?SELF, ?SELF) + trust(?SELF, ?SELF) / 2\n    effects\n      flagged(?SELF)`);
+    const action = loader.load(ast).actionsets['test'][0];
     assert.equal(action.utilitySources[0].constructor.name, 'ArithmeticUtilitySource');
     assert.equal(action.utilitySources[0].op, '+');
   });

@@ -1,26 +1,27 @@
-# Tier 3 — the host's response to a caller. By the time this stage scores,
-# the calls stage's swap-roles hook has flipped the binding: ?SELF is the
-# host, ?OTHER the visitor at the door.
-#
-# Both responses mint an occurrence (record) — the visible social fact that
-# the react pipeline's witnesses interpret next phase.
-
-action "welcome-in"
-  roles: ?SELF: agent, ?OTHER: agent
-  utility
-    reception-welcome(?SELF, ?OTHER)
-  content text: "?SELF welcomes ?OTHER in"
-  effects
-    trust(?SELF, ?OTHER) += 3
-    trust(?OTHER, ?SELF) += 2
-    record(?occ)
-
-action "turn-away"
-  roles: ?SELF: agent, ?OTHER: agent
-  utility
-    reception-rebuff(?SELF, ?OTHER)
-  content text: "?SELF turns ?OTHER away at the door"
-  effects
-    tension(?SELF, ?OTHER) += 3
-    tension(?OTHER, ?SELF) += 2
-    record(?occ)
+actionset "receptions"
+  # Tier 3 — the host's response to a caller. By the time this stage scores,
+  # the calls stage's swap-roles hook has flipped the binding: ?SELF is the
+  # host, ?OTHER the visitor at the door.
+  #
+  # Both responses mint an occurrence (record) — the visible social fact that
+  # the react pipeline's witnesses interpret next phase.
+  
+  action "welcome-in"
+    roles: ?SELF: agent, ?OTHER: agent
+    utility
+      reception-welcome(?SELF, ?OTHER)
+    content text: "?SELF welcomes ?OTHER in"
+    effects
+      trust(?SELF, ?OTHER) += 3
+      trust(?OTHER, ?SELF) += 2
+      record(?occ)
+  
+  action "turn-away"
+    roles: ?SELF: agent, ?OTHER: agent
+    utility
+      reception-rebuff(?SELF, ?OTHER)
+    content text: "?SELF turns ?OTHER away at the door"
+    effects
+      tension(?SELF, ?OTHER) += 3
+      tension(?OTHER, ?SELF) += 2
+      record(?occ)

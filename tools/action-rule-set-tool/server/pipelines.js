@@ -1,6 +1,6 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
-import { loadProjectConfig, configDir } from './config.js';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs';
+import { join } from 'path';
+import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 import { workingPath } from './workspace.js';
 
 // Resolve name → shadow path for every pipeline in a scenario.
@@ -8,12 +8,15 @@ function pipelinePaths(scenarioName) {
   const config = loadProjectConfig();
   const scenario = config.scenarios[scenarioName];
   if (!scenario) throw new Error(`Unknown scenario "${scenarioName}"`);
-  return Object.fromEntries(
-    Object.entries(scenario.pipelines ?? {}).map(([name, rel]) => [
-      name,
-      workingPath(resolve(configDir, rel)),
-    ])
-  );
+  const paths = resolveScenarioPaths(scenario);
+  const result = {};
+  try {
+    for (const f of readdirSync(paths.pipelines)) {
+      if (!f.endsWith('.json')) continue;
+      result[f.slice(0, -5)] = workingPath(join(paths.pipelines, f));
+    }
+  } catch { /* no pipelines dir */ }
+  return result;
 }
 
 // Return the full JSON data for every pipeline in the scenario.

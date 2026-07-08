@@ -114,9 +114,9 @@ describe('StateOperationLoader — actuator dispatch', () => {
   it('builds an actuate operation for boolean actuator assert', () => {
     const schema = new PredicateSchema(schemaData);
     const parser = new RuleParser(schema);
-    const dsl = `rule "R" alert(?SELF) => alert(?SELF)`;
-    const { rules } = new RuleLoader(schema).load({ rules: parser.parse(dsl).rules });
-    const effect = rules[0].effects[0];
+    const dsl = `ruleset "test"\n  rule "R" alert(?SELF) => alert(?SELF)`;
+    const { rulesets } = new RuleLoader(schema).load(parser.parse(dsl));
+    const effect = rulesets['test'][0].effects[0];
     assert.equal(effect.type, 'actuate');
     assert.equal(effect.negated, false);
   });
@@ -124,9 +124,9 @@ describe('StateOperationLoader — actuator dispatch', () => {
   it('builds an actuate-numeric operation with += for numeric actuator', () => {
     const schema = new PredicateSchema(schemaData);
     const parser = new RuleParser(schema);
-    const dsl = `rule "R" alert(?SELF) => demoCount() += 1`;
-    const { rules } = new RuleLoader(schema).load({ rules: parser.parse(dsl).rules });
-    const effect = rules[0].effects[0];
+    const dsl = `ruleset "test"\n  rule "R" alert(?SELF) => demoCount() += 1`;
+    const { rulesets } = new RuleLoader(schema).load(parser.parse(dsl));
+    const effect = rulesets['test'][0].effects[0];
     assert.equal(effect.type, 'actuate-numeric');
     assert.equal(effect.numericOperation, '+=');
     assert.equal(effect.delta, 1);
@@ -135,9 +135,9 @@ describe('StateOperationLoader — actuator dispatch', () => {
   it('builds an actuate-numeric operation with = for set syntax', () => {
     const schema = new PredicateSchema(schemaData);
     const parser = new RuleParser(schema);
-    const dsl = `rule "R" alert(?SELF) => demoCount() = 0`;
-    const { rules } = new RuleLoader(schema).load({ rules: parser.parse(dsl).rules });
-    const effect = rules[0].effects[0];
+    const dsl = `ruleset "test"\n  rule "R" alert(?SELF) => demoCount() = 0`;
+    const { rulesets } = new RuleLoader(schema).load(parser.parse(dsl));
+    const effect = rulesets['test'][0].effects[0];
     assert.equal(effect.type, 'actuate-numeric');
     assert.equal(effect.numericOperation, '=');
     assert.equal(effect.value, 0);

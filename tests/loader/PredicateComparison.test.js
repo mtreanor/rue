@@ -20,7 +20,8 @@ const schema = new PredicateSchema({
 });
 
 function parseRule(src) {
-  return new RuleParser(schema).parse(src).rules[0];
+  const { rulesets } = new RuleParser(schema).parse(`ruleset "test"\n  ${src}`);
+  return rulesets['test'][0];
 }
 
 function firstPredicate(src) {
@@ -66,8 +67,8 @@ describe('predicate-to-predicate comparison', () => {
   describe('loader validation', () => {
     const loader = new RuleLoader(schema);
     const build = (predNode) => loader.load({
-      rules: [{ name: 'R', predicates: [predNode], effects: [{ type: 'assert', name: 'trusts', args: ['?a', '?b'] }] }],
-    }).rules[0].predicateEntries[0].predicate;
+      rulesets: { test: [{ name: 'R', predicates: [predNode], effects: [{ type: 'assert', name: 'trusts', args: ['?a', '?b'] }] }] },
+    }).rulesets['test'][0].predicateEntries[0].predicate;
 
     it('builds a numeric ComparisonPredicate', () => {
       const p = build({ type: 'comparison', left: { name: 'health', args: ['?a'] }, operator: '>', right: { name: 'stamina', args: ['?a'] } });

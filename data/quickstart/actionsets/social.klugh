@@ -1,0 +1,36 @@
+actionset "social"
+  # The quickstart actionset.
+  #
+  #   offer help — help someone you know who has a need; valued by how close you are
+  #   rest       — always available, mildly penalised, so it only wins as a fallback
+  #   introduce  — make two people you both know acquainted (used by the planner)
+  
+  action "offer help"
+    roles: ?SELF: agent, ?Y: agent
+    preconditions
+      knows(?SELF, ?Y)
+      ^ hasNeed(?Y)
+    utility
+      friendship(?SELF, ?Y)
+    content text: "?SELF offers to help ?Y"
+    effects
+      helped(?SELF, ?Y)
+      friendship(?SELF, ?Y) += 5
+  
+  action "rest"
+    roles: ?SELF: agent
+    utility
+      -2.0
+    content text: "?SELF rests"
+    effects
+      rested(?SELF)
+  
+  action "introduce"
+    roles: ?SELF: agent, ?B: agent, ?C: agent
+    preconditions
+      knows(?SELF, ?B)
+      ^ knows(?SELF, ?C)
+      ^ not knows(?B, ?C)
+    content text: "?SELF introduces ?B to ?C"
+    effects
+      knows(?B, ?C)

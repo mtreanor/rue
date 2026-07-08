@@ -30,11 +30,12 @@ describe('PipelineRunner — single stage, terminal action', () => {
   it('runs the entry stage and executes the top-scoring action', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "act"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "act"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -52,16 +53,18 @@ describe('PipelineRunner — single stage, terminal action', () => {
   it('fires pipeline postHooks after a terminal action', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "act"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "act"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
     engine.loadRules(`
-      rule "mark responded after act"
-        acted(?X)
-        => responded(?X)
-    `, 'post-consequences');
+      ruleset "post-consequences"
+        rule "mark responded after act"
+          acted(?X)
+          => responded(?X)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -84,17 +87,19 @@ describe('PipelineRunner — routing between stages', () => {
   it('follows a stage default route into a child stage', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent, ?OTHER: agent
-        utility 1.0
-        effects responded(?OTHER)
-    `, 'tier2');
+      actionset "tier2"
+        action "respond"
+          roles: ?SELF: agent, ?OTHER: agent
+          utility 1.0
+          effects responded(?OTHER)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -113,22 +118,24 @@ describe('PipelineRunner — routing between stages', () => {
   it("follows a stage's per-action route into a child stage", () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
 
-      action "skip"
-        roles: ?SELF: agent
-        utility 0.1
-        effects acted(?SELF)
-    `, 'tier1');
+        action "skip"
+          roles: ?SELF: agent
+          utility 0.1
+          effects acted(?SELF)
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent, ?OTHER: agent
-        utility 1.0
-        effects responded(?OTHER)
-    `, 'tier2');
+      actionset "tier2"
+        action "respond"
+          roles: ?SELF: agent, ?OTHER: agent
+          utility 1.0
+          effects responded(?OTHER)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -152,21 +159,24 @@ describe('PipelineRunner — routing between stages', () => {
   it('does not fire pipeline postHooks for routing actions — only terminal', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'tier2');
+      actionset "tier2"
+        action "respond"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
     engine.loadRules(`
-      rule "mark acted after terminal"
-        responded(?X)
-        => acted(?X)
-    `, 'post');
+      ruleset "post"
+        rule "mark acted after terminal"
+          responded(?X)
+          => acted(?X)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -191,17 +201,19 @@ describe('PipelineRunner — branch routesTo default', () => {
     const engine = makeEngine();
     // perActionRouting isn't enabled — both actions fall back to the stage default.
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent, ?OTHER: agent
-        utility 1.0
-        effects responded(?OTHER)
-    `, 'tier2');
+      actionset "tier2"
+        action "respond"
+          roles: ?SELF: agent, ?OTHER: agent
+          utility 1.0
+          effects responded(?OTHER)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -221,23 +233,26 @@ describe('PipelineRunner — branch routesTo default', () => {
   it("lets an action's own actionRoutes entry override the stage default", () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'default-tier');
+      actionset "default-tier"
+        action "respond"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
     engine.loadActions(`
-      action "special"
-        roles: ?SELF: agent
-        utility 1.0
-        effects handoff(?SELF, ?SELF)
-    `, 'special-tier');
+      actionset "special-tier"
+        action "special"
+          roles: ?SELF: agent
+          utility 1.0
+          effects handoff(?SELF, ?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -265,17 +280,19 @@ describe('PipelineRunner — branch routesTo default', () => {
   it('treats an actionRoutes entry of `end` as terminal, beating the stage default', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'default-tier');
+      actionset "default-tier"
+        action "respond"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -301,22 +318,25 @@ describe('PipelineRunner — branch routesTo default', () => {
   it('fires pipeline postHooks when an action ends via an actionRoutes entry of `end`', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'default-tier');
+      actionset "default-tier"
+        action "respond"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
     engine.loadRules(`
-      rule "terminal hook"
-        acted(?X)
-        => handoff(?X, ?X)
-    `, 'post');
+      ruleset "post"
+        rule "terminal hook"
+          acted(?X)
+          => handoff(?X, ?X)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -342,17 +362,19 @@ describe('PipelineRunner — branch routesTo default', () => {
   it('falls back to the stage default when perActionRouting is on but the entry is blank', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'default-tier');
+      actionset "default-tier"
+        action "respond"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -377,11 +399,12 @@ describe('PipelineRunner — branch routesTo default', () => {
   it('rejects a pipeline with a stage named "end"', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "act"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "act"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'end',
@@ -420,23 +443,26 @@ describe('PipelineRunner — fan-out routing (multiple targets)', () => {
   it("stage.routesTo naming two stages pools their candidates and picks one winner", () => {
     const engine = makeFanOutEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects engaged(?SELF)
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects engaged(?SELF)
+    `);
     engine.loadActions(`
-      action "actA"
-        roles: ?SELF: agent
-        utility 5.0
-        effects markA(?SELF)
-    `, 'stage-a');
+      actionset "stage-a"
+        action "actA"
+          roles: ?SELF: agent
+          utility 5.0
+          effects markA(?SELF)
+    `);
     engine.loadActions(`
-      action "actB"
-        roles: ?SELF: agent
-        utility 9.0
-        effects markB(?SELF)
-    `, 'stage-b');
+      actionset "stage-b"
+        action "actB"
+          roles: ?SELF: agent
+          utility 9.0
+          effects markB(?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -459,23 +485,26 @@ describe('PipelineRunner — fan-out routing (multiple targets)', () => {
   it("an actionRoutes entry naming two stages pools their candidates the same way", () => {
     const engine = makeFanOutEngine();
     engine.loadActions(`
-      action "engage"
-        roles: ?SELF: agent
-        utility 1.0
-        effects engaged(?SELF)
-    `, 'tier1');
+      actionset "tier1"
+        action "engage"
+          roles: ?SELF: agent
+          utility 1.0
+          effects engaged(?SELF)
+    `);
     engine.loadActions(`
-      action "actA"
-        roles: ?SELF: agent
-        utility 5.0
-        effects markA(?SELF)
-    `, 'stage-a');
+      actionset "stage-a"
+        action "actA"
+          roles: ?SELF: agent
+          utility 5.0
+          effects markA(?SELF)
+    `);
     engine.loadActions(`
-      action "actB"
-        roles: ?SELF: agent
-        utility 9.0
-        effects markB(?SELF)
-    `, 'stage-b');
+      actionset "stage-b"
+        action "actB"
+          roles: ?SELF: agent
+          utility 9.0
+          effects markB(?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'tier1-stage',
@@ -507,16 +536,18 @@ describe('PipelineRunner — swap-roles hook', () => {
   it('swaps SELF and OTHER before the child stage scores', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "initiate"
-        roles: ?SELF: agent, ?OTHER: agent
-        utility 1.0
-    `, 'tier1');
+      actionset "tier1"
+        action "initiate"
+          roles: ?SELF: agent, ?OTHER: agent
+          utility 1.0
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent, ?OTHER: agent
-        utility 1.0
-        effects handoff(?SELF, ?OTHER)
-    `, 'tier2');
+      actionset "tier2"
+        action "respond"
+          roles: ?SELF: agent, ?OTHER: agent
+          utility 1.0
+          effects handoff(?SELF, ?OTHER)
+    `);
 
     // After swap: SELF=bob, OTHER=alice. So handoff(bob, alice).
     const pipeline = new Pipeline('test', {
@@ -546,11 +577,12 @@ describe('PipelineRunner — salienceFloor', () => {
   it('excludes candidates scoring below the floor', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "low"
-        roles: ?SELF: agent
-        utility 0.005
-        effects acted(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "low"
+          roles: ?SELF: agent
+          utility 0.005
+          effects acted(?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -568,11 +600,12 @@ describe('PipelineRunner — salienceFloor', () => {
   it('executes candidates scoring at or above the floor', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "ok"
-        roles: ?SELF: agent
-        utility 0.01
-        effects acted(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "ok"
+          roles: ?SELF: agent
+          utility 0.01
+          effects acted(?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -600,11 +633,12 @@ describe('PipelineRunner — groupBy (string form)', () => {
       entities: { agent: { alice: {}, bob: {}, carol: {} } },
     });
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent, ?OTHER: agent
-        utility 1.0
-        effects handoff(?SELF, ?OTHER)
-    `, 'moves');
+      actionset "moves"
+        action "respond"
+          roles: ?SELF: agent, ?OTHER: agent
+          utility 1.0
+          effects handoff(?SELF, ?OTHER)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -657,11 +691,12 @@ describe('PipelineRunner — groupBy (pattern form)', () => {
     engine.world.assert(new Fact('role', 'act2', 'carol'));
 
     engine.loadActions(`
-      action "judge"
-        roles: ?JUDGE: agent, ?ACT: occurrence
-        utility 1.0
-        effects judged(?JUDGE, ?ACT)
-    `, 'judge-acts');
+      actionset "judge-acts"
+        action "judge"
+          roles: ?JUDGE: agent, ?ACT: occurrence
+          utility 1.0
+          effects judged(?JUDGE, ?ACT)
+    `);
 
     // groupBy pattern: for each candidate (JUDGE, ACT), look up the actor of
     // ACT in world state. Group by actor — one judgement per distinct actor.
@@ -711,11 +746,12 @@ describe('PipelineRunner — groupBy (pattern form)', () => {
     engine.world.queryHandlers.getHandler('numeric').setValue('salience', ['act2'], 7, ctx);
 
     engine.loadActions(`
-      action "judge"
-        roles: ?JUDGE: agent, ?ACT: occurrence
-        utility salience(?ACT)
-        effects judged(?JUDGE, ?ACT)
-    `, 'judge-acts');
+      actionset "judge-acts"
+        action "judge"
+          roles: ?JUDGE: agent, ?ACT: occurrence
+          utility salience(?ACT)
+          effects judged(?JUDGE, ?ACT)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'judge-stage',
@@ -753,16 +789,18 @@ describe('PipelineRunner — collect routing', () => {
       entities: { agent: { alice: {}, bob: {} } },
     });
     engine.loadActions(`
-      action "mint"
-        roles: ?A: agent
-        utility 1.0
-        effects minted(?A)
-    `, 'produce');
+      actionset "produce"
+        action "mint"
+          roles: ?A: agent
+          utility 1.0
+          effects minted(?A)
+    `);
     engine.loadActions(`
-      action "done"
-        utility 1.0
-        effects tally() += 1
-    `, 'finish');
+      actionset "finish"
+        action "done"
+          utility 1.0
+          effects tally() += 1
+    `);
 
     // produce: groupBy A → one winner per agent (alice, bob). collect → both
     // mint, THEN route once to the finish stage.
@@ -801,16 +839,18 @@ describe('PipelineRunner — collect routing', () => {
     // Same shape, but the route lives on the stage's per-action routing table
     // and the stage is branch.
     engine.loadActions(`
-      action "mint"
-        roles: ?A: agent
-        utility 1.0
-        effects minted(?A)
-    `, 'produce');
+      actionset "produce"
+        action "mint"
+          roles: ?A: agent
+          utility 1.0
+          effects minted(?A)
+    `);
     engine.loadActions(`
-      action "done"
-        utility 1.0
-        effects tally() += 1
-    `, 'finish');
+      actionset "finish"
+        action "done"
+          utility 1.0
+          effects tally() += 1
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'produce-stage',
@@ -844,16 +884,18 @@ describe('PipelineRunner — collect routing', () => {
       entities: { agent: { alice: {}, bob: {} } },
     });
     engine.loadActions(`
-      action "mint"
-        roles: ?A: agent
-        utility 1.0
-        effects minted(?A)
-    `, 'produce');
+      actionset "produce"
+        action "mint"
+          roles: ?A: agent
+          utility 1.0
+          effects minted(?A)
+    `);
     engine.loadRules(`
-      rule "settle minted"
-        minted(?A)
-        => settled(?A)
-    `, 'post');
+      ruleset "post"
+        rule "settle minted"
+          minted(?A)
+          => settled(?A)
+    `);
 
     // A terminal collect stage (no routesTo) fires the pipeline postHooks once,
     // after the whole group has executed — so the consequence ruleset sees every
@@ -898,19 +940,21 @@ describe('PipelineRunner — collect routing', () => {
         => armed(?A)
     `);
     engine.loadActions(`
-      action "arm"
-        roles: ?A: agent
-        preconditions not armed(?A)
-        utility 1.0
-        effects ready(?A)
-    `, 'stage1');
+      actionset "stage1"
+        action "arm"
+          roles: ?A: agent
+          preconditions not armed(?A)
+          utility 1.0
+          effects ready(?A)
+    `);
     engine.loadActions(`
-      action "fire"
-        roles: ?A: agent
-        preconditions armed(?A)
-        utility 1.0
-        effects started(?A)
-    `, 'stage2');
+      actionset "stage2"
+        action "fire"
+          roles: ?A: agent
+          preconditions armed(?A)
+          utility 1.0
+          effects started(?A)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 's1',
@@ -957,24 +1001,26 @@ describe('PipelineRunner — stage primingRules', () => {
     engine.world.assert(new Fact('acted', 'alice'));
 
     engine.loadActions(`
-      action "high-score-act"
-        roles: ?SELF: agent
-        utility score(?SELF)
-        effects responded(?SELF)
+      actionset "moves"
+        action "high-score-act"
+          roles: ?SELF: agent
+          utility score(?SELF)
+          effects responded(?SELF)
 
-      action "low-score-act"
-        roles: ?SELF: agent
-        utility 0.1
-    `, 'moves');
+        action "low-score-act"
+          roles: ?SELF: agent
+          utility 0.1
+    `);
 
     // Priming rule fires on ?SELF (already bound in starting binding) rather
     // than a free ?X — a free variable of type 'agent' cannot enumerate alice
     // because alice is already bound in the starting binding (distinct check).
     engine.loadRules(`
-      rule "give score to self if already acted"
-        acted(?SELF)
-        => score(?SELF) += 10
-    `, 'score-rules');
+      ruleset "score-rules"
+        rule "give score to self if already acted"
+          acted(?SELF)
+          => score(?SELF) += 10
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -1012,16 +1058,18 @@ describe('PipelineRunner — ruleset-fixpoint hook clamps an accumulating numeri
     engine.world.assert(new Fact('acted', 'alice'));
 
     engine.loadActions(`
-      action "act"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "act"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
     engine.loadRules(`
-      rule "give score on any act"
-        acted(?X)
-        => score(?X) += 10
-    `, 'score-rules');
+      ruleset "score-rules"
+        rule "give score on any act"
+          acted(?X)
+          => score(?X) += 10
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -1045,16 +1093,18 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
     engine.world.assert(new Fact('acted', 'alice'));
 
     engine.loadActions(`
-      action "act"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "act"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
     engine.loadRules(`
-      rule "give score on any act"
-        acted(?SELF)
-        => score(?SELF) += 10
-    `, 'score-rules');
+      ruleset "score-rules"
+        rule "give score on any act"
+          acted(?SELF)
+          => score(?SELF) += 10
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -1077,18 +1127,20 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
     engine.world.assert(new Fact('acted', 'bob'));
 
     engine.loadActions(`
-      action "act"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "act"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
     // ?SELF is pre-bound by the pipeline's starting binding, so this rule
     // should only ever touch the agent the pipeline is running for.
     engine.loadRules(`
-      rule "give score to self if already acted"
-        acted(?SELF)
-        => score(?SELF) += 10
-    `, 'score-rules');
+      ruleset "score-rules"
+        rule "give score to self if already acted"
+          acted(?SELF)
+          => score(?SELF) += 10
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -1114,16 +1166,18 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
     engine.world.assert(new Fact('acted', 'bob'));
 
     engine.loadActions(`
-      action "act"
-        roles: ?SELF: agent
-        utility 1.0
-        effects responded(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "act"
+          roles: ?SELF: agent
+          utility 1.0
+          effects responded(?SELF)
+    `);
     engine.loadRules(`
-      rule "seed score before scoring"
-        acted(?SELF)
-        => score(?SELF) += 7
-    `, 'seed-rules');
+      ruleset "seed-rules"
+        rule "seed score before scoring"
+          acted(?SELF)
+          => score(?SELF) += 7
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -1154,17 +1208,19 @@ describe('PipelineRunner — hook requires', () => {
   it('a requires: [\'occ\'] postHook fires, scoped to the just-minted occurrence', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "speak"
-        roles: ?SELF: agent
-        utility 1.0
-        effects
-          record(?occ)
-    `, 'moves');
+      actionset "moves"
+        action "speak"
+          roles: ?SELF: agent
+          utility 1.0
+          effects
+            record(?occ)
+    `);
     engine.loadRules(`
-      rule "witness self"
-        role(?occ, SELF, ?SELF)
-        => witnessed(?occ, ?SELF)
-    `, 'occ-rules');
+      ruleset "occ-rules"
+        rule "witness self"
+          role(?occ, SELF, ?SELF)
+          => witnessed(?occ, ?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -1187,17 +1243,19 @@ describe('PipelineRunner — hook requires', () => {
   it('a requires: [\'occ\'] postHook is skipped entirely when the action minted no occurrence', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "wait"
-        roles: ?SELF: agent
-        utility 1.0
-        effects
-          acted(?SELF)
-    `, 'moves');
+      actionset "moves"
+        action "wait"
+          roles: ?SELF: agent
+          utility 1.0
+          effects
+            acted(?SELF)
+    `);
     engine.loadRules(`
-      rule "witness self"
-        role(?occ, SELF, ?SELF)
-        => witnessed(?occ, ?SELF)
-    `, 'occ-rules');
+      ruleset "occ-rules"
+        rule "witness self"
+          role(?occ, SELF, ?SELF)
+          => witnessed(?occ, ?SELF)
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',
@@ -1222,25 +1280,28 @@ describe('PipelineRunner — hook requires', () => {
   it('does not reprocess an earlier occurrence when a later, unrelated action fires the same hook', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "speak"
-        roles: ?SELF: agent
-        utility 1.0
-        effects
-          record(?occ)
-    `, 'moves');
+      actionset "moves"
+        action "speak"
+          roles: ?SELF: agent
+          utility 1.0
+          effects
+            record(?occ)
+    `);
     // Accumulating effect gated on witnessed(?occ, ?SELF) — if this hook ever
     // re-ran against occ1 while processing occ2, score(alice) would be 20,
     // not 10.
     engine.loadRules(`
-      rule "witness self"
-        role(?occ, SELF, ?SELF)
-        => witnessed(?occ, ?SELF)
-    `, 'witness-rules');
+      ruleset "witness-rules"
+        rule "witness self"
+          role(?occ, SELF, ?SELF)
+          => witnessed(?occ, ?SELF)
+    `);
     engine.loadRules(`
-      rule "score for being witnessed"
-        witnessed(?occ, ?SELF)
-        => score(?SELF) += 10
-    `, 'score-rules');
+      ruleset "score-rules"
+        rule "score for being witnessed"
+          witnessed(?occ, ?SELF)
+          => score(?SELF) += 10
+    `);
 
     const pipeline = new Pipeline('test', {
       entry: 'moves-stage',

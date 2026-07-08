@@ -27,27 +27,29 @@ function makeEngine() {
 // "greet warmly" (2.0) beats "greet coldly" (1.0).
 function loadContent(engine) {
   engine.loadActions(`
-    action "act"
-      roles: ?SELF: agent
-      utility 2.0
-      effects acted(?SELF)
+    actionset "modes"
+      action "act"
+        roles: ?SELF: agent
+        utility 2.0
+        effects acted(?SELF)
 
-    action "rest"
-      roles: ?SELF: agent
-      utility 1.0
-      effects rested(?SELF)
-  `, 'modes');
+      action "rest"
+        roles: ?SELF: agent
+        utility 1.0
+        effects rested(?SELF)
+  `);
   engine.loadActions(`
-    action "greet warmly"
-      roles: ?SELF: agent, ?OTHER: agent
-      utility 2.0
-      effects greeted(?SELF, ?OTHER)
+    actionset "greetings"
+      action "greet warmly"
+        roles: ?SELF: agent, ?OTHER: agent
+        utility 2.0
+        effects greeted(?SELF, ?OTHER)
 
-    action "greet coldly"
-      roles: ?SELF: agent, ?OTHER: agent
-      utility 1.0
-      effects settled(?SELF)
-  `, 'greetings');
+      action "greet coldly"
+        roles: ?SELF: agent, ?OTHER: agent
+        utility 1.0
+        effects settled(?SELF)
+  `);
 
   return new Pipeline('interactive-test', {
     entry: 'mode-stage',
@@ -156,10 +158,11 @@ describe('TickLoop', () => {
     const engine = makeEngine();
     const pipeline = loadContent(engine);
     engine.loadRules(`
-      rule "settle everyone who acted"
-        acted(?X)
-        => settled(?X)
-    `, 'tick-consequences');
+      ruleset "tick-consequences"
+        rule "settle everyone who acted"
+          acted(?X)
+          => settled(?X)
+    `);
 
     const loop = new TickLoop(engine, { 'interactive-test': pipeline }, {
       entityType: 'agent',
@@ -190,10 +193,11 @@ describe('TickLoop', () => {
     const engine = makeEngine();
     const pipeline = loadContent(engine);
     engine.loadRules(`
-      rule "settle everyone who acted"
-        acted(?X)
-        => settled(?X)
-    `, 'tick-consequences');
+      ruleset "tick-consequences"
+        rule "settle everyone who acted"
+          acted(?X)
+          => settled(?X)
+    `);
 
     const loop = new TickLoop(engine, { 'interactive-test': pipeline }, {
       entityType: 'agent',
@@ -254,10 +258,11 @@ describe('TickLoop', () => {
     const engine = makeEngine();
     const pipeline = loadContent(engine);
     engine.loadRules(`
-      rule "drive up"
-        acted(?X)
-        => drive(?X) += 5
-    `, 'drives');
+      ruleset "drives"
+        rule "drive up"
+          acted(?X)
+          => drive(?X) += 5
+    `);
 
     const loop = new TickLoop(engine, { 'interactive-test': pipeline }, {
       entityType: 'agent',
@@ -298,12 +303,13 @@ describe('TickLoop — loop / bindings / free roles', () => {
       entities: { agent: { alice: {}, bob: {} }, topic: { weather: {}, harvest: {} } },
     });
     engine.loadActions(`
-      action "greet"
-        roles: ?SELF: agent, ?OTHER: agent
-        ${guarded ? 'preconditions\n        not ?SELF = ?OTHER' : ''}
-        utility 1.0
-        effects greeted(?SELF, ?OTHER)
-    `, 'greetings');
+      actionset "greetings"
+        action "greet"
+          roles: ?SELF: agent, ?OTHER: agent
+          ${guarded ? 'preconditions\n          not ?SELF = ?OTHER' : ''}
+          utility 1.0
+          effects greeted(?SELF, ?OTHER)
+    `);
     const pipeline = new Pipeline('greet-test', {
       entry: 'greet-stage',
       stages: { 'greet-stage': new Stage({ actionset: 'greetings', routing: 'branch' }) },
@@ -378,11 +384,12 @@ describe('TickLoop — loop / bindings / free roles', () => {
     engine.world.assert(Fact.withValue('mood', ['alice', 'weather'], 5));
     engine.world.assert(Fact.withValue('mood', ['alice', 'harvest'], 9));
     engine.loadActions(`
-      action "remark on"
-        roles: ?SELF: agent, ?TOPIC: topic
-        utility mood(?SELF, ?TOPIC)
-        effects feels(?SELF, ?TOPIC)
-    `, 'remarks');
+      actionset "remarks"
+        action "remark on"
+          roles: ?SELF: agent, ?TOPIC: topic
+          utility mood(?SELF, ?TOPIC)
+          effects feels(?SELF, ?TOPIC)
+    `);
     const pipeline = new Pipeline('remark-test', {
       entry: 'remark-stage',
       stages: { 'remark-stage': new Stage({ actionset: 'remarks', routing: 'branch' }) },
@@ -452,11 +459,12 @@ describe('TickLoop — stub pipelines (no entry-stage actions authored yet)', ()
       entities: { agent: { alice: {} } },
     });
     engine.loadActions(`
-      action "go"
-        roles: ?SELF: agent
-        utility 1.0
-        effects acted(?SELF)
-    `, 'real-set');
+      actionset "real-set"
+        action "go"
+          roles: ?SELF: agent
+          utility 1.0
+          effects acted(?SELF)
+    `);
     const pipeline = new Pipeline('real', {
       entry: 'real-stage',
       stages: { 'real-stage': new Stage({ actionset: 'real-set', routing: 'branch' }) },

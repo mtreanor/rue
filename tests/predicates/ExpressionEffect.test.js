@@ -28,7 +28,7 @@ const loader = new RuleLoader(schema);
 
 // Applies the rule's effect for {X: alice, Y: bob}; returns trust(alice,bob) after.
 function applyAndRead(effectSrc) {
-  const rule = loader.load(parser.parse(`rule "R"\n  anchor(?X, ?Y)\n  => ${effectSrc}`)).rules[0];
+  const rule = loader.load(parser.parse(`ruleset "test"\n  rule "R"\n    anchor(?X, ?Y)\n    => ${effectSrc}`)).rulesets['test'][0];
   const factStore = new FactStore();
   const qh = new QueryHandlers();
   const num = new NumericStateQueryHandler(factStore, schema);
@@ -54,7 +54,7 @@ describe('numeric expression effects', () => {
   });
 
   it('keeps a bare-literal effect a plain number (no expression)', () => {
-    const rule = loader.load(parser.parse(`rule "R"\n  anchor(?X, ?Y)\n  => trust(?X, ?Y) += 7`)).rules[0];
+    const rule = loader.load(parser.parse(`ruleset "test"\n  rule "R"\n    anchor(?X, ?Y)\n    => trust(?X, ?Y) += 7`)).rulesets['test'][0];
     assert.equal(rule.effects[0].delta, 7); // still a number, not an expression node
     assert.equal(applyAndRead('trust(?X, ?Y) += 7'), 7);
   });
@@ -65,7 +65,7 @@ describe('numeric expression effects', () => {
   });
 
   it('scales a computed delta by the satisfaction score', () => {
-    const rule = loader.load(parser.parse(`rule "R"\n  anchor(?X, ?Y)\n  => trust(?X, ?Y) += health(?X) - health(?Y)`)).rules[0];
+    const rule = loader.load(parser.parse(`ruleset "test"\n  rule "R"\n    anchor(?X, ?Y)\n    => trust(?X, ?Y) += health(?X) - health(?Y)`)).rulesets['test'][0];
     const factStore = new FactStore();
     const qh = new QueryHandlers();
     const num = new NumericStateQueryHandler(factStore, schema);
@@ -80,11 +80,11 @@ describe('numeric expression effects', () => {
   });
 
   it('round-trips an expression effect through the serializer', () => {
-    const ast = parser.parse(`rule "R"\n  anchor(?X, ?Y)\n  => trust(?X, ?Y) += (health(?X) + health(?Y)) / 2`);
-    const dsl = new RuleSerializer().serialize(ast);
+    const ast = parser.parse(`ruleset "test"\n  rule "R"\n    anchor(?X, ?Y)\n    => trust(?X, ?Y) += (health(?X) + health(?Y)) / 2`);
+    const dsl = new RuleSerializer().serialize({ rules: ast.rulesets['test'] });
     assert.ok(dsl.includes('(health(?X) + health(?Y))'));
-    const reparsed = parser.parse(dsl);
-    const delta = reparsed.rules[0].effects[0].delta;
+    const reparsed = parser.parse(`ruleset "test"\n${dsl}`);
+    const delta = reparsed.rulesets['test'][0].effects[0].delta;
     assert.equal(typeof delta, 'object');
     assert.equal(delta.xkind, 'bin');
   });

@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync, existsSync } from 'fs';
 import { Engine } from '../../../src/Engine.js';
 import { TickLoop } from '../../../src/pipeline/TickLoop.js';
 import { pipelineFromJSON } from '../../../src/pipeline/PipelineLoader.js';
@@ -45,19 +45,27 @@ class PlaySession {
     this.scenarioName = scenarioName;
     const config   = loadProjectConfig();
     const scenario = config.scenarios[scenarioName];
-    if (!scenario)      throw new Error(`Unknown scenario "${scenarioName}"`);
-    if (!scenario.play) throw new Error(`Scenario "${scenarioName}" has no "play" section in the project config — Play mode needs one ({ entityType, phases })`);
+    if (!scenario) throw new Error(`Unknown scenario "${scenarioName}"`);
 
     const paths = resolveScenarioPaths(scenario);
+    if (!existsSync(paths.play)) {
+      throw new Error(`Scenario "${scenarioName}" has no play.json — Play mode needs one ({ entityType, phases })`);
+    }
+    const playConfig = JSON.parse(readFileSync(paths.play, 'utf-8'));
+
     this.engine = new Engine(paths);
 
     const pipelines = {};
-    for (const [name, path] of Object.entries(paths.pipelines ?? {})) {
-      pipelines[name] = pipelineFromJSON(JSON.parse(readFileSync(path, 'utf-8')));
-    }
+    try {
+      for (const f of readdirSync(paths.pipelines)) {
+        if (!f.endsWith('.json')) continue;
+        const name = f.slice(0, -5);
+        pipelines[name] = pipelineFromJSON(JSON.parse(readFileSync(`${paths.pipelines}/${f}`, 'utf-8')));
+      }
+    } catch { /* no pipelines dir */ }
     this.pipelines  = pipelines;
-    this.playConfig = scenario.play;
-    this.loop       = new TickLoop(this.engine, pipelines, scenario.play);
+    this.playConfig = playConfig;
+    this.loop       = new TickLoop(this.engine, pipelines, playConfig);
 
     this.traces     = [];        // serialized TickTraces, index = tick - 1
     this.controlled = { agents: [], stages: [] };

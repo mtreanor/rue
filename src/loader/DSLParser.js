@@ -186,18 +186,43 @@ export class DSLParser {
   }
 
   parse() {
-    const rules = [];
+    if (this.check('EOF')) return { rulesets: {} };
 
-    while (!this.check('EOF')) {
-      if (this.check('IDENT', 'rule')) { rules.push(this.parseRule()); continue; }
-      if (this.check('IDENT', 'world')) {
-        throw new Error(`World state belongs in a state file — use parseState() instead (line ${this.peek().line})`);
-      }
+    if (!this.check('IDENT', 'ruleset')) {
       const tok = this.peek();
-      throw new Error(`Expected 'rule' at line ${tok.line}`);
+      if (this.check('IDENT', 'world')) {
+        throw new Error(`World state belongs in a state file — use parseState() instead (line ${tok.line})`);
+      }
+      if (this.check('IDENT', 'rule')) {
+        throw new Error(`Bare 'rule' blocks are no longer supported — wrap in 'ruleset "<name>"' (line ${tok.line})`);
+      }
+      throw new Error(`Expected 'ruleset' at line ${tok.line}`);
     }
 
-    return { rules };
+    const rulesets = {};
+    while (!this.check('EOF')) {
+      if (!this.check('IDENT', 'ruleset')) {
+        const tok = this.peek();
+        throw new Error(`Expected 'ruleset' at line ${tok.line}`);
+      }
+      this.advance();
+      const name = this.expect('STRING').value;
+      const rules = [];
+      while (!this.check('EOF') && !this.check('IDENT', 'ruleset')) {
+        if (!this.check('IDENT', 'rule')) {
+          const tok = this.peek();
+          throw new Error(`Expected 'rule' at line ${tok.line}`);
+        }
+        rules.push(this.parseRule());
+      }
+      if (name in rulesets) {
+        rulesets[name].push(...rules);
+      } else {
+        rulesets[name] = rules;
+      }
+    }
+
+    return { rulesets };
   }
 
   parseState() {

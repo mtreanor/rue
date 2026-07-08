@@ -2,11 +2,12 @@
 # (X1 asserts forgave, which enables X2; X2 asserts helped, which enables X1).
 # Loading it MUST fail with a cyclic-dependency error.
 
-rule "X1 — help breeds forgiveness"
-  knows(?X, ?Y)
-  ^ helped(?X, ?Y)
-  => forgave(?X, ?Y)
+ruleset "cycle"
+  rule "X1 — help breeds forgiveness"
+    knows(?X, ?Y)
+    ^ helped(?X, ?Y)
+    => forgave(?X, ?Y)
 
-rule "X2 — forgiveness inspires help"
-  forgave(?X, ?Y)
-  => helped(?X, ?Y)
+  rule "X2 — forgiveness inspires help"
+    forgave(?X, ?Y)
+    => helped(?X, ?Y)

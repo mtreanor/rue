@@ -1,10 +1,11 @@
-# Phase-level fallout — runs once per tick, after every agent's day pipeline
-# has finished (a TickLoop ruleset phase, outside any pipeline: a pipeline
-# postHook fires per invocation, i.e. per agent, which would be up to 10x too
-# often). Aggregate over the whole store; fixpoint; boolean asserts only.
-
-rule "tension boils over into open feud"
-  tension(?X, ?Y) > 8
-  ^ tension(?Y, ?X) > 5
-  ^ not feuding(?X, ?Y)
-  => feuding(?X, ?Y)
+ruleset "day-consequences"
+  # Phase-level fallout — runs once per tick, after every agent's day pipeline
+  # has finished (a TickLoop ruleset phase, outside any pipeline: a pipeline
+  # postHook fires per invocation, i.e. per agent, which would be up to 10x too
+  # often). Aggregate over the whole store; fixpoint; boolean asserts only.
+  
+  rule "tension boils over into open feud"
+    tension(?X, ?Y) > 8
+    ^ tension(?Y, ?X) > 5
+    ^ not feuding(?X, ?Y)
+    => feuding(?X, ?Y)

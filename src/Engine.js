@@ -1,5 +1,5 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { join, resolve } from 'path';
 import { World } from './World.js';
 import { Binding } from './Binding.js';
 import { LogicalVariable } from './LogicalVariable.js';
@@ -24,6 +24,19 @@ import { Fact } from './Fact.js';
 import { restoreFromFile } from './Snapshot.js';
 import { toFactArg } from './entityValue.js';
 
+function scanKlughFiles(dir) {
+  const results = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      results.push(...scanKlughFiles(full));
+    } else if (entry.endsWith('.klugh')) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
 export class Engine {
   // Accepts either a scenario directory path (string) or an explicit config
   // object. In the object form, `predicates` and `entities` may be given as
@@ -32,10 +45,11 @@ export class Engine {
   constructor(dataDirOrConfig) {
     const paths = typeof dataDirOrConfig === 'string'
       ? {
-          predicates: join(dataDirOrConfig, 'predicates.json'),
-          entities:   join(dataDirOrConfig, 'entities.json'),
-          state:      join(dataDirOrConfig, 'state'),
-          definitions: join(dataDirOrConfig, 'definitions'),
+          predicates:  join(dataDirOrConfig, 'predicates.json'),
+          entities:    join(dataDirOrConfig, 'entities.json'),
+          state:       join(dataDirOrConfig, 'state'),
+          definitions: join(dataDirOrConfig, 'definitions.klugh'),
+          klughDir:    dataDirOrConfig,
         }
       : dataDirOrConfig;
 
@@ -74,21 +88,20 @@ export class Engine {
     this.rulesets   = new Map();
     this.actionsets = new Map();
 
-    for (const [name, pathOrPaths] of Object.entries(paths.rulesets ?? {})) {
-      for (const path of [].concat(pathOrPaths)) {
-        this.loadRules(readFileSync(path, 'utf-8'), name, { merge: this.rulesets.has(name) });
-      }
-    }
-
-    const actionsetConfig = paths.actionsets ?? {};
-    if (Array.isArray(actionsetConfig)) {
-      for (const path of actionsetConfig) {
-        this.loadActions(readFileSync(path, 'utf-8'), null);
+    if (paths.klughDir) {
+      for (const file of scanKlughFiles(paths.klughDir)) {
+        if (file.endsWith('definitions.klugh')) continue;
+        this.loadKlughFile(readFileSync(file, 'utf-8'));
       }
     } else {
-      for (const [name, pathOrPaths] of Object.entries(actionsetConfig)) {
-        for (const path of [].concat(pathOrPaths)) {
-          this.loadActions(readFileSync(path, 'utf-8'), name, { merge: this.actionsets.has(name) });
+      if (paths.rulesets) {
+        for (const file of scanKlughFiles(paths.rulesets)) {
+          this.loadRules(readFileSync(file, 'utf-8'));
+        }
+      }
+      if (paths.actionsets) {
+        for (const file of scanKlughFiles(paths.actionsets)) {
+          this.loadActions(readFileSync(file, 'utf-8'));
         }
       }
     }
@@ -106,10 +119,13 @@ export class Engine {
     return this;
   }
 
-  // Parses source text and adds the rules to the named ruleset.
-  loadRules(source, name, { merge = false } = {}) {
-    const { rules } = this.ruleLoader.load(this.ruleParser.parse(source));
-    return this.addRuleset(name, rules, { merge });
+  // Parses source text containing one or more named ruleset blocks and registers them.
+  loadRules(source) {
+    const { rulesets } = this.ruleLoader.load(this.ruleParser.parse(source));
+    for (const [name, rules] of Object.entries(rulesets)) {
+      this.addRuleset(name, rules, { merge: this.rulesets.has(name) });
+    }
+    return rulesets;
   }
 
   // Attaches rules to a named ruleset. With merge:true the new rules are
@@ -120,19 +136,20 @@ export class Engine {
     return rules;
   }
 
-  // Parses source text and registers actions. For single-actionset files the
-  // `name` parameter names the actionset; for multi-actionset files (those
-  // containing named `actionset` blocks) the names come from the file and
-  // `name` is ignored.
-  loadActions(source, name, { merge = false } = {}) {
+  // Dispatches a .klugh file to loadRules or loadActions based on its first keyword.
+  loadKlughFile(source) {
+    const keyword = source.match(/^\s*(\w+)/m)?.[1];
+    if (keyword === 'ruleset')   return this.loadRules(source);
+    if (keyword === 'actionset') return this.loadActions(source);
+  }
+
+  // Parses source text containing one or more named actionset blocks and registers them.
+  loadActions(source) {
     const data = new ActionLoader(this.schema, this.world.entityTypeConfig).load(new ActionParser(this.schema).parse(source));
-    if (data.actionsets) {
-      for (const [setName, actions] of Object.entries(data.actionsets)) {
-        this.addActionset(setName, actions, { merge: this.actionsets.has(setName) });
-      }
-      return data.actionsets;
+    for (const [name, actions] of Object.entries(data.actionsets)) {
+      this.addActionset(name, actions, { merge: this.actionsets.has(name) });
     }
-    return this.addActionset(name, data.actions, { merge });
+    return data.actionsets;
   }
 
   // Attaches actions to a named actionset, registering each as a queryable

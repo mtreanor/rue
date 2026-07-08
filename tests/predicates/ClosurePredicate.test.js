@@ -38,10 +38,10 @@ function chainContext() {
 
 const loader = new RuleLoader(schema);
 function buildRule(premise) {
-  const { rules } = loader.load({
-    rules: [{ name: 'R1', predicates: [premise], effects: [{ type: 'adjust-numeric', name: 'tie', args: ['?X', '?Y'], delta: 1.0 }] }],
+  const { rulesets } = loader.load({
+    rulesets: { test: [{ name: 'R1', predicates: [premise], effects: [{ type: 'adjust-numeric', name: 'tie', args: ['?X', '?Y'], delta: 1.0 }] }] },
   });
-  return rules[0];
+  return rulesets['test'][0];
 }
 
 const X = new LogicalVariable('X');
@@ -84,20 +84,21 @@ describe('ClosurePredicate ([degrees: N])', () => {
   });
 
   it('filters the reachable set by bound distance (?d <= N)', () => {
-    const { rules } = loader.load({
-      rules: [{
+    const { rulesets } = loader.load({
+      rulesets: { test: [{
         name: 'R1',
         predicates: [
           { type: 'closure', name: 'knows', args: ['?X', '?Y'], degrees: 3, dist: '?D' },
           { type: 'var-comparison', left: '?D', operator: '<=', right: 2 },
         ],
         effects: [{ type: 'adjust-numeric', name: 'tie', args: ['?X', '?Y'], delta: 1.0 }],
-      }],
+      }] },
     });
+    const rule = rulesets['test'][0];
     // minimumSatisfactionScore: 1 → the ?d <= 2 filter must hold, not just lower the score.
     const active = new RuleEvaluator({ minimumSatisfactionScore: 1 })
-      .evaluate([rules[0]], new Map([['agent', agents]]), chainContext(), new Binding(), schema);
-    const reached = (active.get(rules[0]) ?? [])
+      .evaluate([rule], new Map([['agent', agents]]), chainContext(), new Binding(), schema);
+    const reached = (active.get(rule) ?? [])
       .filter(a => a.binding.resolve(X)?.name === 'alice')
       .map(a => a.binding.resolve(Y).name).sort();
     assert.deepEqual(reached, ['bob', 'carol']); // dave (d=3) is filtered out
@@ -107,17 +108,17 @@ describe('ClosurePredicate ([degrees: N])', () => {
     const SELF = new LogicalVariable('SELF');
 
     function aggRule(degrees, operator, threshold) {
-      const { rules } = loader.load({
-        rules: [{
+      const { rulesets } = loader.load({
+        rulesets: { test: [{
           name: 'A1',
           predicates: [{
             type: 'aggregate', fn: 'count', operator, rhs: { kind: 'literal', value: threshold },
             predicates: [{ type: 'closure', name: 'knows', args: ['?SELF', null], degrees, dist: null }],
           }],
           effects: [{ type: 'adjust-numeric', name: 'score', args: ['?SELF'], delta: 1.0 }],
-        }],
+        }] },
       });
-      return rules[0];
+      return rulesets['test'][0];
     }
 
     function firesFor(rule, ctx, root) {

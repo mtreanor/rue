@@ -36,6 +36,8 @@ export const api = {
   createScenario: (name) => req('POST', '/api/scenarios', { name }).then(r => r.data),
   scenario: (name) => req('GET', `/api/scenario/${encodeURIComponent(name)}`).then(r => r.data),
   createSet: (scenario, kind, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/set`, { kind, name }).then(r => r.data),
+  getPlayConfig: (scenario) => req('GET', `/api/scenario/${encodeURIComponent(scenario)}/play-config`).then(r => r.data),
+  putPlayConfig: (scenario, content) => req('PUT', `/api/scenario/${encodeURIComponent(scenario)}/play-config`, content).then(r => r.data),
   match: (payload) => req('POST', '/api/match', payload).then(r => r.data),
   validate: (payload) => req('POST', '/api/validate', payload).then(r => r.data),
   addRule: (payload) => req('POST', '/api/rule', payload),

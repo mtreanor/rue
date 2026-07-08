@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { loadScenarioContext, listScenarios, schemaForClient, loadRulesets, loadActionsets } from './scenario.js';
+import { loadScenarioContext, listScenarios, schemaForClient, loadRulesets, loadActionsets, findSetFile } from './scenario.js';
 import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
@@ -14,9 +14,9 @@ import {
   addEntityInstance, renameEntityInstance, deleteEntityInstance,
 } from './entities.js';
 import { addPredicate, editPredicate, deletePredicate, defineTextByPredicate } from './predicates.js';
-import { pendingChanges, saveToFile, discardShadow } from './workspace.js';
+import { pendingChanges, saveToFile, discardShadow, workingPath } from './workspace.js';
 import { createSet, createScenario } from './sets.js';
-import { repoRoot } from './config.js';
+import { repoRoot, loadProjectConfig, resolveScenarioPaths } from './config.js';
 
 export const router = Router();
 
@@ -71,6 +71,28 @@ router.post('/scenarios', h((req, res) => {
 // Create a new ruleset/actionset/pipeline. Body: { kind: 'ruleset'|'actionset'|'pipeline', name }.
 router.post('/scenario/:name/set', h((req, res) => {
   res.json(createSet(req.params.name, req.body.kind, req.body.name));
+}));
+
+// ── play.json ────────────────────────────────────────────────────────────────
+
+// Read the scenario's play.json (null when absent).
+router.get('/scenario/:name/play-config', h((req, res) => {
+  const cfg = loadProjectConfig();
+  const s   = cfg.scenarios[req.params.name];
+  if (!s) throw new Error(`Unknown scenario "${req.params.name}"`);
+  const paths = resolveScenarioPaths(s);
+  const content = existsSync(paths.play) ? JSON.parse(readFileSync(paths.play, 'utf-8')) : null;
+  res.json({ exists: !!content, content });
+}));
+
+// Write (create or overwrite) the scenario's play.json.
+router.put('/scenario/:name/play-config', h((req, res) => {
+  const cfg = loadProjectConfig();
+  const s   = cfg.scenarios[req.params.name];
+  if (!s) throw new Error(`Unknown scenario "${req.params.name}"`);
+  const paths = resolveScenarioPaths(s);
+  writeFileSync(paths.play, JSON.stringify(req.body, null, 2) + '\n');
+  res.json({ ok: true });
 }));
 
 // ── Play ─────────────────────────────────────────────────────────────────────
@@ -298,7 +320,7 @@ router.post('/match', h((req, res) => {
 router.post('/validate', h((req, res) => {
   const { scenario, ruleset, name, comment, body, originalName } = req.body;
   const ctx = loadScenarioContext(scenario);
-  const rulesetPath = ctx.paths.rulesets[ruleset] ?? null;
+  const rulesetPath = findSetFile(ctx.paths.dir, 'ruleset', ruleset) ?? null;
   res.json(validateRule({ ctx, name, comment, body, rulesetPath, excludeName: originalName ?? null }));
 }));
 
@@ -335,7 +357,7 @@ router.delete('/rule', h((req, res) => {
 }));
 
 function requireRulesetPath(ctx, ruleset) {
-  const path = ctx.paths.rulesets[ruleset];
+  const path = findSetFile(ctx.paths.dir, 'ruleset', ruleset);
   if (!path) throw new Error(`Scenario "${ctx.name}" has no ruleset named "${ruleset}"`);
   return path;
 }
@@ -379,7 +401,7 @@ router.delete('/action', h((req, res) => {
 }));
 
 function requireActionsetPath(ctx, actionset) {
-  const path = ctx.paths.actionsets[actionset];
+  const path = findSetFile(ctx.paths.dir, 'actionset', actionset);
   if (!path) throw new Error(`Scenario "${ctx.name}" has no actionset named "${actionset}"`);
   return path;
 }

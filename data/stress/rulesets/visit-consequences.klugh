@@ -1,26 +1,27 @@
-# Step-level fallout of one just-minted occurrence — wired as the day
-# pipeline's postHooks with requires: ['occ'], so it fires only when the
-# terminal action actually recorded something, scoped to that one occurrence.
-# Fixpoint (not single-pass): all effects are idempotent boolean asserts.
-#
-# Witnessing here is spatial: whatever happens at an actor's home is seen by
-# whoever lives there. The other named party of the occurrence witnessed it
-# by definition — they were part of it.
-
-rule "the household sees what happens at home"
-  role(?occ, SELF, ?A)
-  ^ livesAt(?A, ?P)
-  ^ livesAt(?W, ?P)
-  ^ not role(?occ, SELF, ?W)
-  ^ not role(?occ, OTHER, ?W)
-  ^ not role(?occ, MARK, ?W)
-  ^ not role(?occ, FOE, ?W)
-  => witnessed(?occ, ?W)
-
-rule "the other party was there"
-  role(?occ, OTHER, ?W)
-  => witnessed(?occ, ?W)
-
-rule "the confronted party was there"
-  role(?occ, FOE, ?W)
-  => witnessed(?occ, ?W)
+ruleset "visit-consequences"
+  # Step-level fallout of one just-minted occurrence — wired as the day
+  # pipeline's postHooks with requires: ['occ'], so it fires only when the
+  # terminal action actually recorded something, scoped to that one occurrence.
+  # Fixpoint (not single-pass): all effects are idempotent boolean asserts.
+  #
+  # Witnessing here is spatial: whatever happens at an actor's home is seen by
+  # whoever lives there. The other named party of the occurrence witnessed it
+  # by definition — they were part of it.
+  
+  rule "the household sees what happens at home"
+    role(?occ, SELF, ?A)
+    ^ livesAt(?A, ?P)
+    ^ livesAt(?W, ?P)
+    ^ not role(?occ, SELF, ?W)
+    ^ not role(?occ, OTHER, ?W)
+    ^ not role(?occ, MARK, ?W)
+    ^ not role(?occ, FOE, ?W)
+    => witnessed(?occ, ?W)
+  
+  rule "the other party was there"
+    role(?occ, OTHER, ?W)
+    => witnessed(?occ, ?W)
+  
+  rule "the confronted party was there"
+    role(?occ, FOE, ?W)
+    => witnessed(?occ, ?W)

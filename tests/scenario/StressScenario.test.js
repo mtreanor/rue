@@ -59,9 +59,10 @@ function buildWorld() {
   // consulted (authored definitions take precedence over code handlers).
   derived.define('rivals', () => true);
 
-  const { rules } = engine.ruleLoader.load(
-    engine.ruleParser.parse(readFileSync(join(stressDir, 'rules'), 'utf-8'))
+  const { rulesets } = engine.ruleLoader.load(
+    engine.ruleParser.parse(readFileSync(join(stressDir, 'rulesets/main.klugh'), 'utf-8'))
   );
+  const rules = rulesets['main'];
 
   return { engine, world: engine.world, rules, nearPairs };
 }
@@ -699,10 +700,11 @@ describe('Stress scenario', () => {
 
     function buildSimWorld() {
       const { engine, world, rules, nearPairs } = buildWorld();
-      const actionsSource = readFileSync(join(stressDir, 'actions'), 'utf-8');
-      const { actions } = new ActionLoader(engine.schema).load(
+      const actionsSource = readFileSync(join(stressDir, 'actionsets/social.klugh'), 'utf-8');
+      const { actionsets } = new ActionLoader(engine.schema).load(
         new ActionParser().parse(actionsSource)
       );
+      const actions = actionsets['social'];
       // addActionset registers each action as a queryable `action` entity and
       // asserts its info: facts, so tag(...) works and ?ACT can enumerate actions.
       engine.addActionset('social', actions.filter(a => !NORM_ACTIONS.has(a.name)));

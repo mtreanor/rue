@@ -21,16 +21,17 @@ describe('entryStageRoles', () => {
   it('unions role/type across every action in the entry stage — not just the first', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "settle alone"
-        roles: ?SELF: agent
-        utility 1.0
-        effects settled(?SELF)
+      actionset "mixed"
+        action "settle alone"
+          roles: ?SELF: agent
+          utility 1.0
+          effects settled(?SELF)
 
-      action "meet"
-        roles: ?SELF: agent, ?OTHER: agent
-        utility 1.0
-        effects met(?SELF, ?OTHER)
-    `, 'mixed');
+        action "meet"
+          roles: ?SELF: agent, ?OTHER: agent
+          utility 1.0
+          effects met(?SELF, ?OTHER)
+    `);
     const pipeline = new Pipeline('p', {
       entry: 'stage',
       stages: { stage: new Stage({ actionset: 'mixed', routing: 'branch' }) },
@@ -41,18 +42,20 @@ describe('entryStageRoles', () => {
     assert.deepEqual(entryStageRolesPlain(engine, pipeline), { SELF: 'agent', OTHER: 'agent' });
   });
 
-  it('only looks at the entry stage — a downstream stage’s roles are not included', () => {
+  it('only looks at the entry stage — a downstream stage\'s roles are not included', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "go"
-        roles: ?SELF: agent
-        utility 1.0
-    `, 'entry-set');
+      actionset "entry-set"
+        action "go"
+          roles: ?SELF: agent
+          utility 1.0
+    `);
     engine.loadActions(`
-      action "respond"
-        roles: ?SELF: agent, ?OTHER: agent
-        utility 1.0
-    `, 'downstream-set');
+      actionset "downstream-set"
+        action "respond"
+          roles: ?SELF: agent, ?OTHER: agent
+          utility 1.0
+    `);
     const pipeline = new Pipeline('p', {
       entry: 'entry-stage',
       stages: {
@@ -67,9 +70,10 @@ describe('entryStageRoles', () => {
   it('returns an empty map for a pipeline whose entry stage has no roles', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "tick"
-        utility 1.0
-    `, 'roleless');
+      actionset "roleless"
+        action "tick"
+          utility 1.0
+    `);
     const pipeline = new Pipeline('p', {
       entry: 'stage',
       stages: { stage: new Stage({ actionset: 'roleless', routing: 'branch' }) },

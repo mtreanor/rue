@@ -1,0 +1,20 @@
+{
+  "entityType": "agent",
+  "phases": [
+    {
+      "pipeline": "day",
+      "loop": [
+        "SELF"
+      ]
+    },
+    {
+      "ruleset": "day-consequences"
+    },
+    {
+      "pipeline": "react",
+      "loop": [
+        "SELF"
+      ]
+    }
+  ]
+}

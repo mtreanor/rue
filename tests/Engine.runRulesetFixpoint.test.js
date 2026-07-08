@@ -25,10 +25,11 @@ describe('Engine.runRulesetFixpoint — fixpoint convergence', () => {
     engine.assert('a(alice)');
     engine.assert('b(alice)');
     engine.loadRules(`
-      rule "mark"
-        a(?X) ^ b(?X)
-        => c(?X)
-    `, 'derive');
+      ruleset "derive"
+        rule "mark"
+          a(?X) ^ b(?X)
+          => c(?X)
+    `);
 
     const fired = engine.runRulesetFixpoint('derive');
 
@@ -42,10 +43,11 @@ describe('Engine.runRulesetFixpoint — fixpoint convergence', () => {
     const engine = buildEngine();
     engine.assert('a(alice)');
     engine.loadRules(`
-      rule "once"
-        a(?X) ^ not c(?X)
-        => c(?X)
-    `, 'derive');
+      ruleset "derive"
+        rule "once"
+          a(?X) ^ not c(?X)
+          => c(?X)
+    `);
 
     engine.runRulesetFixpoint('derive');
 
@@ -56,13 +58,14 @@ describe('Engine.runRulesetFixpoint — fixpoint convergence', () => {
     const engine = buildEngine();
     engine.assert('a(alice)');
     engine.loadRules(`
-      rule "step1"
-        a(?X)
-        => b(?X)
-      rule "step2"
-        b(?X)
-        => c(?X)
-    `, 'derive');
+      ruleset "derive"
+        rule "step1"
+          a(?X)
+          => b(?X)
+        rule "step2"
+          b(?X)
+          => c(?X)
+    `);
 
     engine.runRulesetFixpoint('derive');
 
@@ -76,10 +79,11 @@ describe('Engine.runRulesetFixpoint — fixpoint convergence', () => {
     engine.assert('a(alice)');
     engine.assert('b(alice)');
     engine.loadRules(`
-      rule "consume"
-        a(?X) ^ b(?X)
-        => not a(?X)
-    `, 'derive');
+      ruleset "derive"
+        rule "consume"
+          a(?X) ^ b(?X)
+          => not a(?X)
+    `);
 
     engine.runRulesetFixpoint('derive');
 
@@ -92,10 +96,11 @@ describe('Engine.runRulesetFixpoint — fixpoint convergence', () => {
     engine.assert('a(alice)');
     engine.assert('b(alice)');
     engine.loadRules(`
-      rule "mark"
-        a(?X) ^ b(?X)
-        => c(?X)
-    `, 'derive');
+      ruleset "derive"
+        rule "mark"
+          a(?X) ^ b(?X)
+          => c(?X)
+    `);
 
     const fired = engine.runRulesetFixpoint('derive');
 
@@ -124,10 +129,11 @@ describe('Engine.runRulesetFixpoint — sensor premise provenance', () => {
     engine.world.queryHandlers.register('sensor', sensors);
 
     engine.loadRules(`
-      rule "proximity bonus"
-        near(?X, ?Y)
-        => score(?X) += 5
-    `, 'tick');
+      ruleset "tick"
+        rule "proximity bonus"
+          near(?X, ?Y)
+          => score(?X) += 5
+    `);
 
     return engine;
   }
@@ -178,10 +184,11 @@ describe('Engine.runRulesetFixpoint — new entity / remove entity', () => {
     });
     engine.assert('ready(alice)');
     engine.loadRules(`
-      rule "equip"
-        ready(?X)
-        => new entity(item, "sword")
-    `, 'setup');
+      ruleset "setup"
+        rule "equip"
+          ready(?X)
+          => new entity(item, "sword")
+    `);
 
     engine.runRulesetFixpoint('setup');
 
@@ -201,13 +208,14 @@ describe('Engine.runRulesetFixpoint — new entity / remove entity', () => {
     engine.assert('a(alice)');
     engine.assert('b(alice)');
     engine.loadRules(`
-      rule "step1"
-        a(?X)
-        => new entity(item, "thing")
-      rule "step2"
-        b(?X)
-        => new entity(item, "thing")
-    `, 'setup');
+      ruleset "setup"
+        rule "step1"
+          a(?X)
+          => new entity(item, "thing")
+        rule "step2"
+          b(?X)
+          => new entity(item, "thing")
+    `);
 
     engine.runRulesetFixpoint('setup');
 
@@ -226,11 +234,12 @@ describe('Engine.runRulesetFixpoint — new entity / remove entity', () => {
     });
     engine.assert('ready(alice)');
     engine.loadRules(`
-      rule "prepare"
-        ready(?X)
-        => armed(?X)
-        => prepped(?X)
-    `, 'setup');
+      ruleset "setup"
+        rule "prepare"
+          ready(?X)
+          => armed(?X)
+          => prepped(?X)
+    `);
 
     engine.runRulesetFixpoint('setup');
 
@@ -247,10 +256,11 @@ describe('Engine.runRulesetFixpoint — new entity / remove entity', () => {
     });
     engine.assert('expired(sword)');
     engine.loadRules(`
-      rule "cleanup"
-        expired(?X)
-        => remove entity(item, ?X)
-    `, 'gc');
+      ruleset "gc"
+        rule "cleanup"
+          expired(?X)
+          => remove entity(item, ?X)
+    `);
 
     engine.runRulesetFixpoint('gc');
 

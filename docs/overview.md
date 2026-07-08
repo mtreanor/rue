@@ -2,6 +2,8 @@
 
 klugh is a **temporal, paraconsistent production rule system with a Datalog-flavored query layer and graded truth scoring**. It evaluates predicate conjunctions against a mutable fact store, supports backward-chaining derivation, and ships an interactive REPL for exploring scenarios. See [Design](design.md) for how it relates to Datalog, ASP, Prolog, and event calculus.
 
+At the behavior level, klugh is a rule-based utility pipeline where priming rules shape action scores, selected actions mutate state, later scoring adapts to those mutations, and every step is provenance-traceable.
+
 ---
 
 ## Predicate types

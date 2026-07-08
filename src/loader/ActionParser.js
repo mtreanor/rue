@@ -6,26 +6,21 @@ const RESERVED_SOURCES = new Set(['random']);
 
 class ActionDSLParser extends DSLParser {
   parse() {
-    if (this.check('EOF')) return { actions: [] };
+    if (this.check('EOF')) return { actionsets: {} };
 
-    if (this.check('IDENT', 'actionset')) {
-      return this.parseMultiActionsets();
+    if (!this.check('IDENT', 'actionset')) {
+      const tok = this.peek();
+      if (this.check('IDENT', 'action')) {
+        throw new Error(`Bare 'action' blocks are no longer supported — wrap in 'actionset "<name>"' (line ${tok.line})`);
+      }
+      throw new Error(`Expected 'actionset' at line ${tok.line}`);
     }
 
-    if (this.check('IDENT', 'action')) {
-      return this.parseSingleActionset();
-    }
-
-    const tok = this.peek();
-    throw new Error(`Expected 'action' or 'actionset' at line ${tok.line}`);
-  }
-
-  parseMultiActionsets() {
     const actionsets = {};
     while (!this.check('EOF')) {
       if (!this.check('IDENT', 'actionset')) {
         const tok = this.peek();
-        throw new Error(`Expected 'actionset' at line ${tok.line} — cannot mix bare actions with named actionset blocks`);
+        throw new Error(`Expected 'actionset' at line ${tok.line}`);
       }
       this.advance();
       const name = this.expect('STRING').value;
@@ -44,18 +39,6 @@ class ActionDSLParser extends DSLParser {
       }
     }
     return { actionsets };
-  }
-
-  parseSingleActionset() {
-    const actions = [];
-    while (!this.check('EOF')) {
-      if (!this.check('IDENT', 'action')) {
-        const tok = this.peek();
-        throw new Error(`Expected 'action' at line ${tok.line}`);
-      }
-      actions.push(this.parseAction());
-    }
-    return { actions };
   }
 
   parseAction() {

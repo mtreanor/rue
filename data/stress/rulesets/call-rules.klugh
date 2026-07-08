@@ -1,34 +1,35 @@
-# Tier-2 priming for the calls stage — who is worth visiting. Accumulates
-# call-warmth(?SELF, ?OTHER) per candidate host. The stage's salienceFloor
-# (0.5) culls anyone who ends up merely lukewarm; send-word (0.75) catches an
-# agent whose whole roster is cold.
-
-rule "high trust warms a call"
-  trust.high(?SELF, ?OTHER)
-  => call-warmth(?SELF, ?OTHER) += 2
-
-rule "devotion warms it further"
-  trust.devoted(?SELF, ?OTHER)
-  => call-warmth(?SELF, ?OTHER) += 1
-
-rule "a remembered kindness draws a visit"
-  helped(?OTHER, ?SELF) [ever]
-  => call-warmth(?SELF, ?OTHER) += 1.5
-
-rule "neighbours drop in"
-  livesAt(?SELF, ?P)
-  ^ livesAt(?OTHER, ?P)
-  => call-warmth(?SELF, ?OTHER) += 1
-
-rule "admiration seeks its object"
-  ?SELF.admires(?SELF, ?OTHER)
-  => call-warmth(?SELF, ?OTHER) += 2
-
-rule "outsiders seek out providers of friendship"
-  outsider(?SELF)
-  ^ canProvide(?OTHER, "friendship")
-  => call-warmth(?SELF, ?OTHER) += 2
-
-rule "a grudge chills the doorstep"
-  ?SELF.grudgeAgainst(?SELF, ?OTHER)
-  => call-warmth(?SELF, ?OTHER) -= 3
+ruleset "call-rules"
+  # Tier-2 priming for the calls stage — who is worth visiting. Accumulates
+  # call-warmth(?SELF, ?OTHER) per candidate host. The stage's salienceFloor
+  # (0.5) culls anyone who ends up merely lukewarm; send-word (0.75) catches an
+  # agent whose whole roster is cold.
+  
+  rule "high trust warms a call"
+    trust.high(?SELF, ?OTHER)
+    => call-warmth(?SELF, ?OTHER) += 2
+  
+  rule "devotion warms it further"
+    trust.devoted(?SELF, ?OTHER)
+    => call-warmth(?SELF, ?OTHER) += 1
+  
+  rule "a remembered kindness draws a visit"
+    helped(?OTHER, ?SELF) [ever]
+    => call-warmth(?SELF, ?OTHER) += 1.5
+  
+  rule "neighbours drop in"
+    livesAt(?SELF, ?P)
+    ^ livesAt(?OTHER, ?P)
+    => call-warmth(?SELF, ?OTHER) += 1
+  
+  rule "admiration seeks its object"
+    ?SELF.admires(?SELF, ?OTHER)
+    => call-warmth(?SELF, ?OTHER) += 2
+  
+  rule "outsiders seek out providers of friendship"
+    outsider(?SELF)
+    ^ canProvide(?OTHER, "friendship")
+    => call-warmth(?SELF, ?OTHER) += 2
+  
+  rule "a grudge chills the doorstep"
+    ?SELF.grudgeAgainst(?SELF, ?OTHER)
+    => call-warmth(?SELF, ?OTHER) -= 3

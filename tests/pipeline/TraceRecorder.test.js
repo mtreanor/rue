@@ -38,47 +38,53 @@ function makeEngine() {
 // the priming rule (bold(?SELF) => urge += 3).
 function loadTwoLeapContent(engine) {
   engine.loadActions(`
-    action "venture"
-      roles: ?SELF: agent
-      utility urge(?SELF)
-      effects acted(?SELF)
+    actionset "modes"
+      action "venture"
+        roles: ?SELF: agent
+        utility urge(?SELF)
+        effects acted(?SELF)
 
-    action "stay"
-      roles: ?SELF: agent
-      utility 1.0
-  `, 'modes');
+      action "stay"
+        roles: ?SELF: agent
+        utility 1.0
+  `);
   engine.loadActions(`
-    action "advance"
-      roles: ?SELF: agent
-      utility 2.0
+    actionset "tactics"
+      action "advance"
+        roles: ?SELF: agent
+        utility 2.0
 
-    action "hesitate"
-      roles: ?SELF: agent
-      utility 0.5
-  `, 'tactics');
+      action "hesitate"
+        roles: ?SELF: agent
+        utility 0.5
+  `);
   engine.loadActions(`
-    action "wave"
-      roles: ?SELF: agent, ?OTHER: agent
-      utility nerve(?SELF)
-      effects
-        gestured(?SELF, ?OTHER)
-        record(?occ)
-  `, 'gestures');
+    actionset "gestures"
+      action "wave"
+        roles: ?SELF: agent, ?OTHER: agent
+        utility nerve(?SELF)
+        effects
+          gestured(?SELF, ?OTHER)
+          record(?occ)
+  `);
   engine.loadRules(`
-    rule "bold agents feel the urge"
-      bold(?SELF)
-      => urge(?SELF) += 3
-  `, 'mode-rules');
+    ruleset "mode-rules"
+      rule "bold agents feel the urge"
+        bold(?SELF)
+        => urge(?SELF) += 3
+  `);
   engine.loadRules(`
-    rule "steady the nerve"
-      bold(?SELF)
-      => nerve(?SELF) += 2
-  `, 'gesture-rules');
+    ruleset "gesture-rules"
+      rule "steady the nerve"
+        bold(?SELF)
+        => nerve(?SELF) += 2
+  `);
   engine.loadRules(`
-    rule "notice the occurrence"
-      actionType(?occ, wave)
-      => noticed(?occ)
-  `, 'occ-consequences');
+    ruleset "occ-consequences"
+      rule "notice the occurrence"
+        actionType(?occ, wave)
+        => noticed(?occ)
+  `);
 
   return new Pipeline('two-leap', {
     entry: 'mode-stage',
@@ -194,22 +200,25 @@ describe('TraceRecorder — two-leap branch pipeline', () => {
 describe('TraceRecorder — pooled fan-out routing', () => {
   function makeFanOut(engine) {
     engine.loadActions(`
-      action "settle scores"
-        roles: ?SELF: agent
-        utility 1.0
-    `, 'modes');
+      actionset "modes"
+        action "settle scores"
+          roles: ?SELF: agent
+          utility 1.0
+    `);
     engine.loadActions(`
-      action "confront"
-        roles: ?SELF: agent
-        utility 2.0
-        effects confronted(?SELF)
-    `, 'confrontations');
+      actionset "confrontations"
+        action "confront"
+          roles: ?SELF: agent
+          utility 2.0
+          effects confronted(?SELF)
+    `);
     engine.loadActions(`
-      action "scheme"
-        roles: ?SELF: agent
-        utility 3.0
-        effects schemed(?SELF)
-    `, 'schemes');
+      actionset "schemes"
+        action "scheme"
+          roles: ?SELF: agent
+          utility 3.0
+          effects schemed(?SELF)
+    `);
 
     return new Pipeline('fan-out', {
       entry: 'mode-stage',
@@ -221,7 +230,7 @@ describe('TraceRecorder — pooled fan-out routing', () => {
     });
   }
 
-  it('records both pooled stages’ candidates in one evaluation, losers included', () => {
+  it('records both pooled stages\' candidates in one evaluation, losers included', () => {
     const engine = makeEngine();
     const pipeline = makeFanOut(engine);
     const recorder = new TraceRecorder();
@@ -248,17 +257,19 @@ describe('TraceRecorder — collect routing', () => {
   it('records the whole executed group under one evaluation with a single collect route', () => {
     const engine = makeEngine();
     engine.loadActions(`
-      action "mark"
-        roles: ?X: agent
-        utility 1.0
-        effects acted(?X)
-    `, 'marks');
+      actionset "marks"
+        action "mark"
+          roles: ?X: agent
+          utility 1.0
+          effects acted(?X)
+    `);
     engine.loadActions(`
-      action "seal"
-        roles: ?SELF: agent
-        utility 1.0
-        effects schemed(?SELF)
-    `, 'seals');
+      actionset "seals"
+        action "seal"
+          roles: ?SELF: agent
+          utility 1.0
+          effects schemed(?SELF)
+    `);
 
     const pipeline = new Pipeline('collect-test', {
       entry: 'mark-stage',
@@ -360,22 +371,23 @@ describe('serializeTrace — premise/effect polarity is never misrepresented', (
     });
     engine.world.getPrivateStore('alice').assert(new Fact('grudgeAgainst', 'alice', 'bob', { negated: true }));
     engine.loadRules(`
-      rule "plain fact"
-        knows(alice, bob)
-        => urge(alice) += 1
+      ruleset "polarity-rules"
+        rule "plain fact"
+          knows(alice, bob)
+          => urge(alice) += 1
 
-      rule "explicit disbelief"
-        -?SELF.grudgeAgainst(?SELF, bob)
-        => urge(?SELF) += 2
+        rule "explicit disbelief"
+          -?SELF.grudgeAgainst(?SELF, bob)
+          => urge(?SELF) += 2
 
-      rule "naf"
-        not knows(bob, alice)
-        => urge(alice) += 4
+        rule "naf"
+          not knows(bob, alice)
+          => urge(alice) += 4
 
-      rule "weak negation"
-        ~knows(bob, alice)
-        => urge(alice) += 8
-    `, 'polarity-rules');
+        rule "weak negation"
+          ~knows(bob, alice)
+          => urge(alice) += 8
+    `);
     engine.world.assert(new Fact('knows', 'alice', 'bob'));
 
     // No pipeline needed — run the ruleset directly and inspect via the same

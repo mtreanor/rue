@@ -52,25 +52,27 @@ describe('random() utility source — parsing & loading', () => {
   const loader = new ActionLoader();
 
   const buildSource = (utilityBody) => {
-    const { actions } = parser.parse(`
-      action "jitter"
-        utility
-          ${utilityBody}
-        effects
-          knows(?SELF, ?Y)
+    const { actionsets } = parser.parse(`
+      actionset "test"
+        action "jitter"
+          utility
+            ${utilityBody}
+          effects
+            knows(?SELF, ?Y)
     `);
-    return loader.buildAction(actions[0]).utilitySources;
+    return loader.buildAction(actionsets['test'][0]).utilitySources;
   };
 
   it('parses random(min, max) as a random source', () => {
-    const { actions } = parser.parse(`
-      action "jitter"
-        utility
-          random(-0.5, 0.5)
-        effects
-          knows(?SELF, ?Y)
+    const { actionsets } = parser.parse(`
+      actionset "test"
+        action "jitter"
+          utility
+            random(-0.5, 0.5)
+          effects
+            knows(?SELF, ?Y)
     `);
-    assert.deepEqual(actions[0].utilitySources, [{ type: 'random', min: -0.5, max: 0.5 }]);
+    assert.deepEqual(actionsets['test'][0].utilitySources, [{ type: 'random', min: -0.5, max: 0.5 }]);
   });
 
   it('builds a RandomUtilitySource via the loader', () => {
@@ -81,16 +83,17 @@ describe('random() utility source — parsing & loading', () => {
   });
 
   it('nests inside an aggregate as an atomic source', () => {
-    const { actions } = parser.parse(`
-      action "jitter"
-        utility
-          sum
-            2.0
-            random(0, 1)
-        effects
-          knows(?SELF, ?Y)
+    const { actionsets } = parser.parse(`
+      actionset "test"
+        action "jitter"
+          utility
+            sum
+              2.0
+              random(0, 1)
+          effects
+            knows(?SELF, ?Y)
     `);
-    const [agg] = actions[0].utilitySources;
+    const [agg] = actionsets['test'][0].utilitySources;
     assert.equal(agg.type, 'aggregate');
     assert.deepEqual(agg.sources[1], { type: 'random', min: 0, max: 1 });
   });

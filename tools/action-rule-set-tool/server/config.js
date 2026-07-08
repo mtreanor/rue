@@ -75,19 +75,21 @@ export function loadProjectConfig() {
   return JSON.parse(readFileSync(workingPath(configPath), 'utf-8'));
 }
 
-// Resolve every path a scenario references, relative to the config's directory —
-// mirroring the resolution the engine does, but rooted at the config so the data
-// can live in a parent repo rather than the klugh submodule. Each resolved path
-// is redirected to its shadow copy (see workspace.js) so all edits are staged.
+// Resolve every path a scenario references, relative to the config's directory.
+// Scenario entries are now a single directory string; all standard files are
+// derived by convention. Each resolved path is redirected through the shadow
+// workspace so edits are staged before "Save to File" writes real files.
 export function resolveScenarioPaths(scenario) {
-  const rel = (p) => (p ? workingPath(resolve(configDir, p)) : null);
+  const dir = workingPath(resolve(configDir, typeof scenario === 'string' ? scenario : scenario.dir ?? ''));
+  const rel = (sub) => workingPath(resolve(dir, sub));
   return {
-    predicates:  rel(scenario.predicates),
-    entities:    rel(scenario.entities),
-    state:       rel(scenario.state),
-    definitions: rel(scenario.definitions),
-    rulesets:    Object.fromEntries(Object.entries(scenario.rulesets  ?? {}).map(([k, v]) => [k, rel(v)])),
-    actionsets:  Object.fromEntries(Object.entries(scenario.actionsets ?? {}).map(([k, v]) => [k, rel(v)])),
-    pipelines:   Object.fromEntries(Object.entries(scenario.pipelines  ?? {}).map(([k, v]) => [k, rel(v)])),
+    dir,
+    klughDir:    dir,
+    predicates:  rel('predicates.json'),
+    entities:    rel('entities.json'),
+    state:       rel('state'),
+    definitions: rel('definitions.klugh'),
+    pipelines:   rel('pipelines'),
+    play:        rel('play.json'),
   };
 }

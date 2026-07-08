@@ -84,6 +84,29 @@ export default function App() {
     } catch (e) { setError(e.message); }
   }
 
+  async function editPlayJson() {
+    if (!scenario) return;
+    let existing = null;
+    try {
+      const res = await api.getPlayConfig(scenario);
+      existing = res.content;
+    } catch (e) { setError(e.message); return; }
+    const defaultTemplate = JSON.stringify({
+      entityType: 'agent',
+      phases: [{ pipeline: 'main', loop: ['SELF'] }],
+    }, null, 2);
+    const text = prompt(
+      `play.json for "${scenario}" — paste JSON (leave blank to cancel):`,
+      existing ? JSON.stringify(existing, null, 2) : defaultTemplate,
+    );
+    if (!text?.trim()) return;
+    try {
+      const parsed = JSON.parse(text);
+      await api.putPlayConfig(scenario, parsed);
+      await refreshScenarios();
+    } catch (e) { setError(e.message); }
+  }
+
   async function reload(name = scenario) {
     if (!name) return;
     setLoading(true);
@@ -153,6 +176,12 @@ export default function App() {
               ))}
             </select>
             <button className="btn tiny" onClick={addScenario} title="Create a new scenario" aria-label="Create scenario">+</button>
+            <button
+              className="btn tiny"
+              onClick={editPlayJson}
+              title={scenarios?.find(s => s.name === scenario)?.hasPlay ? 'Edit play.json' : 'Create play.json'}
+              aria-label="Edit play.json"
+            >▶︎</button>
           </label>
           <nav className="tabs">
             <button className={tab === 'state' ? 'active' : ''} onClick={() => goTo('state')}>State</button>

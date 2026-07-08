@@ -56,24 +56,19 @@ describe('ActionParser — multi-actionset blocks', () => {
     assert.deepEqual(names, ['alpha', 'beta']);
   });
 
-  it('returns { actions: [] } for an empty file', () => {
+  it('returns { actionsets: {} } for an empty file', () => {
     const result = new ActionParser().parse('');
-    assert.deepEqual(result, { actions: [] });
+    assert.deepEqual(result, { actionsets: {} });
   });
 
-  it('throws when bare actions and actionset blocks are mixed', () => {
+  it('throws when a bare action block is encountered at the top level', () => {
     const src = `
       action "wave"
         roles: ?SELF: agent
         effects likes(?SELF, ?SELF)
-
-      actionset "depart"
-        action "leave"
-          roles: ?SELF: agent
-          effects hates(?SELF, ?SELF)
     `;
-    // bare action comes first, then actionset => parseSingleActionset errors on 'actionset'
-    assert.throws(() => new ActionParser().parse(src), /Expected 'action'/);
+    // bare action keyword is rejected — must wrap in actionset "name"
+    assert.throws(() => new ActionParser().parse(src), /Bare 'action' blocks are no longer supported/);
   });
 });
 
@@ -158,9 +153,10 @@ describe('Engine — multi-actionset file loading', () => {
     const dir = makeDir();
     const single = join(dir, 'single.klugh');
     writeFileSync(single, `
-      action "wave"
-        roles: ?SELF: agent
-        effects likes(?SELF, ?SELF)
+      actionset "greet"
+        action "wave"
+          roles: ?SELF: agent
+          effects likes(?SELF, ?SELF)
     `);
 
     const engine = new Engine({ predicates: PREDICATES, entities: ENTITIES, actionsets: { greet: single } });

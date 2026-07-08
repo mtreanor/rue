@@ -140,12 +140,12 @@ describe('PredicateAggregateUtilitySource', () => {
 
 describe('PredicateAggregateUtilitySource — parser + loader integration', () => {
   function parseAndLoad(src) {
-    const data = new ActionParser(schema).parse(src);
+    const data = new ActionParser(schema).parse(`actionset "test"\n${src}`);
     return new ActionLoader(schema).load(data);
   }
 
   it('parses avg|pred| as a predicate-aggregate utility source', () => {
-    const { actions } = parseAndLoad(`
+    const { actionsets } = parseAndLoad(`
       action "seek warmth"
         roles: ?SELF: agent
         utility
@@ -153,14 +153,14 @@ describe('PredicateAggregateUtilitySource — parser + loader integration', () =
         effects
           knows(?SELF, ?SELF)
     `);
-    const src = actions[0].utilitySources[0];
+    const src = actionsets['test'][0].utilitySources[0];
     assert.ok(src instanceof PredicateAggregateUtilitySource);
   });
 
   it('correctly distinguishes predicate-aggregate from utility-aggregate', () => {
     // utility-aggregate: sum followed by atomic sources
     // predicate-aggregate: avg|...|
-    const { actions } = parseAndLoad(`
+    const { actionsets } = parseAndLoad(`
       action "combined"
         roles: ?SELF: agent
         utility
@@ -169,12 +169,12 @@ describe('PredicateAggregateUtilitySource — parser + loader integration', () =
         effects
           knows(?SELF, ?SELF)
     `);
-    assert.equal(actions[0].utilitySources.length, 2);
-    assert.ok(actions[0].utilitySources[0] instanceof PredicateAggregateUtilitySource);
+    assert.equal(actionsets['test'][0].utilitySources.length, 2);
+    assert.ok(actionsets['test'][0].utilitySources[0] instanceof PredicateAggregateUtilitySource);
   });
 
   it('evaluates correctly end-to-end via action.score()', () => {
-    const { actions } = parseAndLoad(`
+    const { actionsets } = parseAndLoad(`
       action "be liked"
         roles: ?SELF: agent
         utility
@@ -194,11 +194,11 @@ describe('PredicateAggregateUtilitySource — parser + loader integration', () =
 
     // avg(80, 60, 0, 0) = 35
     const binding = new Binding().extend(SELF, carol);
-    assert.equal(actions[0].score(binding, entityRegistry, ctx), 35);
+    assert.equal(actionsets['test'][0].score(binding, entityRegistry, ctx), 35);
   });
 
   it('parses a filtered aggregate with ^', () => {
-    const { actions } = parseAndLoad(`
+    const { actionsets } = parseAndLoad(`
       action "know warmth"
         roles: ?SELF: agent
         utility
@@ -206,12 +206,12 @@ describe('PredicateAggregateUtilitySource — parser + loader integration', () =
         effects
           knows(?SELF, ?SELF)
     `);
-    assert.ok(actions[0].utilitySources[0] instanceof PredicateAggregateUtilitySource);
+    assert.ok(actionsets['test'][0].utilitySources[0] instanceof PredicateAggregateUtilitySource);
   });
 
   it('parses all four aggregate functions', () => {
     for (const fn of ['avg', 'sum', 'max', 'min']) {
-      const { actions } = parseAndLoad(`
+      const { actionsets } = parseAndLoad(`
         action "${fn} action"
           roles: ?SELF: agent
           utility
@@ -219,7 +219,7 @@ describe('PredicateAggregateUtilitySource — parser + loader integration', () =
           effects
             knows(?SELF, ?SELF)
       `);
-      assert.ok(actions[0].utilitySources[0] instanceof PredicateAggregateUtilitySource);
+      assert.ok(actionsets['test'][0].utilitySources[0] instanceof PredicateAggregateUtilitySource);
     }
   });
 });

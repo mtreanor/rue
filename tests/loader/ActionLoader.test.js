@@ -13,8 +13,9 @@ import { NegationPredicate } from '../../src/predicates/NegationPredicate.js';
 import { LogicalVariable } from '../../src/LogicalVariable.js';
 
 function load(src) {
-  const data = new ActionParser().parse(src);
-  return new ActionLoader().load(data);
+  const data = new ActionParser().parse(`actionset "test"\n${src}`);
+  const { actionsets } = new ActionLoader().load(data);
+  return { actions: actionsets['test'] };
 }
 
 describe('ActionLoader', () => {
@@ -195,7 +196,7 @@ describe('ActionLoader', () => {
     it('throws on an unknown utility source type', () => {
       const loader = new ActionLoader();
       assert.throws(
-        () => loader.load({ actions: [{ name: 'x', effects: [], utilitySources: [{ type: 'bogus' }] }] }),
+        () => loader.load({ actionsets: { test: [{ name: 'x', effects: [], utilitySources: [{ type: 'bogus' }] }] } }),
         /Unknown utility source type/
       );
     });
@@ -216,7 +217,7 @@ describe('ActionLoader', () => {
     it('throws on an unknown content type', () => {
       const loader = new ActionLoader();
       assert.throws(
-        () => loader.load({ actions: [{ name: 'x', effects: [], content: { type: 'video', template: 'blah' } }] }),
+        () => loader.load({ actionsets: { test: [{ name: 'x', effects: [], content: { type: 'video', template: 'blah' } }] } }),
         /Unknown content type/
       );
     });

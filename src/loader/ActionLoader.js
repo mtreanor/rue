@@ -21,14 +21,11 @@ export class ActionLoader {
   }
 
   load(data) {
-    if (data.actionsets) {
-      const result = {};
-      for (const [name, actions] of Object.entries(data.actionsets)) {
-        result[name] = actions.map(a => this.buildAction(a));
-      }
-      return { actionsets: result };
+    const result = {};
+    for (const [name, actions] of Object.entries(data.actionsets)) {
+      result[name] = actions.map(a => this.buildAction(a));
     }
-    return { actions: data.actions.map(a => this.buildAction(a)) };
+    return { actionsets: result };
   }
 
   buildAction(data) {

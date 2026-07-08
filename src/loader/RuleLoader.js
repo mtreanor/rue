@@ -81,15 +81,19 @@ export class RuleLoader {
   }
 
   load(data) {
-    const rules = data.rules.map(r => this.buildRule(r));
-    const cycle = new RuleCycleDetector().detect(rules);
-    if (cycle) {
-      throw new Error(
-        `Cyclic rule dependency detected — this rule set may not terminate.\n` +
-        `Cycle: ${cycle.join(' → ')}`
-      );
+    const rulesets = {};
+    for (const [name, ruleData] of Object.entries(data.rulesets)) {
+      const rules = ruleData.map(r => this.buildRule(r));
+      const cycle = new RuleCycleDetector().detect(rules);
+      if (cycle) {
+        throw new Error(
+          `Cyclic rule dependency detected in ruleset "${name}" — this rule set may not terminate.\n` +
+          `Cycle: ${cycle.join(' → ')}`
+        );
+      }
+      rulesets[name] = rules;
     }
-    return { rules };
+    return { rulesets };
   }
 
   buildRule(data) {
