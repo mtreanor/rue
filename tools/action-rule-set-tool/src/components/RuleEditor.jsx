@@ -6,7 +6,7 @@ import { useDebounced } from '../hooks.js';
 // Shared form for adding and editing a rule. Live-validates against the backend
 // (parse + schema + cycle detection) and only enables save when valid.
 export default function RuleEditor({
-  scenario, rulesets, predicates, entityNames,
+  scenario, rulesets, predicates, entityNames, highlighter,
   mode = 'add', initial = {}, onSaved, onCancel,
 }) {
   const [ruleset, setRuleset] = useState(initial.ruleset ?? rulesets[0]?.name ?? '');
@@ -73,7 +73,7 @@ export default function RuleEditor({
         <span>Rule body <em>{'(conditions and => effects)'}</em></span>
         <DslInput
           value={body} onChange={setBody} predicates={predicates} entityNames={entityNames}
-          multiline rows={6} insertMode="cursor" primary
+          multiline rows={6} insertMode="cursor" primary highlighter={highlighter}
           placeholder={'knows(?X, ?Y)\n^ trust(?X, ?Y) >= 60\n=> admires(?X, ?Y)'}
         />
       </label>

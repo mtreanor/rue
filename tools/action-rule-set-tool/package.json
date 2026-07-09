@@ -6,6 +6,7 @@
   "description": "Authoring & visualization tool for klugh rulesets — inspect/search rules and add/edit/delete them with schema-aware autocomplete and DSL validation.",
   "scripts": {
     "server": "node server/index.js",
+    "start": "vite build && concurrently -k -n server,web -c blue,magenta \"npm:server\" \"vite preview\"",
     "dev": "concurrently -k -n server,web -c blue,magenta \"npm:server\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview"

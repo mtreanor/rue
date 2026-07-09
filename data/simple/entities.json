@@ -1,0 +1,10 @@
+{
+  "agent": {
+    "privateStore": true,
+    "distinct": true,
+    "richard": {},
+    "cliff": {},
+    "maria": {},
+    "isabelle": {}
+  }
+}

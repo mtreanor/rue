@@ -52,6 +52,7 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
   const [minValue, setMinValue] = useState(initial?.minValue ?? 0);
   const [maxValue, setMaxValue] = useState(initial?.maxValue ?? 100);
   const [def, setDef] = useState(initial?.default ?? 0);
+  const [ephemeral, setEphemeral] = useState(!!initial?.ephemeral);
   const [tiers, setTiers] = useState(tiersToRows(initial?.tierRanges));
   const [premises, setPremises] = useState(extractPremises(initial?.define));
   const [busy, setBusy] = useState(false);
@@ -76,7 +77,7 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
       args,
       config: {
         symmetric: type === 'boolean' && symmetric && args.length === 2,
-        ...(NUMERIC.has(type) ? { minValue, maxValue, default: def, tiers: rowsToTiers(tiers) } : {}),
+        ...(NUMERIC.has(type) ? { minValue, maxValue, default: def, tiers: rowsToTiers(tiers), ephemeral } : {}),
       },
       define: type === 'derived' ? buildDefineBlock(nm, args.length, premises) : '',
     };
@@ -132,6 +133,10 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
               <label className="ent-field"><span>Max</span><input type="number" value={maxValue} onChange={e => setMaxValue(e.target.value)} /></label>
               <label className="ent-field"><span>Default</span><input type="number" value={def} onChange={e => setDef(e.target.value)} /></label>
             </div>
+            <label className="ent-check">
+              <input type="checkbox" checked={ephemeral} onChange={e => setEphemeral(e.target.checked)} />
+              Ephemeral <span className="dim">— wiped at the start of every tick</span>
+            </label>
             <div className="ent-field">
               <span>Tiers <span className="dim">(name, low, high)</span></span>
               {tiers.map((t, i) => (

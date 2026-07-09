@@ -1,9 +1,10 @@
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
-import { workingPath } from './workspace.js';
 
-// Resolve name → shadow path for every pipeline in a scenario.
+// Resolve name → shadow path for every pipeline in a scenario. The paths from
+// resolveScenarioPaths already live inside the scenario's mirrored shadow tree,
+// so the pipeline files are read and written there directly.
 function pipelinePaths(scenarioName) {
   const config = loadProjectConfig();
   const scenario = config.scenarios[scenarioName];
@@ -13,7 +14,7 @@ function pipelinePaths(scenarioName) {
   try {
     for (const f of readdirSync(paths.pipelines)) {
       if (!f.endsWith('.json')) continue;
-      result[f.slice(0, -5)] = workingPath(join(paths.pipelines, f));
+      result[f.slice(0, -5)] = join(paths.pipelines, f);
     }
   } catch { /* no pipelines dir */ }
   return result;
@@ -40,5 +41,15 @@ export function savePipeline(scenarioName, name, data) {
   const absPath = paths[name];
   if (!absPath) throw new Error(`No pipeline named "${name}" in scenario "${scenarioName}"`);
   writeFileSync(absPath, JSON.stringify(data, null, 2) + '\n');
+  return listPipelines(scenarioName);
+}
+
+// Remove a pipeline's JSON file from the shadow (staged like every other
+// delete — "Save to File" is what actually removes it from disk).
+export function deletePipeline(scenarioName, name) {
+  const paths = pipelinePaths(scenarioName);
+  const absPath = paths[name];
+  if (!absPath) throw new Error(`No pipeline named "${name}" in scenario "${scenarioName}"`);
+  unlinkSync(absPath);
   return listPipelines(scenarioName);
 }

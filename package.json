@@ -20,6 +20,8 @@
     "LICENSE"
   ],
   "scripts": {
+    "tool": "npm run --prefix tools/action-rule-set-tool start",
+    "tool:dev": "npm run --prefix tools/action-rule-set-tool dev",
     "demo": "node src/repl.js",
     "demo:planner": "node examples/planner.js",
     "demo:landing-page": "node examples/landing-page-demo.js",

@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 import { parseBlocks } from './blockFile.js';
 import { reloadStateEngine } from './state.js';
@@ -10,7 +11,7 @@ import { reloadStateEngine } from './state.js';
 // is never left broken.
 const TYPES    = new Set(['boolean', 'numeric', 'derived', 'sensor', 'sensor-numeric']);
 const NUMERIC  = new Set(['numeric', 'sensor-numeric']);
-const NAME_RE  = /^[A-Za-z_]\w*$/;
+const NAME_RE  = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
 function paths(scenario) {
   const cfg = loadProjectConfig();
@@ -21,8 +22,17 @@ function paths(scenario) {
   return p;
 }
 
+function ensurePredicatesFile(pPath) {
+  if (!existsSync(pPath)) {
+    mkdirSync(dirname(pPath), { recursive: true });
+    writeFileSync(pPath, '{\n  "predicates": {}\n}\n');
+  }
+}
+
 function readSchema(scenario) {
-  const data = JSON.parse(readFileSync(paths(scenario).predicates, 'utf-8'));
+  const pPath = paths(scenario).predicates;
+  ensurePredicatesFile(pPath);
+  const data = JSON.parse(readFileSync(pPath, 'utf-8'));
   data.predicates ??= {};
   return data;
 }
@@ -78,13 +88,15 @@ function buildDef({ type, args, config = {} }) {
     def.default  = num(config.default, def.minValue);
     const tiers = config.tiers ?? {};
     if (Object.keys(tiers).length) def.tiers = tiers;
+    // Ephemeral numerics are wiped at the start of every tick (Engine.advanceTick).
+    if (config.ephemeral) def.annotations = { ...def.annotations, ephemeral: true };
   }
   if (Array.isArray(config.singleValued) && config.singleValued.length) def.singleValued = config.singleValued;
   return def;
 }
 
 function validate(name, type, args) {
-  if (!NAME_RE.test(name)) throw new Error(`Invalid predicate name "${name}" — letters, digits, underscores; no leading digit`);
+  if (!NAME_RE.test(name)) throw new Error(`Invalid predicate name "${name}" — letters, digits, underscores, hyphens; no leading digit`);
   if (!TYPES.has(type)) throw new Error(`Unknown predicate type "${type}"`);
   for (const a of args) if (typeof a !== 'string' || !a.trim()) throw new Error('Every argument needs an entity type');
 }
@@ -93,6 +105,7 @@ function validate(name, type, args) {
 // restore the original files and re-raise.
 function transaction(scenario, mutate) {
   const p = paths(scenario);
+  ensurePredicatesFile(p.predicates);
   const snapPred = readFileSync(p.predicates, 'utf-8');
   const snapDef  = p.definitions && existsSync(p.definitions) ? readFileSync(p.definitions, 'utf-8') : null;
   try {

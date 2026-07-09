@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 import { reloadStateEngine } from './state.js';
 
@@ -15,12 +16,16 @@ function entitiesPath(scenario) {
   const cfg = loadProjectConfig();
   const s = cfg.scenarios[scenario];
   if (!s) throw new Error(`Unknown scenario "${scenario}"`);
-  if (!s.entities) throw new Error(`Scenario "${scenario}" has no entities file`);
   return resolveScenarioPaths(s).entities;
 }
 
 function readEntities(scenario) {
-  return JSON.parse(readFileSync(entitiesPath(scenario), 'utf-8'));
+  const p = entitiesPath(scenario);
+  if (!existsSync(p)) {
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, '{}\n');
+  }
+  return JSON.parse(readFileSync(p, 'utf-8'));
 }
 
 function writeEntities(scenario, data) {

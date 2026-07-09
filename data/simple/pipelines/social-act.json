@@ -1,0 +1,27 @@
+{
+  "name": "social-act",
+  "notes": "",
+  "entry": "single-action",
+  "selectionStrategy": "highestUtility",
+  "preHooks": [],
+  "postHooks": [],
+  "stages": {
+    "single-action": {
+      "actionset": "social-actions",
+      "routing": "branch",
+      "routesTo": "end",
+      "perActionRouting": false,
+      "actionRoutes": {},
+      "primingRules": [
+        {
+          "type": "ruleset-single",
+          "name": "intent-influence-rules"
+        }
+      ],
+      "preHooks": [],
+      "postHooks": [],
+      "salienceFloor": 0,
+      "selectionStrategy": null
+    }
+  }
+}

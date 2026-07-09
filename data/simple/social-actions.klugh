@@ -1,0 +1,245 @@
+actionset "social-actions"
+  # Vegas hangout — two-person social actions, scored against the ephemeral
+  # intent-* utility predicates from intent-influence-rules.klugh. Several
+  # actions share an intent; each carries its own differentiating "rule"
+  # utility source (or a hard precondition) so they don't all fire together.
+
+  # ── be nice ──────────────────────────────────────────────────────────────────
+
+  action "swap movie opinions"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, bonding)
+    utility
+      intent-be-nice(?SELF, ?TARGET)
+    content text: "?SELF and ?TARGET argue happily about favorite movies"
+    effects
+      buddy(?SELF, ?TARGET) += 1
+      record(?occ)
+
+  action "people-watch and commentate"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, bonding)
+    utility
+      intent-be-nice(?SELF, ?TARGET)
+      rule "sociable agents narrate the room"
+        agreeable.high(?SELF)
+        => 1.0
+    content text: "?SELF and ?TARGET people-watch and riff on passersby"
+    effects
+      buddy(?SELF, ?TARGET) += 1
+      record(?occ)
+
+  action "reminisce about old times"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, bonding)
+    utility
+      intent-be-nice(?SELF, ?TARGET)
+      rule "old friends have more to look back on"
+        buddy.high(?SELF, ?TARGET)
+        => 2.0
+    content text: "?SELF and ?TARGET reminisce about old times"
+    effects
+      buddy(?SELF, ?TARGET) += 2
+      record(?occ)
+
+  action "make small talk about the trip"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, bonding)
+    utility
+      intent-be-nice(?SELF, ?TARGET)
+    content text: "?SELF makes small talk with ?TARGET about the trip"
+    effects
+      buddy(?SELF, ?TARGET) += 1
+      record(?occ)
+
+  action "gossip about someone not present"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, bonding)
+    preconditions
+      not buddy.low(?SELF, ?TARGET)
+    utility
+      intent-be-nice(?SELF, ?TARGET)
+    content text: "?SELF gossips with ?TARGET about someone else"
+    effects
+      buddy(?SELF, ?TARGET) += 2
+      record(?occ)
+
+  action "buy them a drink"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, bonding)
+    preconditions
+      money(?SELF) > 0
+    utility
+      intent-be-nice(?SELF, ?TARGET)
+    content text: "?SELF buys ?TARGET a drink"
+    effects
+      intoxication(?TARGET) += 2
+      money(?SELF) -= 10
+      record(?occ)
+
+  action "hype them up"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, bonding)
+    utility
+      intent-be-nice(?SELF, ?TARGET)
+      rule "the underdog needs a boost"
+        wins(?TARGET) < wins(?SELF)
+        => 1.5
+    content text: "?SELF hypes ?TARGET up"
+    effects
+      buddy(?SELF, ?TARGET) += 1
+      record(?occ)
+
+  action "check in"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, bonding)
+    utility
+      intent-be-nice(?SELF, ?TARGET)
+      rule "concern for an intoxicated friend"
+        intoxication.drunk(?TARGET)
+        => 2.0
+    content text: "?SELF checks in on ?TARGET"
+    effects
+      buddy(?SELF, ?TARGET) += 1
+      record(?occ)
+
+  # ── antagonize ───────────────────────────────────────────────────────────────
+
+  action "tease"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, antagonize)
+    utility
+      intent-antagonize(?SELF, ?TARGET)
+    content text: "?SELF teases ?TARGET"
+    effects
+      record(?occ)
+
+  action "bring up an old argument"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, antagonize)
+    preconditions
+      exes(?SELF, ?TARGET)
+    utility
+      intent-antagonize(?SELF, ?TARGET)
+    content text: "?SELF brings up an old argument with ?TARGET"
+    effects
+      attraction(?TARGET, ?SELF) -= 1
+      record(?occ)
+
+  action "prank"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, antagonize)
+    utility
+      intent-antagonize(?SELF, ?TARGET)
+      rule "an easy mark invites mischief"
+        gullible(?TARGET)
+        => 2.0
+    content text: "?SELF pranks ?TARGET"
+    effects
+      record(?occ)
+
+  # ── flirt ────────────────────────────────────────────────────────────────────
+
+  action "comically flirt"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, flirt)
+    preconditions
+      not attraction.repulsed(?SELF, ?TARGET)
+    utility
+      intent-flirt(?SELF, ?TARGET)
+      rule "the bit lands best with a close friend"
+        buddy.high(?SELF, ?TARGET)
+        => 1.5
+    content text: "?SELF comically flirts with ?TARGET"
+    effects
+      attraction(?TARGET, ?SELF) += 1
+      record(?occ)
+
+  action "physically flirt"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, flirt)
+    preconditions
+      not attraction.repulsed(?SELF, ?TARGET)
+    utility
+      intent-flirt(?SELF, ?TARGET)
+      rule "real attraction invites real touch"
+        attraction.enamored(?SELF, ?TARGET)
+        => 2.0
+    content text: "?SELF physically flirts with ?TARGET"
+    effects
+      attraction(?TARGET, ?SELF) += 2
+      record(?occ)
+
+  action "give a suggestive compliment"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, flirt)
+    preconditions
+      not attraction.repulsed(?SELF, ?TARGET)
+    utility
+      intent-flirt(?SELF, ?TARGET)
+      rule "old chemistry resurfaces as flattery"
+        exes(?SELF, ?TARGET)
+        => 1.5
+    content text: "?SELF gives ?TARGET a suggestive compliment"
+    effects
+      attraction(?TARGET, ?SELF) += 1
+      record(?occ)
+
+  # ── show off ─────────────────────────────────────────────────────────────────
+
+  action "brag about winnings"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, show-off)
+    preconditions
+      wins(?SELF) > 0
+    utility
+      intent-show-off(?SELF, ?TARGET)
+      rule "a hot streak brags loudest"
+        wins(?SELF) > 10
+        => 2.0
+    content text: "?SELF brags to ?TARGET about winnings"
+    effects
+      record(?occ)
+
+  action "dare"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, show-off)
+    utility
+      intent-show-off(?SELF, ?TARGET)
+      rule "impulsive agents love a dare"
+        impulse_control.low(?SELF)
+        => 1.5
+    content text: "?SELF dares ?TARGET"
+    effects
+      buddy(?SELF, ?TARGET) += 1
+      record(?occ)
+
+  action "show off a skill or trick"
+    roles: ?SELF: agent, ?TARGET: agent
+    info:
+      tag(?this_action, show-off)
+    utility
+      intent-show-off(?SELF, ?TARGET)
+      rule "showing off plays best for a close friend"
+        buddy.high(?SELF, ?TARGET)
+        => 1.5
+    content text: "?SELF shows off a skill or trick for ?TARGET"
+    effects
+      attraction(?TARGET, ?SELF) += 1
+      record(?occ)

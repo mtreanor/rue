@@ -63,10 +63,15 @@ import { entryStageRoles } from './pipelineRoles.js';
 // live session (Play) makes "which pipelines run, and in what order" a
 // per-tick choice instead of a fixed property of the scenario.
 export class TickLoop {
-  constructor(engine, pipelines, { entityType = 'agent', phases = [] } = {}) {
+  constructor(engine, pipelines, { entityType, phases = [] } = {}) {
     this.engine     = engine;
     this.pipelines  = pipelines;   // { name: Pipeline }
-    this.entityType = entityType;
+    // `?? 'agent'` rather than a destructuring default: a play.json that
+    // never set entityType round-trips through JSON as an explicit `null`
+    // (see PlayTab's plan editor), and a default *parameter* value only
+    // covers `undefined`, not `null` — so an unset entityType would
+    // otherwise silently stick as null instead of falling back.
+    this.entityType = entityType ?? 'agent';
     this.phases     = phases;
     this.runner     = new PipelineRunner(engine);
   }

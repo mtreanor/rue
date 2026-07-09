@@ -22,7 +22,12 @@ export function validateRule({ ctx, name, comment, body, rulesetPath = null, exc
   if (errors.length) return { ok: false, errors, warnings };
 
   const loader = new RuleLoader(ctx.schema);
-  const ruleSource = `rule ${JSON.stringify(name)}\n${body}`;
+  // Body lines must be MORE indented than the `rule` header so the parser
+  // treats them as body content, not as new ruleset-level declarations.
+  // Strip any leading whitespace from body lines first (editor stores them
+  // without indentation) then add 4 spaces; the rule header gets 2.
+  const bodyLines = body.split('\n').map(l => `    ${l.replace(/^\s*/, '')}`).join('\n');
+  const ruleSource = `rule ${JSON.stringify(name)}\n${bodyLines}`;
   const indented = ruleSource.split('\n').map(l => `  ${l}`).join('\n');
   const source = `ruleset "_validate_"\n${indented}`;
 

@@ -81,12 +81,12 @@ export function renderBlock({ keyword, name, comment, body }) {
     }
   }
   lines.push(`  ${keyword} "${name}"`);
-  // Indent body lines to four spaces if the author didn't already indent.
-  // If they provided their own indentation (starts with space), we shift it right by 2 spaces.
+  // Always indent body lines to four spaces, stripping any existing leading
+  // whitespace first so repeated edits don't compound indentation.
   for (const raw of body.replace(/\s+$/, '').split('\n')) {
-    const line = raw.replace(/\s+$/, '');
+    const line = raw.replace(/^\s+/, '').replace(/\s+$/, '');
     if (line === '') { lines.push(''); continue; }
-    lines.push(/^\s/.test(line) ? `  ${line}` : `    ${line}`);
+    lines.push(`    ${line}`);
   }
   return lines.join('\n');
 }

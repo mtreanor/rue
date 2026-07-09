@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import ConfirmDelete from './ConfirmDelete.jsx';
 
 const POLICIES = ['lastWins', 'allow', 'block'];
 const emptyForm = { name: '', privateStore: false, distinct: true, contradictionPolicy: 'lastWins' };
@@ -95,7 +96,7 @@ export default function EntitySidebar({
                 </button>
                 <span className="ent-type-actions">
                   <button className="row-icon" onClick={() => openEdit(g)} title="Edit type">✎</button>
-                  <button className="row-icon del" onClick={() => { if (confirm(`Delete entity type "${g.type}" and its ${g.names.length} entit${g.names.length === 1 ? 'y' : 'ies'}?`)) onDeleteType(g.type); }} title="Delete type">×</button>
+                  <ConfirmDelete onConfirm={() => onDeleteType(g.type)} title={`Delete entity type "${g.type}" and its ${g.names.length} entit${g.names.length === 1 ? 'y' : 'ies'}`} />
                 </span>
               </div>
 
@@ -116,7 +117,7 @@ export default function EntitySidebar({
                         </button>
                         <span className="ent-inst-actions">
                           <button className="row-icon" onClick={() => { setRenaming({ type: g.type, name: n }); setRenameText(n); }} title="Rename">✎</button>
-                          <button className="row-icon del" onClick={() => onDeleteInstance(g.type, n)} title="Delete entity">×</button>
+                          <ConfirmDelete onConfirm={() => onDeleteInstance(g.type, n)} title={`Delete entity "${n}"`} />
                         </span>
                       </div>
                     )

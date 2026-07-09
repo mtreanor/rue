@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useInsert } from '../InsertContext.js';
 import { predicateTemplate, tierTemplate } from '../predicateTemplate.js';
 import PredicateModal from './PredicateModal.jsx';
+import ConfirmDelete from './ConfirmDelete.jsx';
 
 // Order predicate groups the way the schema thinks about them.
 const TYPE_ORDER = ['boolean', 'numeric', 'derived', 'sensor', 'sensor-numeric'];
 const TYPE_LABEL = {
   boolean: 'boolean', numeric: 'numeric', derived: 'derived',
-  sensor: 'sensor', 'sensor-numeric': 'sensor · numeric',
+  sensor: 'sensor', 'sensor-numeric': 'sensor · numeric', ephemeral: 'ephemeral',
 };
 
 // Collapsible left panel listing every predicate. Clicking one inserts it into
@@ -31,9 +32,13 @@ export default function PredicateSidebar({
 
   const q = filter.trim().toLowerCase();
   const shown = q ? predicates.filter(p => p.name.toLowerCase().includes(q)) : predicates;
-  const groups = TYPE_ORDER
-    .map(type => ({ type, items: shown.filter(p => p.type === type) }))
-    .filter(g => g.items.length > 0);
+  const ephemeralGroup = { type: 'ephemeral', items: shown.filter(p => p.ephemeral) };
+  const groups = [
+    ...(ephemeralGroup.items.length > 0 ? [ephemeralGroup] : []),
+    ...TYPE_ORDER
+      .map(type => ({ type, items: shown.filter(p => p.type === type && !p.ephemeral) }))
+      .filter(g => g.items.length > 0),
+  ];
 
   if (!open) {
     return (
@@ -77,28 +82,37 @@ export default function PredicateSidebar({
                     <span className="pred-name">{p.name}</span>
                     <span className="pred-sig">({p.args.join(', ')})</span>
                     {p.symmetric && <span className="pred-flag">sym</span>}
+                    {p.default != null && (
+                      <span className="pred-default-val">
+                        {p.tiers.length === 0 && p.minValue != null ? `[${p.minValue}, ${p.maxValue}]: ` : ''}{p.default}
+                      </span>
+                    )}
                   </button>
                   {editable && (
                     <span className="pred-item-actions">
                       <button className="row-icon" onClick={() => setModal({ initial: p })} title="Edit predicate">✎</button>
-                      <button className="row-icon del" onClick={() => { if (confirm(`Delete predicate "${p.name}"?`)) onDelete(p.name); }} title="Delete predicate">×</button>
+                      <ConfirmDelete onConfirm={() => onDelete(p.name)} title={`Delete predicate "${p.name}"`} />
                     </span>
                   )}
                 </div>
-                {p.tiers.length > 0 && (
+                {p.tiers.length > 0 ? (
                   <div className="pred-tiers">
-                    {p.tiers.map(t => (
-                      <button
-                        key={t}
-                        className="tier-chip"
-                        onMouseDown={e => insert(tierTemplate(p, t), e)}
-                        title={`Insert ${p.name}.${t}(…)`}
-                      >
-                        {t}
-                      </button>
-                    ))}
+                    {p.tiers.map(t => {
+                      const [lo, hi] = p.tierRanges?.[t] ?? [];
+                      const isDefault = p.default != null && lo != null && p.default >= lo && p.default <= hi;
+                      return (
+                        <button
+                          key={t}
+                          className={`tier-chip${isDefault ? ' tier-chip-default' : ''}`}
+                          onMouseDown={e => insert(tierTemplate(p, t), e)}
+                          title={`Insert ${p.name}.${t}(…)`}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
+                ) : null}
               </div>
             ))}
           </div>

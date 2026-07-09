@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { PredicateSchema } from '../../../src/PredicateSchema.js';
 import { EntityNameValidator } from '../../../src/EntityNameValidator.js';
 import { RuleParser } from '../../../src/loader/RuleParser.js';
@@ -55,11 +55,19 @@ export function loadScenarioContext(name) {
   const paths = resolveScenarioPaths(scenario);
   if (!paths.predicates) throw new Error(`Scenario "${name}" has no predicates file`);
 
+  if (!existsSync(paths.predicates)) {
+    mkdirSync(dirname(paths.predicates), { recursive: true });
+    writeFileSync(paths.predicates, '{\n  "predicates": {}\n}\n');
+  }
   const schema = new PredicateSchema(JSON.parse(readFileSync(paths.predicates, 'utf-8')));
 
   let entityNames = new Set();
   let entityTypeNames = new Set();
   if (paths.entities) {
+    if (!existsSync(paths.entities)) {
+      mkdirSync(dirname(paths.entities), { recursive: true });
+      writeFileSync(paths.entities, '{}\n');
+    }
     const entitiesData = JSON.parse(readFileSync(paths.entities, 'utf-8'));
     ({ entityNames, typeNames: entityTypeNames } = EntityNameValidator.validate(entitiesData, schema));
   }
@@ -157,6 +165,7 @@ export function schemaForClient(schema) {
       default: def.default,
       tierRanges: def.tiers ?? null,
       singleValued: def.singleValued ?? null,
+      ephemeral: !!def.annotations?.ephemeral,
     });
   }
   predicates.sort((a, b) => a.name.localeCompare(b.name));

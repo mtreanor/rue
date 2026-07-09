@@ -1,0 +1,64 @@
+{
+  "ruleset": "intent-influence-rules",
+  "rulesFile": "data/simple/intent-influence-rules.klugh",
+  "targetPredicates": [
+    "intent-antagonize",
+    "intent-flirt",
+    "intent-be-nice",
+    "intent-show-off"
+  ],
+  "consideredPredicates": [
+    { "name": "intoxication", "store": "world" },
+    { "name": "attraction", "store": "world" },
+    { "name": "buddy", "store": "world" },
+    { "name": "exes", "store": "world" },
+    { "name": "impulse_control", "store": "world" },
+    { "name": "wins", "store": "world" },
+    { "name": "losses", "store": "world" },
+    { "name": "money", "store": "world" },
+    { "name": "selfish", "store": "world" },
+    { "name": "gullible", "store": "world" },
+    { "name": "agreeable", "store": "world" }
+  ],
+  "tier": 1,
+  "queue": [
+    { "id": 1, "target": "intent-antagonize", "considered": "intoxication", "store": "world", "binding": "?SELF", "ruleName": "drunk agents antagonize more easily", "ruleText": "rule \"drunk agents antagonize more easily\"\n  intoxication.drunk(?SELF)\n  => intent-antagonize(?SELF, ?TARGET) += 3", "weight": 3, "status": "approved" },
+    { "id": 2, "target": "intent-antagonize", "considered": "attraction", "store": "world", "binding": "?SELF, ?TARGET", "ruleName": "repulsion drives antagonism", "ruleText": "rule \"repulsion drives antagonism\"\n  attraction.repulsed(?SELF, ?TARGET)\n  => intent-antagonize(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 3, "target": "intent-antagonize", "considered": "exes", "store": "world", "binding": "?SELF, ?TARGET", "ruleName": "exes bicker", "ruleText": "rule \"exes bicker\"\n  exes(?SELF, ?TARGET)\n  => intent-antagonize(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 4, "target": "intent-antagonize", "considered": "impulse_control", "store": "world", "binding": "?SELF", "ruleName": "low impulse control provokes antagonism", "ruleText": "rule \"low impulse control provokes antagonism\"\n  impulse_control.low(?SELF)\n  => intent-antagonize(?SELF, ?TARGET) += 1", "weight": 1, "status": "approved" },
+    { "id": 5, "target": "intent-antagonize", "considered": "wins", "store": "world", "binding": "?TARGET", "ruleName": "envy of a winning target", "ruleText": "rule \"envy of a winning target\"\n  wins(?TARGET) > 50\n  => intent-antagonize(?SELF, ?TARGET) += 1", "weight": 1, "status": "excluded" },
+    { "id": 6, "target": "intent-antagonize", "considered": "losses", "store": "world", "binding": "?SELF", "ruleName": "frustration from losing spills over", "ruleText": "rule \"frustration from losing spills over\"\n  losses(?SELF) > 50\n  => intent-antagonize(?SELF, ?TARGET) += 2", "weight": 2, "status": "excluded", "note": "superseded by graduated split, ids 32-34" },
+    { "id": 7, "target": "intent-antagonize", "considered": "selfish", "store": "world", "binding": "?SELF", "ruleName": "selfish agents provoke others", "ruleText": "rule \"selfish agents provoke others\"\n  selfish(?SELF)\n  => intent-antagonize(?SELF, ?TARGET) += 1", "weight": 1, "status": "approved" },
+    { "id": 8, "target": "intent-antagonize", "considered": "selfish", "store": "world", "binding": "?TARGET", "ruleName": "a selfish target invites antagonism", "ruleText": "rule \"a selfish target invites antagonism\"\n  selfish(?TARGET)\n  => intent-antagonize(?SELF, ?TARGET) += 2", "weight": 2, "status": "excluded" },
+    { "id": 9, "target": "intent-antagonize", "considered": "gullible", "store": "world", "binding": "?TARGET", "ruleName": "a gullible target invites mischief", "ruleText": "rule \"a gullible target invites mischief\"\n  gullible(?TARGET)\n  => intent-antagonize(?SELF, ?TARGET) += 2", "weight": 2, "status": "excluded" },
+    { "id": 10, "target": "intent-antagonize", "considered": "agreeable", "store": "world", "binding": "?SELF", "ruleName": "disagreeable agents provoke more", "ruleText": "rule \"disagreeable agents provoke more\"\n  agreeable.low(?SELF)\n  => intent-antagonize(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 11, "target": "intent-antagonize", "considered": "agreeable", "store": "world", "binding": "?TARGET", "ruleName": "a disagreeable target invites friction", "ruleText": "rule \"a disagreeable target invites friction\"\n  agreeable.low(?TARGET)\n  => intent-antagonize(?SELF, ?TARGET) += 1", "weight": 1, "status": "excluded", "note": "user: rules referring to the inner state of a target should generally not be proposed -- see skill update" },
+
+    { "id": 12, "target": "intent-flirt", "considered": "intoxication", "store": "world", "binding": "?SELF", "ruleName": "liquid courage", "ruleText": "rule \"liquid courage\"\n  intoxication.drunk(?SELF)\n  => intent-flirt(?SELF, ?TARGET) += 3", "weight": 3, "status": "approved" },
+    { "id": 13, "target": "intent-flirt", "considered": "attraction", "store": "world", "binding": "?SELF, ?TARGET", "ruleName": "attraction drives flirting", "ruleText": "rule \"attraction drives flirting\"\n  attraction.attracted(?SELF, ?TARGET)\n  => intent-flirt(?SELF, ?TARGET) += 4", "weight": 4, "status": "approved" },
+    { "id": 14, "target": "intent-flirt", "considered": "exes", "store": "world", "binding": "?SELF, ?TARGET", "ruleName": "unresolved tension with an ex", "ruleText": "rule \"unresolved tension with an ex\"\n  exes(?SELF, ?TARGET)\n  => intent-flirt(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 15, "target": "intent-flirt", "considered": "impulse_control", "store": "world", "binding": "?SELF", "ruleName": "impulsive flirting", "ruleText": "rule \"impulsive flirting\"\n  impulse_control.low(?SELF)\n  => intent-flirt(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 16, "target": "intent-flirt", "considered": "money", "store": "world", "binding": "?TARGET", "ruleName": "drawn to a wealthy target", "ruleText": "rule \"drawn to a wealthy target\"\n  money(?TARGET) > 50\n  => intent-flirt(?SELF, ?TARGET) += 1", "weight": 1, "status": "excluded" },
+
+    { "id": 17, "target": "intent-be-nice", "considered": "attraction", "store": "world", "binding": "?SELF, ?TARGET", "ruleName": "attraction makes you kinder", "ruleText": "rule \"attraction makes you kinder\"\n  attraction.attracted(?SELF, ?TARGET)\n  => intent-be-nice(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 18, "target": "intent-be-nice", "considered": "buddy", "store": "world", "binding": "?SELF, ?TARGET", "ruleName": "close buddies are kind to each other", "ruleText": "rule \"close buddies are kind to each other\"\n  buddy.high(?SELF, ?TARGET)\n  => intent-be-nice(?SELF, ?TARGET) += 3", "weight": 3, "status": "approved" },
+    { "id": 19, "target": "intent-be-nice", "considered": "impulse_control", "store": "world", "binding": "?SELF", "ruleName": "self-control supports measured kindness", "ruleText": "rule \"self-control supports measured kindness\"\n  impulse_control.high(?SELF)\n  => intent-be-nice(?SELF, ?TARGET) += 1", "weight": 1, "status": "approved" },
+    { "id": 20, "target": "intent-be-nice", "considered": "selfish", "store": "world", "binding": "?SELF", "ruleName": "unselfish agents are nicer", "ruleText": "rule \"unselfish agents are nicer\"\n  not selfish(?SELF)\n  => intent-be-nice(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 21, "target": "intent-be-nice", "considered": "losses", "store": "world", "binding": "?TARGET", "ruleName": "pity for a target on a losing streak", "ruleText": "rule \"pity for a target on a losing streak\"\n  losses(?TARGET) > 5\n  => intent-be-nice(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved", "note": "threshold changed 50 -> 5, weight 1 -> 2; kept despite general target-inner-state caution" },
+    { "id": 22, "target": "intent-be-nice", "considered": "agreeable", "store": "world", "binding": "?SELF", "ruleName": "agreeable agents are nicer", "ruleText": "rule \"agreeable agents are nicer\"\n  agreeable.high(?SELF)\n  => intent-be-nice(?SELF, ?TARGET) += 3", "weight": 3, "status": "approved" },
+    { "id": 23, "target": "intent-be-nice", "considered": "agreeable", "store": "world", "binding": "?TARGET", "ruleName": "an agreeable target invites reciprocal kindness", "ruleText": "rule \"an agreeable target invites reciprocal kindness\"\n  agreeable.high(?TARGET)\n  => intent-be-nice(?SELF, ?TARGET) += 1", "weight": 1, "status": "excluded" },
+
+    { "id": 24, "target": "intent-show-off", "considered": "intoxication", "store": "world", "binding": "?SELF", "ruleName": "drunken bravado", "ruleText": "rule \"drunken bravado\"\n  intoxication.drunk(?SELF)\n  => intent-show-off(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 25, "target": "intent-show-off", "considered": "attraction", "store": "world", "binding": "?SELF, ?TARGET", "ruleName": "showing off for someone attractive", "ruleText": "rule \"showing off for someone attractive\"\n  attraction.attracted(?SELF, ?TARGET)\n  => intent-show-off(?SELF, ?TARGET) += 3", "weight": 3, "status": "approved" },
+    { "id": 26, "target": "intent-show-off", "considered": "buddy", "store": "world", "binding": "?SELF, ?TARGET", "ruleName": "showing off for a close friend", "ruleText": "rule \"showing off for a close friend\"\n  buddy.high(?SELF, ?TARGET)\n  => intent-show-off(?SELF, ?TARGET) += 1", "weight": 1, "status": "approved" },
+    { "id": 27, "target": "intent-show-off", "considered": "impulse_control", "store": "world", "binding": "?SELF", "ruleName": "impulsive showing off", "ruleText": "rule \"impulsive showing off\"\n  impulse_control.low(?SELF)\n  => intent-show-off(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 28, "target": "intent-show-off", "considered": "wins", "store": "world", "binding": "?SELF", "ruleName": "a winning streak invites showing off", "ruleText": "rule \"a winning streak invites showing off\"\n  wins(?SELF) > 5\n  => intent-show-off(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved", "note": "threshold changed 50 -> 5, weight 3 -> 2" },
+    { "id": 29, "target": "intent-show-off", "considered": "money", "store": "world", "binding": "?SELF", "ruleName": "flaunting wealth", "ruleText": "rule \"flaunting wealth\"\n  money(?SELF) > 50\n  => intent-show-off(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+    { "id": 30, "target": "intent-show-off", "considered": "money", "store": "world", "binding": "?TARGET", "ruleName": "impressing a wealthy target", "ruleText": "rule \"impressing a wealthy target\"\n  money(?TARGET) > 50\n  => intent-show-off(?SELF, ?TARGET) += 1", "weight": 1, "status": "excluded" },
+    { "id": 31, "target": "intent-show-off", "considered": "selfish", "store": "world", "binding": "?SELF", "ruleName": "selfish agents show off for their own glory", "ruleText": "rule \"selfish agents show off for their own glory\"\n  selfish(?SELF)\n  => intent-show-off(?SELF, ?TARGET) += 2", "weight": 2, "status": "approved" },
+
+    { "id": 32, "target": "intent-antagonize", "considered": "losses", "store": "world", "binding": "?SELF", "ruleName": "a losing streak breeds low-grade irritation", "ruleText": "rule \"a losing streak breeds low-grade irritation\"\n  losses(?SELF) > 3\n  => intent-antagonize(?SELF, ?TARGET) += 1", "weight": 1, "status": "approved", "note": "graduated split of id 6, per user request (grumpy the more you lose)" },
+    { "id": 33, "target": "intent-antagonize", "considered": "losses", "store": "world", "binding": "?SELF", "ruleName": "repeated losses fray the nerves", "ruleText": "rule \"repeated losses fray the nerves\"\n  losses(?SELF) > 5\n  => intent-antagonize(?SELF, ?TARGET) += 1", "weight": 1, "status": "approved", "note": "graduated split of id 6" },
+    { "id": 34, "target": "intent-antagonize", "considered": "losses", "store": "world", "binding": "?SELF", "ruleName": "a long losing streak curdles into open grumpiness", "ruleText": "rule \"a long losing streak curdles into open grumpiness\"\n  losses(?SELF) > 10\n  => intent-antagonize(?SELF, ?TARGET) += 3", "weight": 3, "status": "approved", "note": "graduated split of id 6" }
+  ]
+}

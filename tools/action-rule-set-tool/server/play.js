@@ -40,29 +40,60 @@ function clonePlan(phases) {
   return (phases ?? []).map(p => ({ ...p }));
 }
 
+// Loads a scenario's play.json, engine, and pipelines — the content a Play
+// session needs. Shared by PlaySession (which keeps the engine around to
+// tick it) and previewPlayInfo (a one-shot read for the pre-session plan
+// editor, which needs the same role/entity introspection but never ticks).
+function loadPlayContent(scenarioName) {
+  const config   = loadProjectConfig();
+  const scenario = config.scenarios[scenarioName];
+  if (!scenario) throw new Error(`Unknown scenario "${scenarioName}"`);
+
+  const paths = resolveScenarioPaths(scenario);
+  if (!existsSync(paths.play)) {
+    throw new Error(`Scenario "${scenarioName}" has no play.json — Play mode needs one ({ entityType, phases })`);
+  }
+  const playConfig = JSON.parse(readFileSync(paths.play, 'utf-8'));
+  const engine = new Engine(paths);
+
+  const pipelines = {};
+  let pipelineFiles = [];
+  try { pipelineFiles = readdirSync(paths.pipelines); } catch { /* no pipelines dir */ }
+  for (const f of pipelineFiles) {
+    if (!f.endsWith('.json')) continue;
+    const name = f.slice(0, -5);
+    pipelines[name] = pipelineFromJSON(JSON.parse(readFileSync(`${paths.pipelines}/${f}`, 'utf-8')));
+  }
+  return { engine, pipelines, playConfig };
+}
+
+// Role/entity introspection for the plan editor — pipelineRoles (what each
+// pipeline's entry stage expects) and entitiesByType (what the scenario has
+// of each type) — without starting a session. The plan editor needs this to
+// offer the same typed fixed/loop role picker before Start Session as it
+// does once a session (and its live engine) exists.
+export function previewPlayInfo(scenarioName) {
+  const { engine, pipelines, playConfig } = loadPlayContent(scenarioName);
+  return {
+    entityType:         playConfig.entityType ?? 'agent',
+    configuredPhases:   playConfig.phases,
+    availablePipelines: Object.keys(pipelines),
+    availableRulesets:  [...engine.rulesets.keys()],
+    pipelineRoles: Object.fromEntries(
+      Object.entries(pipelines).map(([name, p]) => [name, entryStageRolesPlain(engine, p)])
+    ),
+    entitiesByType: Object.fromEntries(
+      [...engine.world.entityRegistry.entries()].map(([type, list]) => [type, list.map(e => e?.name ?? e).sort()])
+    ),
+  };
+}
+
 class PlaySession {
   constructor(scenarioName) {
     this.scenarioName = scenarioName;
-    const config   = loadProjectConfig();
-    const scenario = config.scenarios[scenarioName];
-    if (!scenario) throw new Error(`Unknown scenario "${scenarioName}"`);
+    const { engine, pipelines, playConfig } = loadPlayContent(scenarioName);
 
-    const paths = resolveScenarioPaths(scenario);
-    if (!existsSync(paths.play)) {
-      throw new Error(`Scenario "${scenarioName}" has no play.json — Play mode needs one ({ entityType, phases })`);
-    }
-    const playConfig = JSON.parse(readFileSync(paths.play, 'utf-8'));
-
-    this.engine = new Engine(paths);
-
-    const pipelines = {};
-    try {
-      for (const f of readdirSync(paths.pipelines)) {
-        if (!f.endsWith('.json')) continue;
-        const name = f.slice(0, -5);
-        pipelines[name] = pipelineFromJSON(JSON.parse(readFileSync(`${paths.pipelines}/${f}`, 'utf-8')));
-      }
-    } catch { /* no pipelines dir */ }
+    this.engine     = engine;
     this.pipelines  = pipelines;
     this.playConfig = playConfig;
     this.loop       = new TickLoop(this.engine, pipelines, playConfig);
@@ -217,17 +248,26 @@ class PlaySession {
   // Wait for whichever comes first: the tick finishing, or the runner parking
   // on a controlled decision.
   async _settle() {
-    const outcome = await Promise.race([
-      this.tickPromise.then(trace => ({ done: true, trace })),
-      this.pauseSignal.promise.then(request => ({ done: false, request })),
-    ]);
-    if (!outcome.done) return { status: 'awaiting-choice', request: outcome.request };
-
-    this.tickPromise = null;
-    this.pauseSignal = deferred();
-    const serialized = serializeTickTrace(outcome.trace);
-    this.traces.push(serialized);
-    return { status: 'tick-complete', tick: serialized.tick, trace: serialized };
+    let paused = false;
+    try {
+      const outcome = await Promise.race([
+        this.tickPromise.then(trace => ({ done: true, trace })),
+        this.pauseSignal.promise.then(request => ({ done: false, request })),
+      ]);
+      if (!outcome.done) {
+        paused = true;
+        return { status: 'awaiting-choice', request: outcome.request };
+      }
+      this.pauseSignal = deferred();
+      const serialized = serializeTickTrace(outcome.trace);
+      this.traces.push(serialized);
+      return { status: 'tick-complete', tick: serialized.tick, trace: serialized };
+    } finally {
+      // Clear tickPromise on completion or error, but not when paused waiting
+      // for a choice — the promise must stay alive so _settle() can be called
+      // again after the choice resolves to collect the rest of the tick.
+      if (!paused) this.tickPromise = null;
+    }
   }
 
   // Answer the pending selection with candidate indexes (into the request's

@@ -31,7 +31,9 @@ actionset "day-modes"
     roles: ?SELF: agent
     utility
       mode-visit(?SELF)
-    content text: "?SELF goes visiting"
+      content text: "?SELF goes visiting"
+    effects
+      insulted(?SELF, oren)
   
   action "settle-scores"
     roles: ?SELF: agent

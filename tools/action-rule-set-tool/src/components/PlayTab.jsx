@@ -19,6 +19,8 @@ export default function PlayTab({ scenario, highlighter }) {
   const [session, setSession] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [hasPlayConfig, setHasPlayConfig] = useState(null); // null=loading, true/false
+  const [prePlan, setPrePlan] = useState(null);     // phases from play.json before session starts
   const [traces, setTraces] = useState({});         // tick -> serialized TickTrace
   const [focusTick, setFocusTick] = useState(null);
   const [pending, setPending] = useState(null);     // serialized SelectionRequest
@@ -41,9 +43,21 @@ export default function PlayTab({ scenario, highlighter }) {
   // a picker, looping over this scenario's entityType (see TickLoop's own
   // fallback for the same reason).
   const [newPhaseStubRole, setNewPhaseStubRole] = useState('SELF');
+  // Index into activePlan currently being edited, or null when the form below
+  // is building a brand-new phase to append. Editing reuses the exact same
+  // kind/name/role-config form as adding — addPhase() branches on this at
+  // submit time between "replace activePlan[editingIndex]" and "append".
+  const [editingIndex, setEditingIndex] = useState(null);
 
   useEffect(() => {
-    setTraces({}); setFocusTick(null); setPending(null); setError(null);
+    setTraces({}); setFocusTick(null); setPending(null); setError(null); setHasPlayConfig(null);
+    setPrePlan(null);
+    api.getPlayConfig(scenario).then(r => {
+      setHasPlayConfig(r.exists);
+      if (r.exists && r.content) {
+        setPrePlan(r.content.phases ?? []);
+      }
+    }).catch(() => setHasPlayConfig(false));
     api.playSession(scenario).then(info => {
       setSession(info);
       if (info.exists) {
@@ -108,6 +122,11 @@ export default function PlayTab({ scenario, highlighter }) {
     finally { setBusy(false); }
   }
 
+  const bootstrap = () => run(async () => {
+    await api.bootstrapPlay(scenario);
+    setHasPlayConfig(true);
+  });
+
   const start = () => run(async () => {
     const info = await api.playStart(scenario, { agents: ctlAgents, stages: ctlStages });
     setSession({ exists: true, ...info });
@@ -148,19 +167,29 @@ export default function PlayTab({ scenario, highlighter }) {
     applyControl(kind, list.includes(value) ? list.filter(v => v !== value) : [...list, value]);
   }
 
-  // The plan is which pipelines/rulesets the *next* Step tick runs, and in
-  // what order — a session-level setting the player can change between any
-  // two ticks, same spirit as the agent/stage controls above. `null` resets
-  // to the scenario's configured default. The server validates and
-  // normalizes each entry (e.g. defaulting role to SELF); its response is
-  // the source of truth for what's now active, not an optimistic local echo.
+  // activePlan: live session's plan when running, else local prePlan state.
+  // pipelineRoles/entitiesByType/availablePipelines/availableRulesets come
+  // from `session` either way — the server computes them from a throwaway
+  // engine pre-session, and from the live one once a session exists.
+  const activePlan = session?.exists ? (session.activePlan ?? []) : (prePlan ?? []);
+  const availPipelines = session?.availablePipelines ?? [];
+  const availRulesets  = session?.availableRulesets  ?? [];
+
+  // When a session is live, route edits through the server (which validates
+  // and normalizes). Pre-session, edit prePlan locally and save to play.json.
   const applyPlan = (plan) => run(async () => {
-    const info = await api.playPlan(scenario, plan);
-    setSession(prev => prev ? { ...prev, activePlan: info.activePlan } : prev);
+    if (session?.exists) {
+      const info = await api.playPlan(scenario, plan);
+      setSession(prev => prev ? { ...prev, activePlan: info.activePlan } : prev);
+    } else {
+      const normalized = plan ?? prePlan ?? [];
+      setPrePlan(normalized);
+      await api.putPlayConfig(scenario, { entityType: session?.entityType ?? 'agent', phases: normalized });
+    }
   });
 
   function movePhase(i, dir) {
-    const plan = session?.activePlan ?? [];
+    const plan = activePlan;
     const j = i + dir;
     if (j < 0 || j >= plan.length) return;
     const next = [...plan];
@@ -169,7 +198,7 @@ export default function PlayTab({ scenario, highlighter }) {
   }
 
   function removePhase(i) {
-    applyPlan((session?.activePlan ?? []).filter((_, idx) => idx !== i));
+    applyPlan(activePlan.filter((_, idx) => idx !== i));
   }
 
   // Picking a pipeline seeds one role-config entry per entry-stage role
@@ -188,6 +217,36 @@ export default function PlayTab({ scenario, highlighter }) {
 
   function isStubPipeline(name) {
     return Object.keys(session?.pipelineRoles?.[name] ?? {}).length === 0;
+  }
+
+  // Who "You play" can offer control over: every entity a 'loop' role ranges
+  // over, plus the exact value of every 'fixed' role, restricted to roles of
+  // the scenario's entityType — i.e. exactly who the active plan's phases
+  // will actually invoke this tick. A 'free' role isn't included: the stage
+  // decides that binding internally via its own scoring, so no fixed roster
+  // can be pinned down for it. Ruleset phases don't select actions, so they
+  // don't contribute. A stub pipeline's one role always loops the full
+  // entityType roster by construction (see TickLoop's own fallback), same as
+  // an ordinary loop role.
+  function controllableAgents() {
+    const type = session?.entityType;
+    if (!type) return [];
+    const all = session?.entitiesByType?.[type] ?? [];
+    const result = new Set();
+    for (const entry of activePlan) {
+      if (!entry.pipeline) continue;
+      if (isStubPipeline(entry.pipeline)) {
+        if (entry.loop?.length) all.forEach(n => result.add(n));
+        continue;
+      }
+      const roles = session?.pipelineRoles?.[entry.pipeline] ?? {};
+      for (const [role, roleType] of Object.entries(roles)) {
+        if (roleType !== type) continue;
+        if (entry.loop?.includes(role)) all.forEach(n => result.add(n));
+        else if (entry.bindings?.[role] !== undefined) result.add(entry.bindings[role]);
+      }
+    }
+    return [...result].sort();
   }
 
   function setRoleMode(role, mode) {
@@ -217,24 +276,69 @@ export default function PlayTab({ scenario, highlighter }) {
     return count;
   }
 
+  // Builds the plan entry the form below currently describes, then either
+  // appends it (editingIndex === null) or replaces the phase being edited.
   function addPhase() {
     if (!newPhaseName) return;
+    let entry;
     if (newPhaseKind === 'ruleset') {
-      applyPlan([...(session?.activePlan ?? []), { ruleset: newPhaseName, mode: newPhaseMode }]);
+      entry = { ruleset: newPhaseName, mode: newPhaseMode };
+    } else if (isStubPipeline(newPhaseName)) {
+      entry = { pipeline: newPhaseName, loop: [newPhaseStubRole.trim() || 'SELF'], bindings: {} };
+    } else {
+      const loop = [];
+      const bindings = {};
+      for (const [role, { mode, value }] of Object.entries(newPhaseRoleConfig)) {
+        if (mode === 'loop') loop.push(role);
+        else if (mode === 'fixed' && value) bindings[role] = value;
+      }
+      entry = { pipeline: newPhaseName, loop, bindings };
+    }
+    if (editingIndex !== null) {
+      const next = [...activePlan];
+      next[editingIndex] = entry;
+      applyPlan(next);
+      cancelEditPhase();
+    } else {
+      applyPlan([...activePlan, entry]);
+    }
+  }
+
+  // Reopens an already-added phase in the same form used to add one, seeded
+  // from its current settings — the role-config select otherwise only ever
+  // appears while building a brand-new phase, with no way back into a phase
+  // already in the plan short of removing and re-adding it from scratch.
+  function editPhase(i) {
+    const entry = activePlan[i];
+    setEditingIndex(i);
+    if (entry.ruleset) {
+      setNewPhaseKind('ruleset');
+      setNewPhaseName(entry.ruleset);
+      setNewPhaseMode(entry.mode ?? 'fixpoint');
       return;
     }
-    if (isStubPipeline(newPhaseName)) {
-      const role = newPhaseStubRole.trim() || 'SELF';
-      applyPlan([...(session?.activePlan ?? []), { pipeline: newPhaseName, loop: [role], bindings: {} }]);
+    setNewPhaseKind('pipeline');
+    setNewPhaseName(entry.pipeline);
+    if (isStubPipeline(entry.pipeline)) {
+      setNewPhaseStubRole(entry.loop?.[0] ?? 'SELF');
       return;
     }
-    const loop = [];
-    const bindings = {};
-    for (const [role, { mode, value }] of Object.entries(newPhaseRoleConfig)) {
-      if (mode === 'loop') loop.push(role);
-      else if (mode === 'fixed' && value) bindings[role] = value;
-    }
-    applyPlan([...(session?.activePlan ?? []), { pipeline: newPhaseName, loop, bindings }]);
+    const roles = Object.keys(session?.pipelineRoles?.[entry.pipeline] ?? {});
+    const config = {};
+    roles.forEach(role => {
+      if (entry.loop?.includes(role)) config[role] = { mode: 'loop', value: '' };
+      else if (entry.bindings?.[role] !== undefined) config[role] = { mode: 'fixed', value: entry.bindings[role] };
+      else config[role] = { mode: 'free', value: '' };
+    });
+    setNewPhaseRoleConfig(config);
+  }
+
+  function cancelEditPhase() {
+    setEditingIndex(null);
+    setNewPhaseKind('pipeline');
+    setNewPhaseName('');
+    setNewPhaseRoleConfig({});
+    setNewPhaseStubRole('SELF');
   }
 
   // fact is { name, args, owner? } — the same shape the State tab's why/explain
@@ -284,7 +388,14 @@ export default function PlayTab({ scenario, highlighter }) {
     <div className="play">
       <div className="play-controls">
         {!session?.exists ? (
-          <button className="btn primary" onClick={start} disabled={busy}>Start session</button>
+          hasPlayConfig === false ? (
+            <>
+              <span className="dim">No play.json found.</span>
+              <button className="btn" onClick={bootstrap} disabled={busy}>Create default</button>
+            </>
+          ) : (
+            <button className="btn primary" onClick={start} disabled={busy || hasPlayConfig === null}>Start session</button>
+          )
         ) : (
           <>
             <button className="btn primary" onClick={step} disabled={busy || !!pending}>Step tick</button>
@@ -305,15 +416,22 @@ export default function PlayTab({ scenario, highlighter }) {
           <button className="btn tiny" onClick={reset} style={{ marginLeft: 10 }}>Reset to pick up edits</button>
         </div>
       )}
-      {error && <div className="banner error">{error}</div>}
+      {error && (
+        <div className="banner error">
+          {error}
+          {session?.exists && (
+            <button className="btn tiny" onClick={reset} style={{ marginLeft: 10 }}>Reset session</button>
+          )}
+        </div>
+      )}
 
       {session?.exists && (
         <div className="play-control-config">
           <div className="play-chip-row">
             <span className="filter-label" title="Selections whose agent matches (and whose stage matches, if any stages are picked) suspend for you to decide">You play:</span>
-            <button className="btn tiny ghost" onClick={() => applyControl('agents', session.agents)}>All</button>
+            <button className="btn tiny ghost" onClick={() => applyControl('agents', controllableAgents())}>All</button>
             <button className="btn tiny ghost" onClick={() => applyControl('agents', [])}>None</button>
-            {session.agents.map(a => (
+            {controllableAgents().map(a => (
               <button key={a} className={'chip' + (ctlAgents.includes(a) ? ' on' : '')} onClick={() => toggleControl(ctlAgents, 'agents', a)}>{a}</button>
             ))}
           </div>
@@ -329,31 +447,35 @@ export default function PlayTab({ scenario, highlighter }) {
         </div>
       )}
 
-      {session?.exists && (
+      {hasPlayConfig === true && (
         <div className="play-plan-panel">
           <div className="play-plan-head">
             <span className="filter-label" title="Which pipelines/rulesets the next Step tick runs, and in what order">Pipeline plan:</span>
-            <button className="btn tiny ghost" onClick={() => applyPlan(null)} disabled={busy}>Reset to configured</button>
-            <button
-              className="btn tiny primary"
-              disabled={busy}
-              title="Save the current plan to play.json (staged — press Save to File to flush)"
-              onClick={() => run(async () => {
-                const phases = (session.activePlan ?? []).map(entry => {
-                  if (entry.pipeline) {
-                    const phase = { pipeline: entry.pipeline, loop: [...(entry.loop ?? [])] };
-                    if (Object.keys(entry.bindings ?? {}).length > 0) phase.bindings = { ...entry.bindings };
-                    return phase;
-                  }
-                  return { ruleset: entry.ruleset, mode: entry.mode };
-                });
-                await api.putPlayConfig(scenario, { entityType: session.entityType, phases });
-              })}
-            >Save</button>
+            {session?.exists && (
+              <button className="btn tiny ghost" onClick={() => applyPlan(null)} disabled={busy}>Reset to configured</button>
+            )}
+            {session?.exists && (
+              <button
+                className="btn tiny primary"
+                disabled={busy}
+                title="Save the current plan to play.json (staged — press Save to File to flush)"
+                onClick={() => run(async () => {
+                  const phases = activePlan.map(entry => {
+                    if (entry.pipeline) {
+                      const phase = { pipeline: entry.pipeline, loop: [...(entry.loop ?? [])] };
+                      if (Object.keys(entry.bindings ?? {}).length > 0) phase.bindings = { ...entry.bindings };
+                      return phase;
+                    }
+                    return { ruleset: entry.ruleset, mode: entry.mode };
+                  });
+                  await api.putPlayConfig(scenario, { entityType: session.entityType, phases });
+                })}
+              >Save</button>
+            )}
           </div>
           <div className="play-plan-list">
-            {(session.activePlan ?? []).map((entry, i) => (
-              <div key={i} className="play-plan-row">
+            {activePlan.map((entry, i) => (
+              <div key={i} className={'play-plan-row' + (editingIndex === i ? ' editing' : '')}>
                 <span className="dim plan-index">{i + 1}</span>
                 <span className="badge">{entry.pipeline ? 'pipeline' : 'ruleset'}</span>
                 <code>{entry.pipeline ?? entry.ruleset}</code>
@@ -368,14 +490,18 @@ export default function PlayTab({ scenario, highlighter }) {
                 )}
                 {entry.ruleset && <span className="dim">{entry.mode}</span>}
                 <span className="spacer" />
+                <button className="btn tiny ghost" disabled={busy} onClick={() => editPhase(i)} title="Edit this phase's settings">✎</button>
                 <button className="btn tiny ghost" disabled={busy || i === 0} onClick={() => movePhase(i, -1)} title="Move earlier">↑</button>
-                <button className="btn tiny ghost" disabled={busy || i === (session.activePlan.length - 1)} onClick={() => movePhase(i, 1)} title="Move later">↓</button>
+                <button className="btn tiny ghost" disabled={busy || i === activePlan.length - 1} onClick={() => movePhase(i, 1)} title="Move later">↓</button>
                 <button className="row-x" disabled={busy} onClick={() => removePhase(i)} title="Remove from plan">×</button>
               </div>
             ))}
-            {(session.activePlan ?? []).length === 0 && <div className="dim">Empty plan — Step tick would do nothing this tick.</div>}
+            {activePlan.length === 0 && <div className="dim">Empty plan — Step tick would do nothing this tick.</div>}
           </div>
           <div className="play-plan-add">
+            {editingIndex !== null && (
+              <div className="dim play-plan-editing-label">Editing phase {editingIndex + 1} — change settings below, then Save.</div>
+            )}
             <div className="play-plan-add-row">
               <select value={newPhaseKind} onChange={e => { setNewPhaseKind(e.target.value); setNewPhaseName(''); setNewPhaseRoleConfig({}); }}>
                 <option value="pipeline">pipeline</option>
@@ -386,7 +512,7 @@ export default function PlayTab({ scenario, highlighter }) {
                 onChange={e => newPhaseKind === 'pipeline' ? pickPipelineForNewPhase(e.target.value) : setNewPhaseName(e.target.value)}
               >
                 <option value="">choose…</option>
-                {(newPhaseKind === 'pipeline' ? session.availablePipelines : session.availableRulesets).map(n => (
+                {(newPhaseKind === 'pipeline' ? availPipelines : availRulesets).map(n => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
@@ -396,7 +522,12 @@ export default function PlayTab({ scenario, highlighter }) {
                   <option value="single">single</option>
                 </select>
               )}
-              <button className="btn tiny primary" disabled={busy || !newPhaseName} onClick={addPhase}>Add phase</button>
+              <button className="btn tiny primary" disabled={busy || !newPhaseName} onClick={addPhase}>
+                {editingIndex !== null ? 'Save changes' : 'Add phase'}
+              </button>
+              {editingIndex !== null && (
+                <button className="btn tiny ghost" disabled={busy} onClick={cancelEditPhase}>Cancel</button>
+              )}
             </div>
             {newPhaseKind === 'pipeline' && newPhaseName && isStubPipeline(newPhaseName) && (
               <div className="play-plan-roles">
@@ -607,7 +738,7 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
   return (
     <div className="play-eval" style={{ marginLeft: depth === 0 ? 0 : 18 }}>
       <div className="play-eval-head">
-        {evaluation.stageNames.map(n => <span key={n} className="stage-name">{n}</span>)}
+        <span className="stage-prefix">stage:</span>{evaluation.stageNames.map(n => <span key={n} className="stage-name">{n}</span>)}
         {evaluation.pooled && <span className="badge">pooled fan-out</span>}
         {selection?.source === 'player' && <span className="badge choice">player chose</span>}
         <BindingChips binding={evaluation.binding} />
@@ -622,6 +753,7 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
       ))}
 
       <div className="play-candidates">
+        <div className="play-section-label">candidates</div>
         {evaluation.candidates.map((c, i) => (
           <CandidateRow
             key={i} candidate={c}
@@ -630,7 +762,7 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
             onExplain={onExplain} highlighter={highlighter}
           />
         ))}
-        {evaluation.candidates.length === 0 && <div className="dim">no candidates</div>}
+        {evaluation.candidates.length === 0 && <div className="dim" style={{padding:'2px 6px'}}>no candidates</div>}
       </div>
 
       {evaluation.winners.map((w, i) => <WinnerView key={i} winner={w} evaluation={evaluation} onExplain={onExplain} highlighter={highlighter} />)}
@@ -668,14 +800,15 @@ function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSe
         ) : (
           <span className="cand-mark">{winner ? '★' : ''}</span>
         )}
-        <span className="cand-label">{candidate.label}</span>
+        <span className="cand-label">{candidate.actionName}</span>
+        <BindingChips binding={candidate.binding} />
         {showStage && <span className="badge">{candidate.stageName}</span>}
         {candidate.isDefault && <span className="badge">engine pick</span>}
         {candidate.belowFloor && <span className="badge err">below floor</span>}
         <span className="score">{round(candidate.score)}</span>
       </summary>
       <div className="play-cand-body">
-        <BindingChips binding={candidate.binding} />
+        {candidate.breakdown.length > 0 && <div className="play-section-label">utility</div>}
         {candidate.breakdown.map((b, i) => <BreakdownNode key={i} node={b} onExplain={onExplain} highlighter={highlighter} />)}
       </div>
     </details>
@@ -696,6 +829,7 @@ function WinnerView({ winner, evaluation, onExplain, highlighter }) {
       </div>
       {winner.effects.length > 0 && (
         <div className="play-effects">
+          <span className="play-effects-label">effects</span>
           {winner.effects.map((e, i) => <PremiseOrEffect key={i} entry={e} onExplain={onExplain} highlighter={highlighter} chip />)}
         </div>
       )}
@@ -733,10 +867,25 @@ function BreakdownNode({ node, onExplain, highlighter, depth = 0 }) {
     case 'rule':
       return (
         <div className="bd-node" style={pad}>
-          <span className="dim">rule</span> <code>{node.name}</code>
-          <span className="dim"> ×{node.matchedBindings.length} @ {node.weight}</span>
-          <span className="score">{round(node.score)}</span>
-          {node.matchedBindings.map((b, i) => <BindingChips key={i} binding={b} />)}
+          <details>
+            <summary>
+              <span className="dim">rule</span> <code>{node.name}</code>
+              <span className="dim"> ×{node.matches.length} @ {node.weight}</span>
+              <span className="score">{round(node.score)}</span>
+            </summary>
+            <div className="bd-rule-matches">
+              {node.matches.map((m, i) => (
+                <div key={i} className="bd-rule-match">
+                  <BindingChips binding={m.binding} />
+                  {m.premises.map((p, j) => (
+                    <div key={j} className="app-line dim">
+                      <PremiseOrEffect entry={p} highlighter={highlighter} onExplain={onExplain} />
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
       );
     case 'aggregate':
@@ -880,6 +1029,7 @@ function PremiseOrEffect({ entry, onExplain, highlighter, chip = false }) {
   const view = (
     <PredicateView
       name={entry.name} args={entry.args} owner={entry.owner} negated={entry.negated}
+      tier={entry.tier} comparison={entry.comparison}
       highlighter={highlighter} onExplain={onExplain}
     />
   );

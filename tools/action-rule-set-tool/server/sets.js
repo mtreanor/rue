@@ -1,6 +1,6 @@
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
-import { dirname, join, resolve } from 'path';
-import { loadProjectConfig, configPath, configDir } from './config.js';
+import { join } from 'path';
+import { loadProjectConfig, configPath, resolveScenarioPaths } from './config.js';
 import { workingPath } from './workspace.js';
 
 const NAME_RE = /^[A-Za-z_][\w-]*$/;
@@ -10,7 +10,8 @@ function writeConfig(cfg) {
 }
 
 // Create a new scenario: a data directory with starter files plus a config
-// entry pointing at that directory. Staged in the shadow until "Save to File".
+// entry pointing at that directory. Everything is staged in the scenario's
+// shadow tree (via resolveScenarioPaths) until "Save to File".
 export function createScenario(name) {
   name = (name ?? '').trim();
   if (!NAME_RE.test(name)) throw new Error(`Invalid scenario name "${name}" — letters, digits, - and _; no leading digit`);
@@ -19,18 +20,18 @@ export function createScenario(name) {
   if (cfg.scenarios[name]) throw new Error(`Scenario "${name}" already exists`);
 
   const dir = join('data', name);
-  const starters = {
-    [join(dir, 'predicates.json')]:    '{\n  "predicates": {}\n}\n',
-    [join(dir, 'entities.json')]:      '{}\n',
-    [join(dir, 'state')]:              'world\n',
-    [join(dir, 'definitions.klugh')]:  `# ${name} — derived predicate definitions\n`,
-  };
-
   cfg.scenarios[name] = dir;
   writeConfig(cfg);
-  mkdirSync(workingPath(resolve(configDir, dir)), { recursive: true });
-  for (const [rel, content] of Object.entries(starters)) {
-    const abs = workingPath(resolve(configDir, rel));
+
+  const paths = resolveScenarioPaths(dir);
+  mkdirSync(paths.dir, { recursive: true });
+  const starters = {
+    [paths.predicates]:  '{\n  "predicates": {}\n}\n',
+    [paths.entities]:    '{}\n',
+    [paths.state]:       'world\n',
+    [paths.definitions]: `# ${name} — derived predicate definitions\n`,
+  };
+  for (const [abs, content] of Object.entries(starters)) {
     if (!existsSync(abs)) writeFileSync(abs, content);
   }
   return { ok: true, name };
@@ -51,8 +52,6 @@ function createPipeline(scenario, name) {
   const s = cfg.scenarios[scenario];
   if (!s) throw new Error(`Unknown scenario "${scenario}"`);
 
-  const dataDir = typeof s === 'string' ? s : join('data', scenario);
-  const rel = join(dataDir, 'pipelines', `${name}.json`);
   const initialContent = JSON.stringify({
     name,
     notes:             '',
@@ -63,15 +62,17 @@ function createPipeline(scenario, name) {
     stages:            {},
   }, null, 2) + '\n';
 
-  const abs = workingPath(resolve(configDir, rel));
-  mkdirSync(dirname(abs), { recursive: true });
+  const dirAbs = join(resolveScenarioPaths(s).dir, 'pipelines');
+  mkdirSync(dirAbs, { recursive: true });
+  const abs = join(dirAbs, `${name}.json`);
   if (existsSync(abs)) throw new Error(`A pipeline named "${name}" already exists`);
   writeFileSync(abs, initialContent);
-  return { ok: true, name, path: rel };
+  return { ok: true, name };
 }
 
-// Create a new named ruleset or actionset block in a new .klugh file.
-// No config update needed — the scenario dir is already the entry.
+// Create a new named ruleset or actionset block in a new .klugh file inside the
+// scenario's shadow tree. No config update needed — the scenario dir is already
+// the entry, and the directory scans pick up the new file immediately.
 function createNamedSet(scenario, name, keyword) {
   name = (name ?? '').trim();
   if (!NAME_RE.test(name)) throw new Error(`Invalid ${keyword} name "${name}" — letters, digits, - and _; no leading digit`);
@@ -80,13 +81,10 @@ function createNamedSet(scenario, name, keyword) {
   const s = cfg.scenarios[scenario];
   if (!s) throw new Error(`Unknown scenario "${scenario}"`);
 
-  const dataDir = typeof s === 'string' ? s : join('data', scenario);
-  const fileRel = join(dataDir, `${name}.klugh`);
-  const initialContent = `${keyword} "${name}"\n`;
-
-  const abs = workingPath(resolve(configDir, fileRel));
-  mkdirSync(dirname(abs), { recursive: true });
+  const dir = resolveScenarioPaths(s).dir;
+  mkdirSync(dir, { recursive: true });
+  const abs = join(dir, `${name}.klugh`);
   if (existsSync(abs)) throw new Error(`A ${keyword} named "${name}" already exists`);
-  writeFileSync(abs, initialContent);
-  return { ok: true, name, path: fileRel };
+  writeFileSync(abs, `${keyword} "${name}"\n`);
+  return { ok: true, name };
 }

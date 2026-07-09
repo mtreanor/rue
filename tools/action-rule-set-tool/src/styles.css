@@ -46,6 +46,8 @@ em { color: var(--dim); font-style: normal; font-size: 12px; }
 /* State is a standalone button but wears the same outline as the grouped tabs,
    whether or not it's selected. Placed after the rules above so it wins. */
 .tabs > button { border-color: var(--border); }
+.tab-play { color: var(--accent) !important; opacity: 0.7; }
+.tab-play.active { opacity: 1; }
 /* Rulesets/+ and Actionsets/+ are two halves of one connected control. */
 .tab-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .tab-group button { border: none; border-radius: 0; }
@@ -129,47 +131,55 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 /* ── Autocomplete ── */
 .dsl-wrap { position: relative; }
 /* font-size, line-height (whole px — 1.5×13=19.5 rounds differently per element),
-   and word-break must match .dsl-highlight-layer exactly so every character and
-   every line renders at the same position in both the textarea and the overlay. */
-.dsl-input { width: 100%; line-height: 20px; font-size: 13px; word-break: break-word; }
+   and wrapping must match .dsl-highlight-layer exactly so every character and
+   every line renders at the same position in both the textarea and the overlay.
+   Two subtle glyph-advance sources are pinned down here and mirrored on the
+   overlay:
+     • Ligatures/kerning OFF. The overlay splits text into per-token <span>s, so
+       operator ligatures like `=>` `>=` `!=` form in the plain textarea text run
+       but not across the overlay's span boundaries (or vice-versa). A different
+       glyph is a different width, which drifts the caret after every operator.
+     • Wrap algorithm. A <textarea> soft-wraps like `overflow-wrap: break-word`
+       (break at whitespace; inside a word only on overflow); `word-break:
+       break-word` on a <pre> breaks inside words far more eagerly, so long
+       lines wrap at different columns and everything after them slides. Use the
+       textarea-matching pair on BOTH layers. */
+.dsl-input {
+  width: 100%; line-height: 20px; font-size: 13px;
+  word-break: keep-all; overflow-wrap: break-word;
+  font-variant-ligatures: none; font-kerning: none; letter-spacing: 0; tab-size: 2;
+}
 
-/* Live syntax highlighting: the textarea sits on top with transparent text/
-   background (only its native caret and selection paint), and the highlighted
-   <pre> underneath — identical font/padding/border so glyphs line up exactly
-   — shows through. Scroll position is synced in DslInput's onScroll handler.
-   For multiline textareas, DslInput sets an explicit pixel height on .dsl-wrap
-   and makes BOTH the textarea AND the pre position:absolute inside it.  Both
-   elements then share the exact same containing-block origin (top:0 left:0 of
-   .dsl-wrap), so any browser-internal offset that a form control adds above its
-   content start is also present in the pre (which measures from the same origin)
-   and the alignment is guaranteed to be exact. */
+/* Live syntax highlighting. Two modes depending on field type:
+   • Single-line (<input>): classic transparent-overlay. The input has invisible
+     text; the coloured <pre> (position:absolute;inset:0) shows through. Scroll
+     is synced via onScroll. white-space:pre, ligatures/kerning off so glyph
+     advances match across span boundaries.
+   • Multiline (<textarea>): focus-based. The textarea is a completely normal
+     form element. The <pre> sits on top with pointer-events:none (clicks fall
+     through to the textarea) and visibility:hidden while the textarea is
+     focused; on blur DslInput syncs scrollTop once and the <pre> reappears.
+     No continuous sync, no overlay drift, no cursor misalignment. */
 .dsl-highlight-layer {
   position: absolute; inset: 0; margin: 0;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--panel); color: var(--text);
   font-family: var(--mono); font-size: 13px; line-height: 20px;
-  white-space: pre-wrap; word-break: break-word; overflow: auto;
+  white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word;
+  overflow: auto; scrollbar-width: none;
+  font-variant-ligatures: none; font-kerning: none; letter-spacing: 0; tab-size: 2;
   pointer-events: none;
 }
 .dsl-highlight-layer::-webkit-scrollbar { display: none; }
+/* Single-line overlay: no vertical overflow, horizontal scroll synced to input. */
 .dsl-highlight-layer.single-line { white-space: pre; overflow-y: hidden; }
 /* input[type=text] in the base rule above is (0,1,1)-specific, same as
    .dsl-input-highlighted alone would be if it also lost the tie — qualify
-   with the element type so this reliably wins for both <input> and <textarea>. */
+   with the element type so this reliably wins. */
 input.dsl-input-highlighted {
   position: relative; background: transparent; border-color: transparent;
   color: transparent; -webkit-text-fill-color: transparent;
   caret-color: var(--text); font-family: var(--mono);
-}
-/* Multiline textarea: absolutely positioned to share the same containing-block
-   as the <pre> overlay.  overflow:hidden still allows the browser to auto-scroll
-   internally to keep the cursor visible (same as react-simple-code-editor). */
-textarea.dsl-input-highlighted {
-  position: absolute; inset: 0;
-  background: transparent; border-color: transparent;
-  color: transparent; -webkit-text-fill-color: transparent;
-  caret-color: var(--text); font-family: var(--mono);
-  overflow: hidden; resize: none;
 }
 
 .dsl-suggest {
@@ -320,14 +330,14 @@ textarea.dsl-input-highlighted {
 
 /* ── Entity panel CRUD ── */
 .sidebar-head-actions { display: flex; align-items: center; gap: 6px; }
-.ent-type-head { display: flex; align-items: center; gap: 4px; }
+.ent-type-head { display: flex; align-items: center; gap: 4px; position: relative; }
 .ent-type-head .pred-group-title.as-toggle { flex: 1; min-width: 0; }
-/* Native :hover, not JS-tracked state — a JS hover flag that only clears on
-   mouseleave can get stuck "on" forever if that event is ever missed (fast
-   pointer movement, scrolling the list out from under a stationary cursor,
-   etc.), leaving arbitrarily many rows' icons visible at once. :hover always
-   reflects the real, current pointer position, so it can't get stuck. */
-.ent-type-actions, .ent-inst-actions { display: inline-flex; gap: 2px; opacity: 0; pointer-events: none; transition: opacity 0.08s; }
+.ent-type-actions, .ent-inst-actions {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  display: flex; align-items: center; gap: 2px; padding: 0 4px;
+  background: linear-gradient(to right, transparent, var(--panel) 28%);
+  opacity: 0; pointer-events: none; transition: opacity 0.08s;
+}
 .ent-type-head:hover .ent-type-actions,
 .ent-instance:hover .ent-inst-actions { opacity: 1; pointer-events: auto; }
 .ent-badge { font-size: 9px; background: var(--panel-2); color: var(--accent); border-radius: 4px; padding: 1px 4px; margin-left: 4px; letter-spacing: 0; text-transform: none; }
@@ -335,7 +345,13 @@ textarea.dsl-input-highlighted {
 .row-icon { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
 .row-icon:hover { color: var(--text); background: var(--panel-2); }
 .row-icon.del:hover { color: var(--err); }
-.ent-instance { display: flex; align-items: center; }
+/* Inline delete confirmation (replaces the native confirm() dialog, which
+   stranded row :hover state and stuck the action buttons visible). */
+.confirm-del { display: inline-flex; gap: 2px; }
+.row-icon.confirm-yes { color: var(--err); }
+.row-icon.confirm-yes:hover { color: var(--err); background: #3a1f1f; }
+.row-icon.confirm-no { color: var(--dim); }
+.ent-instance { display: flex; align-items: center; position: relative; }
 .ent-instance .pred-insert { flex: 1; min-width: 0; }
 .ent-add-inst { display: block; width: 100%; text-align: left; border: 1px dashed var(--border); background: none; color: var(--dim); cursor: pointer; border-radius: 6px; padding: 4px 8px; margin-top: 2px; font-size: 12px; }
 .ent-add-inst:hover { color: var(--text); border-color: var(--accent); }
@@ -350,15 +366,22 @@ textarea.dsl-input-highlighted {
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ── Predicate item actions + editor modal ── */
-.pred-item-main { display: flex; align-items: center; }
+.pred-item-main { display: flex; align-items: center; position: relative; }
 .pred-item-main .pred-insert { flex: 1; min-width: 0; }
-.pred-item-actions { display: inline-flex; gap: 2px; opacity: 0; pointer-events: none; transition: opacity 0.08s; }
+.pred-item-actions {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  display: flex; align-items: center; gap: 2px; padding: 0 4px;
+  background: linear-gradient(to right, transparent, var(--panel) 28%);
+  opacity: 0; pointer-events: none; transition: opacity 0.08s;
+}
 .pred-item:hover .pred-item-actions { opacity: 1; pointer-events: auto; }
 .pred-conclusion { margin-top: 6px; font-size: 12px; }
 .pred-modal { max-width: 560px; display: flex; flex-direction: column; gap: 14px; max-height: 82vh; overflow-y: auto; }
 .pred-modal h3 { margin: 0; }
 .pred-modal-row { display: flex; gap: 12px; }
 .pred-modal-row .ent-field { flex: 1; }
+.pred-default-val { margin-left: auto; opacity: 0.35; font-size: 11px; }
+.tier-chip-default { border-color: rgba(255,255,255,0.3); }
 .ent-field.grow { flex: 2; }
 .mono { font-family: var(--mono); }
 .pred-arg-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
@@ -597,10 +620,15 @@ textarea.dsl-input-highlighted {
 
 .play-eval { border-left: 2px solid var(--border); padding: 6px 0 6px 12px; margin: 8px 0; }
 .play-eval-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.stage-prefix { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); opacity: 0.6; margin-right: 5px; }
 .stage-name { font-weight: 600; font-size: 13px; color: var(--accent); }
 .play-stage-detail { margin: 2px 0; }
 
+.play-section-label { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); opacity: 0.6; padding: 4px 6px 2px; }
+.play-effects-label { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); opacity: 0.6; margin-right: 2px; align-self: center; }
 .play-candidates { margin: 6px 0; }
+.play-cand { border-radius: 6px; }
+.play-cand:nth-child(even) { background: rgba(255,255,255,0.025); }
 .play-cand > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 2px 6px; border-radius: 6px; font-size: 13px; }
 .play-cand > summary:hover { background: var(--panel-2); }
 .play-cand.winner > summary { color: var(--ok); }
@@ -617,12 +645,14 @@ textarea.dsl-input-highlighted {
 .bd-event { padding: 2px 0; font-size: 12px; }
 .bd-delta { font-family: var(--mono); color: var(--text); margin-right: 6px; }
 .bd-premise { padding-left: 18px; color: var(--dim); font-size: 11.5px; }
+.bd-rule-matches { padding: 4px 0 4px 18px; }
+.bd-rule-match { border-left: 2px solid var(--border); padding: 3px 0 3px 10px; margin: 5px 0; }
 
-.play-winner { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); padding: 6px 10px; margin: 6px 0; }
+.play-winner { border: 1px solid var(--border); border-left: 2px solid var(--ok); border-radius: 8px; background: var(--panel-2); padding: 6px 10px; margin: 6px 0; }
 .play-winner-head { display: flex; align-items: center; gap: 8px; }
+.play-effects { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 0 2px; }
 .badge.occ { background: #2a3a2f; color: var(--ok); }
 .route-arrow { color: var(--dim); font-size: 12.5px; margin-left: auto; }
-.play-effects { display: flex; gap: 6px; flex-wrap: wrap; padding: 5px 0 2px; }
 .effect-chip { font-size: 11.5px; font-family: var(--mono); background: var(--panel); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; }
 
 .play-hooks { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 12px; padding: 2px 0; }
@@ -662,6 +692,8 @@ textarea.dsl-input-highlighted {
 .plan-index { width: 16px; text-align: right; font-family: var(--mono); }
 .play-plan-row .row-x { opacity: 0.7; }
 .play-plan-row .row-x:hover { opacity: 1; }
+.play-plan-row.editing { border-color: var(--ok); }
+.play-plan-editing-label { font-size: 12px; }
 .play-plan-add { display: flex; flex-direction: column; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
 .play-plan-add-row { display: flex; align-items: center; gap: 8px; }
 .play-plan-roles { display: flex; flex-direction: column; gap: 6px; padding-left: 4px; border-left: 2px solid var(--border); margin-left: 4px; }

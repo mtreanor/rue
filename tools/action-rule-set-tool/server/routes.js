@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { loadScenarioContext, listScenarios, schemaForClient, loadRulesets, loadActionsets, findSetFile } from './scenario.js';
 import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
@@ -7,8 +7,8 @@ import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
 import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines } from './state.js';
-import { startPlaySession, getPlaySession, peekPlaySession, resetPlaySession } from './play.js';
-import { listPipelines, savePipeline } from './pipelines.js';
+import { startPlaySession, getPlaySession, peekPlaySession, resetPlaySession, previewPlayInfo } from './play.js';
+import { listPipelines, savePipeline, deletePipeline } from './pipelines.js';
 import {
   listEntityTypes, addEntityType, editEntityType, deleteEntityType,
   addEntityInstance, renameEntityInstance, deleteEntityInstance,
@@ -95,14 +95,60 @@ router.put('/scenario/:name/play-config', h((req, res) => {
   res.json({ ok: true });
 }));
 
+// Bootstrap a minimal play.json + pipeline when neither exists yet.
+router.post('/scenario/:name/play-config/bootstrap', h((req, res) => {
+  const cfg = loadProjectConfig();
+  const s   = cfg.scenarios[req.params.name];
+  if (!s) throw new Error(`Unknown scenario "${req.params.name}"`);
+  const paths = resolveScenarioPaths(s);
+  if (existsSync(paths.play)) { res.json({ ok: true, created: false }); return; }
+
+  // Pick the first entity type as the loop subject, fall back to 'agent'.
+  let entityType = 'agent';
+  try {
+    const ents = JSON.parse(readFileSync(paths.entities, 'utf-8'));
+    const first = Object.keys(ents)[0];
+    if (first) entityType = first;
+  } catch { /* entities missing or empty — keep default */ }
+
+  // Minimal pipeline.
+  const pipelineName = 'main';
+  mkdirSync(paths.pipelines, { recursive: true });
+  const pipelinePath = join(paths.pipelines, `${pipelineName}.json`);
+  if (!existsSync(pipelinePath)) {
+    writeFileSync(pipelinePath, JSON.stringify({
+      name: pipelineName,
+      entry: 'main',
+      selectionStrategy: 'highestUtility',
+      stages: { main: { actionset: '', routing: 'branch' } },
+    }, null, 2) + '\n');
+  }
+
+  // Minimal play.json.
+  writeFileSync(paths.play, JSON.stringify({
+    entityType,
+    phases: [{ pipeline: pipelineName, loop: ['SELF'] }],
+  }, null, 2) + '\n');
+
+  res.json({ ok: true, created: true, entityType, pipeline: pipelineName });
+}));
+
 // ── Play ─────────────────────────────────────────────────────────────────────
 // A live TickLoop session per scenario: step ticks, inspect the decision
 // trace, take over selections. See play.js.
 
-// Session status (exists: false when none is running yet).
+// Session status (exists: false when none is running yet — still carries
+// pipelineRoles/entitiesByType/entityType so the plan editor's free/fixed/loop
+// role picker works before Start Session, not just after). Scenarios with no
+// play.json yet have nothing to preview — the client's own play-config check
+// already drives the "bootstrap" prompt for that case, so this just omits
+// the preview fields rather than erroring.
 router.get('/play/:scenario/session', h((req, res) => {
   const session = peekPlaySession(req.params.scenario);
-  res.json(session ? { exists: true, ...session.info() } : { exists: false });
+  if (session) { res.json({ exists: true, ...session.info() }); return; }
+  let preview = {};
+  try { preview = previewPlayInfo(req.params.scenario); } catch { /* no play.json yet */ }
+  res.json({ exists: false, ...preview });
 }));
 
 // Start (or restart) a session. Body: { controlled: { agents: [], stages: [] } }.
@@ -200,6 +246,13 @@ router.put('/state/:scenario/pipeline', h((req, res) => {
   const { name, ...rest } = req.body;
   if (!name) throw new Error('Pipeline name is required');
   res.json({ pipelines: savePipeline(req.params.scenario, name, { name, ...rest }) });
+}));
+
+// Delete a pipeline. Body: { name }.
+router.delete('/state/:scenario/pipeline', h((req, res) => {
+  const { name } = req.body;
+  if (!name) throw new Error('Pipeline name is required');
+  res.json({ pipelines: deletePipeline(req.params.scenario, name) });
 }));
 
 router.get('/scenario/:name', h((req, res) => {

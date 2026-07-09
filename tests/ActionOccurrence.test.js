@@ -30,21 +30,23 @@ function makeEngine() {
 
   const actionsPath = join(dir, 'actions');
   writeFileSync(actionsPath, `
-    action "give"
-      roles: ?SELF: agent, ?Y: agent
-      effects
-        record(?occ)
-        helped(?SELF, ?Y)
+    actionset "social"
+      action "give"
+        roles: ?SELF: agent, ?Y: agent
+        effects
+          record(?occ)
+          helped(?SELF, ?Y)
   `);
 
   const actionsWithAnnotation = join(dir, 'annotated-actions');
   writeFileSync(actionsWithAnnotation, `
-    action "give"
-      roles: ?SELF: agent, ?Y: agent
-      effects
-        record(?occ)
-        helped(?SELF, ?Y)
-        reluctant(?occ)
+    actionset "social"
+      action "give"
+        roles: ?SELF: agent, ?Y: agent
+        effects
+          record(?occ)
+          helped(?SELF, ?Y)
+          reluctant(?occ)
   `);
 
   return { dir, actionsPath, actionsWithAnnotation };
@@ -116,9 +118,10 @@ describe('record(?var) — action occurrence via DSL', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "give"
-        roles: ?SELF: agent, ?Y: agent
-        effects helped(?SELF, ?Y)
+      actionset "social"
+        action "give"
+          roles: ?SELF: agent, ?Y: agent
+          effects helped(?SELF, ?Y)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -226,11 +229,12 @@ describe('new entity() in effects', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "build tavern"
-        roles: ?SELF: agent
-        effects
-          new entity(building, tavern)
-          built(?SELF, tavern)
+      actionset "test"
+        action "build tavern"
+          roles: ?SELF: agent
+          effects
+            new entity(building, tavern)
+            built(?SELF, tavern)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -262,11 +266,12 @@ describe('new entity() in effects', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "form bond"
-        roles: ?SELF: agent, ?Y: agent
-        effects
-          new entity(bond, ?b)
-          bondMembers(?b, ?SELF, ?Y)
+      actionset "test"
+        action "form bond"
+          roles: ?SELF: agent, ?Y: agent
+          effects
+            new entity(bond, ?b)
+            bondMembers(?b, ?SELF, ?Y)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -295,11 +300,12 @@ describe('new entity() in effects', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "form bond"
-        roles: ?SELF: agent, ?Y: agent
-        effects
-          new entity(bond, ?b) [name: myBond]
-          bondMembers(?b, ?SELF, ?Y)
+      actionset "test"
+        action "form bond"
+          roles: ?SELF: agent, ?Y: agent
+          effects
+            new entity(bond, ?b) [name: myBond]
+            bondMembers(?b, ?SELF, ?Y)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -330,9 +336,10 @@ describe('new entity() in effects', () => {
     }));
     writeFileSync(join(dir, 'state'), 'world\nfriends(alice, bob)\n');
     writeFileSync(join(dir, 'rules'), `
-      rule "friendship creates a tavern"
-        friends(?X, ?Y)
-        => new entity(building, tavern)
+      ruleset "test"
+        rule "friendship creates a tavern"
+          friends(?X, ?Y)
+          => new entity(building, tavern)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -362,11 +369,12 @@ describe('[name: "template_{?VAR}"] interpolation', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "equip"
-        roles: ?SELF: agent
-        effects
-          new entity(item, ?W) [name: "sword_{?SELF}"]
-          has(?SELF, ?W)
+      actionset "test"
+        action "equip"
+          roles: ?SELF: agent
+          effects
+            new entity(item, ?W) [name: "sword_{?SELF}"]
+            has(?SELF, ?W)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -394,11 +402,12 @@ describe('[name: "template_{?VAR}"] interpolation', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "equip"
-        roles: ?SELF: agent
-        effects
-          new entity(item, ?W) [name: "sword_{?SELF}"]
-          has(?SELF, ?W)
+      actionset "test"
+        action "equip"
+          roles: ?SELF: agent
+          effects
+            new entity(item, ?W) [name: "sword_{?SELF}"]
+            has(?SELF, ?W)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -426,11 +435,12 @@ describe('[name: "template_{?VAR}"] interpolation', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "equip"
-        roles: ?SELF: agent
-        effects
-          new entity(item, ?W) [name: "sword_{?SELF}"]
-          has(?SELF, ?W)
+      actionset "test"
+        action "equip"
+          roles: ?SELF: agent
+          effects
+            new entity(item, ?W) [name: "sword_{?SELF}"]
+            has(?SELF, ?W)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -466,11 +476,12 @@ describe('remove entity() in effects', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "demolish tavern"
-        roles: ?SELF: agent
-        effects
-          remove entity(building, tavern)
-          demolished(?SELF)
+      actionset "test"
+        action "demolish tavern"
+          roles: ?SELF: agent
+          effects
+            remove entity(building, tavern)
+            demolished(?SELF)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -499,17 +510,19 @@ describe('remove entity() in effects', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'create-actions'), `
-      action "form bond"
-        roles: ?SELF: agent, ?Y: agent
-        effects
-          new entity(bond, ?b)
-          bondMembers(?b, ?SELF, ?Y)
+      actionset "create"
+        action "form bond"
+          roles: ?SELF: agent, ?Y: agent
+          effects
+            new entity(bond, ?b)
+            bondMembers(?b, ?SELF, ?Y)
     `);
     writeFileSync(join(dir, 'destroy-actions'), `
-      action "break bond"
-        roles: ?SELF: agent, ?Y: agent
-        effects
-          remove entity(bond, bond_1)
+      actionset "destroy"
+        action "break bond"
+          roles: ?SELF: agent, ?Y: agent
+          effects
+            remove entity(bond, bond_1)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),

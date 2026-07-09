@@ -1,0 +1,4 @@
+world
+  attraction(isabella, cliff) = 1
+  attraction(cliff, isabelle) = 8
+  impulse_control(richard) = 2

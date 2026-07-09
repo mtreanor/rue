@@ -1,0 +1,228 @@
+{
+  "predicates": {
+    "intoxication": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 10,
+      "default": 0,
+      "tiers": {
+        "drunk": [
+          8,
+          10
+        ],
+        "tipsy": [
+          5,
+          8
+        ],
+        "loose": [
+          2,
+          5
+        ],
+        "sober": [
+          0,
+          0
+        ]
+      }
+    },
+    "attraction": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 10,
+      "default": 4,
+      "tiers": {
+        "repulsed": [
+          0,
+          2
+        ],
+        "average": [
+          3,
+          5
+        ],
+        "attracted": [
+          5,
+          8
+        ],
+        "enamored": [
+          8,
+          10
+        ]
+      }
+    },
+    "buddy": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 10,
+      "default": 0,
+      "tiers": {
+        "low": [
+          0,
+          3
+        ],
+        "med": [
+          3,
+          7
+        ],
+        "high": [
+          7,
+          10
+        ]
+      }
+    },
+    "exes": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "impulse_control": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 10,
+      "default": 5,
+      "tiers": {
+        "low": [
+          0,
+          4
+        ],
+        "avg": [
+          4,
+          8
+        ],
+        "high": [
+          8,
+          10
+        ]
+      }
+    },
+    "wins": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0
+    },
+    "losses": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0
+    },
+    "money": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0
+    },
+    "selfish": {
+      "type": "boolean",
+      "args": [
+        "agent"
+      ]
+    },
+    "gullible": {
+      "type": "boolean",
+      "args": [
+        "agent"
+      ]
+    },
+    "agreeable": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 10,
+      "default": 5,
+      "tiers": {
+        "low": [
+          0,
+          4
+        ],
+        "med": [
+          4,
+          7
+        ],
+        "high": [
+          7,
+          10
+        ]
+      }
+    },
+    "intent-antagonize": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "intent-flirt": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "intent-be-nice": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "intent-show-off": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    }
+  }
+}

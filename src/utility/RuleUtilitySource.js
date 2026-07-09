@@ -39,7 +39,7 @@ export class RuleUtilitySource {
         score += this.weight;
       }
     }
-    return { type: 'rule', name: this.name, weight: this.weight, matchedBindings, score };
+    return { type: 'rule', name: this.name, weight: this.weight, matchedBindings, predicateEntries: this.predicateEntries, score };
   }
 
   collectFreeVariables(binding) {

@@ -61,15 +61,16 @@ Produced by a `rule "name" predicates => weight` entry. Counts how many bindings
 
 ```javascript
 {
-  type:           'rule',
-  name:           string,    // the label given after `rule`
-  weight:         number,    // the weight after `=>`
-  matchedBindings: Binding[], // one Binding per matching combination
-  score:          number,    // matchedBindings.length × weight
+  type:             'rule',
+  name:             string,             // the label given after `rule`
+  weight:           number,             // the weight after `=>`
+  matchedBindings:  Binding[],          // one Binding per matching combination
+  predicateEntries: PredicateEntry[],   // the rule's own predicate conjunction
+  score:            number,             // matchedBindings.length × weight
 }
 ```
 
-Each entry in `matchedBindings` is the full binding for one satisfied combination of the rule's free variables.
+Each entry in `matchedBindings` is the full binding for one satisfied combination of the rule's free variables. `predicateEntries` is the rule's predicate conjunction itself (the same shape a ruleset rule carries) — zip it against a matched binding to recover that match's premises, which is how the action-rule-set-tool's Play mode expands a rule utility node into its per-match premises with provenance.
 
 ### Constant node
 

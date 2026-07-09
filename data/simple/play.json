@@ -1,0 +1,12 @@
+{
+  "entityType": "agent",
+  "phases": [
+    {
+      "pipeline": "social-act",
+      "loop": [
+        "SELF"
+      ],
+      "bindings": {}
+    }
+  ]
+}

@@ -4,6 +4,7 @@
     "landing-page-demo": "data/landing-page-demo",
     "quickstart": "data/quickstart",
     "demo": "data/demo-volition",
-    "stress": "data/stress"
+    "stress": "data/stress",
+    "simple": "data/simple"
   }
 }

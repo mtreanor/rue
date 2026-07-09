@@ -108,7 +108,19 @@ role becomes a **free variable**, left for the rule evaluator to enumerate:
 - 1-arg considered predicate (e.g. `drinkSeeking(agent)`) against a 2-arg
   target → **two** separate candidates, one bound to `?SELF`, one to
   `?TARGET` (e.g. `drinkSeeking(?SELF)` and `drinkSeeking(?TARGET)`), since
-  they carry different meanings ("I am drink-seeking" vs "they are").
+  they carry different meanings ("I am drink-seeking" vs "they are"). Treat
+  the `?TARGET`-bound candidate with caution when the predicate describes
+  the target's own inner state or standing (a trait like `selfish` or
+  `gullible`, a personal-record numeric like `wins`/`money`) rather than
+  something about the relationship between the two agents — these read as
+  the acting agent reacting to the target's private self, which it usually
+  has no way to perceive directly, and are a common source of proposals the
+  user rejects wholesale on review (confirmed: a user excluded every
+  `?TARGET`-bound 1-arg-predicate rule in a Tier 1 batch except one they
+  deliberately chose to keep). Still propose them — flag the concern
+  in-line rather than silently dropping the candidate — but expect them to
+  need a specific justification (e.g. a visibly public track record) to
+  survive review, unlike `?SELF`-bound or relational candidates.
 - 2-arg relational considered predicate (e.g. `friendsWith(agent, agent)`,
   `warmth(agent, agent)`) against a 2-arg target → **one** candidate, bound
   `(?SELF, ?TARGET)`.

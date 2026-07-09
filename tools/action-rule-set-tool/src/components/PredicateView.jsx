@@ -1,13 +1,14 @@
 import React from 'react';
 import HighlightedCode from './HighlightedCode.jsx';
 
-// One predicate/fact instance — name(args), optionally `= value` and a tier
-// badge — rendered identically everywhere a predicate instance appears in the
-// tool: the State tab's fact table, Play's utility breakdowns, rule premises,
-// and rule/action effects. Iterating on how a predicate *looks* (or how deep
-// its "explain" reaches) means changing this one component, not the four or
-// five places that used to each reimplement it with slightly different
-// fidelity.
+// One predicate/fact instance — name(args), optionally `= value`, a tier
+// badge, or a comparison badge (operator + threshold, for a numeric
+// comparison premise) — rendered identically everywhere a predicate instance
+// appears in the tool: the State tab's fact table, Play's utility breakdowns,
+// rule premises, and rule/action effects. Iterating on how a predicate
+// *looks* (or how deep its "explain" reaches) means changing this one
+// component, not the four or five places that used to each reimplement it
+// with slightly different fidelity.
 //
 // `onExplain`, when given, adds a small trigger that opens the full
 // justification tree (ProofTreeView, via the why/explain endpoints) for this
@@ -18,7 +19,7 @@ import HighlightedCode from './HighlightedCode.jsx';
 // "expand," so the explain trigger is its own small button that stops the
 // click from also toggling its ancestor.
 export default function PredicateView({
-  name, args = [], value = null, tier = null, negated = false, active = null,
+  name, args = [], value = null, tier = null, comparison = null, negated = false, active = null,
   owner = null, highlighter = null, onExplain = null,
 }) {
   const text = `${negated ? '-' : ''}${name}(${(args ?? []).join(', ')})`;
@@ -28,6 +29,7 @@ export default function PredicateView({
       <HighlightedCode text={text} highlighter={highlighter} className="predicate-expr" />
       {value != null && <span className="predicate-value">= {formatValue(value)}</span>}
       {tier && <span className="value-tier">{tier}</span>}
+      {comparison && <span className="value-tier">{comparison.operator} {comparison.threshold}</span>}
       {active === false && <span className="dim predicate-retracted">retracted</span>}
       {onExplain && (
         <button

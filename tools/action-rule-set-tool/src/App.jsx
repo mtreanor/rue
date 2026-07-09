@@ -69,8 +69,11 @@ export default function App() {
 
   useEffect(() => {
     refreshScenarios().then(list => {
-      const withRules = list.find(s => s.rulesets.length > 0) ?? list[0];
-      if (withRules) setScenario(withRules.name);
+      const last = localStorage.getItem('klugh:lastScenario');
+      const pick = (last && list.find(s => s.name === last))
+        ?? list.find(s => s.rulesets.length > 0)
+        ?? list[0];
+      if (pick) setScenario(pick.name);
     }).catch(e => setError(e.message));
   }, []);
 
@@ -99,7 +102,10 @@ export default function App() {
     }
   }
 
-  useEffect(() => { reload(scenario); }, [scenario]);
+  useEffect(() => {
+    if (scenario) localStorage.setItem('klugh:lastScenario', scenario);
+    reload(scenario);
+  }, [scenario]);
 
   // Entity types — fetched once and shared across tabs that show EntitySidebar.
   const [entityTypes, setEntityTypes] = useState([]);
@@ -167,7 +173,7 @@ export default function App() {
               <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')} title="Add action" aria-label="Add action">+</button>
             </div>
             <button className={tab === 'pipelines' ? 'active' : ''} onClick={() => goTo('pipelines')}>Pipelines</button>
-            <button className={tab === 'play' ? 'active' : ''} onClick={() => goTo('play')}>Play</button>
+            <button className={'tab-play' + (tab === 'play' ? ' active' : '')} onClick={() => goTo('play')}>Play</button>
           </nav>
           <button
             className={'btn save-file' + (pending.length ? ' dirty' : '')}
@@ -210,6 +216,7 @@ export default function App() {
                   onChanged={() => reload()}
                   editingRule={editingRule}
                   onExitEdit={exitRuleEditor}
+                  highlighter={highlighter}
                 />
               )}
               {data && tab === 'actionsets' && (

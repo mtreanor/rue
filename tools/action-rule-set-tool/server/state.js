@@ -1,12 +1,63 @@
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { Engine } from '../../../src/Engine.js';
 import { Fact } from '../../../src/Fact.js';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
+
+function ensureScenarioFiles(paths) {
+  mkdirSync(paths.dir, { recursive: true });
+  if (!existsSync(paths.predicates)) writeFileSync(paths.predicates, '{\n  "predicates": {}\n}\n');
+  if (!existsSync(paths.entities))   writeFileSync(paths.entities, '{}\n');
+  if (!existsSync(paths.state))      writeFileSync(paths.state, 'world\n');
+}
+
+// Serialize the engine's current fact store to the state file DSL format so
+// mutations (assert/delete) made through the tool can be flushed to disk.
+function serializeEngineState(engine) {
+  const lines = [];
+
+  function formatRecord(record) {
+    const { fact } = record;
+    let tick = 0;
+    let strength = 1.0;
+    for (let i = record.events.length - 1; i >= 0; i--) {
+      if (record.events[i].type === 'asserted') {
+        tick     = record.events[i].tick;
+        strength = record.events[i].strength;
+        break;
+      }
+    }
+    let text = (fact.negated ? '-' : '') + fact.name;
+    if (fact.args.length > 0) text += `(${fact.args.join(', ')})`;
+    if (fact.value !== null && fact.value !== undefined) text += ` = ${fact.value}`;
+    if (tick !== 0) text += ` [tick: ${tick}]`;
+    if (Math.abs(strength - 1.0) > 1e-9) text += ` [strength: ${strength}]`;
+    return '  ' + text;
+  }
+
+  lines.push('world');
+  for (const record of engine.world.factStore.factHistory) {
+    if (record.isCurrentlyActive()) lines.push(formatRecord(record));
+  }
+  for (const [owner, store] of engine.world.privateStores) {
+    const storeLines = [];
+    for (const record of store.factHistory) {
+      if (record.isCurrentlyActive()) storeLines.push(formatRecord(record));
+    }
+    if (storeLines.length > 0) {
+      lines.push('');
+      lines.push(owner);
+      lines.push(...storeLines);
+    }
+  }
+  return lines.join('\n') + '\n';
+}
 
 // A live Engine per scenario, cached. State is dynamic: the viewer re-queries
 // this engine, so a future run/step control just mutates it and the next fetch
 // reflects the change. reloadStateEngine() drops the cache to reset to the
 // seeded state.
-const engines = new Map();
+const engines    = new Map();
+const scenarioPaths = new Map(); // parallel to engines — used to persist state after mutations
 
 // Other modules (currently only play.js) can learn when a scenario's engine
 // was rebuilt from its files, without state.js knowing they exist — a plain
@@ -25,13 +76,17 @@ export function getStateEngine(name) {
   const scenario = config.scenarios[name];
   if (!scenario) throw new Error(`Unknown scenario "${name}"`);
   if (typeof scenario !== 'string' && !scenario.state && !scenario.dir) throw new Error(`Scenario "${name}" has no state file to view`);
-  const engine = new Engine(resolveScenarioPaths(scenario));
+  const paths = resolveScenarioPaths(scenario);
+  ensureScenarioFiles(paths);
+  const engine = new Engine(paths);
   engines.set(name, engine);
+  scenarioPaths.set(name, paths);
   return engine;
 }
 
 export function reloadStateEngine(name) {
   engines.delete(name);
+  scenarioPaths.delete(name);
   for (const fn of reloadListeners) fn(name);
   return getStateEngine(name);
 }
@@ -40,6 +95,16 @@ export function reloadStateEngine(name) {
 // rebuilds from the current files.
 export function clearStateEngines() {
   engines.clear();
+  scenarioPaths.clear();
+}
+
+// Write the current in-memory fact store to the shadow state file so the
+// workspace diff picks it up and "Save to File" flushes it to disk.
+function persistEngineState(name) {
+  const engine = engines.get(name);
+  const paths  = scenarioPaths.get(name);
+  if (!engine || !paths?.state) return;
+  writeFileSync(paths.state, serializeEngineState(engine));
 }
 
 // ── Engine-parameterized core ─────────────────────────────────────────────────
@@ -101,16 +166,37 @@ export function listEntities(name) {
   return listEntitiesForEngine(getStateEngine(name));
 }
 
-// Assert a single fact (a complete predicate, e.g. `knows(alice, bob)` or
-// `friendship(alice, bob) = 80`) into the live world store, then return the
-// refreshed facts. Throws (surfaced as a 400) on a parse or schema error.
+// Tier shorthand: `pred.tier(args)` asserts the numeric predicate at the
+// midpoint of that tier's range — `lo + floor((hi - lo) / 2)`, which always
+// lands inside the half-open [lo, hi) tier. Rewrites to `pred(args) = value`;
+// returns the text unchanged when it isn't a known numeric predicate + tier, so
+// ordinary asserts (and genuinely unknown input, which should error) pass
+// through to the parser as before.
+function rewriteTierAssertion(engine, text) {
+  const m = text.trim().match(/^([A-Za-z_]\w*)\.([A-Za-z_]\w*)\s*\((.*)\)\s*$/s);
+  if (!m) return text;
+  const [, name, tier, args] = m;
+  const def = engine.schema.getDefinition?.(name);
+  const range = def?.tiers?.[tier];
+  if (!range) return text;
+  const [lo, hi] = range;
+  const value = lo + Math.floor((hi - lo) / 2);
+  return `${name}(${args}) = ${value}`;
+}
+
+// Assert a single fact (a complete predicate, e.g. `knows(alice, bob)`,
+// `friendship(alice, bob) = 80`, or the tier shorthand `friendship.strong(a, b)`)
+// into the live world store, then return the refreshed facts. Throws (surfaced
+// as a 400) on a parse or schema error.
 export function assertFactForEngine(engine, text) {
-  engine.assert(text);
+  engine.assert(rewriteTierAssertion(engine, text));
   return listFactsForEngine(engine);
 }
 
 export function assertFact(name, text) {
-  return assertFactForEngine(getStateEngine(name), text);
+  const result = assertFactForEngine(getStateEngine(name), text);
+  persistEngineState(name);
+  return result;
 }
 
 // Hard-delete a fact from its store (world or a private store), erasing it and
@@ -124,7 +210,9 @@ export function deleteFactForEngine(engine, { owner = null, name, args, negated 
 }
 
 export function deleteFact(scenario, fact) {
-  return deleteFactForEngine(getStateEngine(scenario), fact);
+  const result = deleteFactForEngine(getStateEngine(scenario), fact);
+  persistEngineState(scenario);
+  return result;
 }
 
 // Serialize a ProofNode (from engine.explain) to JSON. `maxDepth` limits how

@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
@@ -65,10 +65,9 @@ export const configDir = dirname(configPath);
 
 export function loadProjectConfig() {
   if (!existsSync(configPath)) {
-    throw new Error(
-      `Project config not found at ${configPath}. ` +
-      `Set KLUGH_CONFIG to your project.config.json (see README).`,
-    );
+    const empty = { scenarios: {} };
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, JSON.stringify(empty, null, 2) + '\n');
   }
   // Read the config through the shadow so `+ set` edits stay staged too. The
   // real configPath is still used for resolving relative scenario paths below.
@@ -77,20 +76,28 @@ export function loadProjectConfig() {
 
 // Resolve every path a scenario references, relative to the config's directory.
 // Scenario entries are now a single directory string; all standard files are
-// derived by convention. Each resolved path is redirected through the shadow
-// workspace so edits are staged before "Save to File" writes real files.
+// derived by convention.
+//
+// The scenario directory is mirrored into the shadow workspace as a whole tree
+// (workingPath copies it recursively on first touch), and every per-file path
+// is derived by joining onto that mirrored tree — NOT by mirroring each file as
+// its own separate flat entry. That single representation is what keeps edits
+// consistent: an edit to predicates.json / state / a ruleset and the directory
+// scans that list them all read and write the exact same shadow file, so a
+// saved change never lingers as "pending" and a newly created file is
+// immediately visible to the scans that enumerate rulesets and pipelines.
 export function resolveScenarioPaths(scenario) {
   const realDir = resolve(configDir, typeof scenario === 'string' ? scenario : scenario.dir ?? '');
-  const dir = workingPath(realDir);
-  const rel = (sub) => workingPath(resolve(realDir, sub));
+  const dir = workingPath(realDir);      // the shadow tree root for this scenario
+  const sub = (name) => join(dir, name); // every file lives inside that one tree
   return {
     dir,
     klughDir:    dir,
-    predicates:  rel('predicates.json'),
-    entities:    rel('entities.json'),
-    state:       rel('state'),
-    definitions: rel('definitions.klugh'),
-    pipelines:   rel('pipelines'),
-    play:        rel('play.json'),
+    predicates:  sub('predicates.json'),
+    entities:    sub('entities.json'),
+    state:       sub('state'),
+    definitions: sub('definitions.klugh'),
+    pipelines:   sub('pipelines'),
+    play:        sub('play.json'),
   };
 }

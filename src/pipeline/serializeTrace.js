@@ -138,10 +138,14 @@ function serializeApplications(applications) {
 // and, where the predicate resolves to a plain named fact (a FactPredicate,
 // DerivedFactPredicate, numeric tier/comparison, or explicit negation — optionally
 // wrapped in one `not`/`~` and/or a private-store scope), the structured
-// { name, args, owner } a PredicateView can render with syntax highlighting and
-// use as an explain target. Compound forms (aggregates, temporal chains, sensors,
-// closures) fall back to description-only — displayed as text, not explainable —
-// rather than guessing at a shape that would misrepresent them.
+// { name, args, owner, tier?, comparison? } a PredicateView can render with
+// syntax highlighting and use as an explain target. A numeric tier/comparison
+// predicate's condition (which tier, or which operator/threshold) rides along
+// in `tier`/`comparison` — without it, a structured render would lose exactly
+// the part of the premise that explains why the rule fired. Compound forms
+// (aggregates, temporal chains, sensors, closures) fall back to
+// description-only — displayed as text, not explainable — rather than
+// guessing at a shape that would misrepresent them.
 function serializePremise(predicate, binding) {
   return { description: safeDescribe(predicate, binding), ...structuredPredicateInfo(predicate, binding) };
 }
@@ -190,7 +194,10 @@ function structuredPredicateInfo(predicate, binding) {
   try {
     const args    = target.args.map(a => toFactArg(binding.resolve(a)));
     const negated = ctorName(target) === 'ExplicitNegationPredicate';
-    return { name: target.name, args, owner, negated };
+    const extra   = ctorName(target) === 'NumericTierPredicate' ? { tier: target.tier }
+      : ctorName(target) === 'NumericComparisonPredicate' ? { comparison: { operator: target.operator, threshold: target.threshold } }
+      : {};
+    return { name: target.name, args, owner, negated, ...extra };
   } catch {
     return null;
   }
@@ -208,7 +215,10 @@ function serializeBreakdown(node) {
         name:   node.name,
         weight: node.weight,
         score:  node.score,
-        matchedBindings: (node.matchedBindings ?? []).map(serializeBinding),
+        matches: (node.matchedBindings ?? []).map(b => ({
+          binding:  serializeBinding(b),
+          premises: (node.predicateEntries ?? []).map(entry => serializePremise(entry.predicate, b)),
+        })),
       };
     case 'predicate':
       return {

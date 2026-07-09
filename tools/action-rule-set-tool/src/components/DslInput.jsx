@@ -13,18 +13,27 @@ import { scopeClass } from '../tmHighlight.js';
 // `insertMode` controls what a plain (non-shift) sidebar click does:
 //   'replace' — set the whole field to the predicate (search box)
 //   'cursor'  — insert the predicate at the caret (rule body)
-// A shift-click always appends as a conjunction (or after a trailing `=>`).
 //
-// Passing `highlighter` overlays a syntax-highlighted <pre> behind the input/
-// textarea, whose text is made transparent so the highlighted copy shows
-// through — the classic textarea-highlight trick (e.g. react-simple-code-
-// editor). The overlay and field must share identical font/padding/border so
-// characters line up; scroll position is synced on every scroll.
+// Passing `highlighter` adds syntax highlighting. The mechanism depends on the
+// field type:
+//
+//   Single-line (<input>): classic transparent-overlay approach. The input has
+//   invisible text; the coloured <pre> behind it shows through. Scroll is
+//   synced via onScroll so the pre tracks any horizontal scroll.
+//
+//   Multiline (<textarea>): focus-based approach. The textarea is a completely
+//   normal form element — correct cursor, native undo, native selection.
+//   The <pre> sits on top (position:absolute;inset:0) with pointer-events:none
+//   so clicks fall through. While the textarea is focused the <pre> is hidden
+//   (visibility:hidden); on blur, scroll is synced once and the <pre> reappears
+//   showing the highlighted content. No continuous sync, no overlay drift.
 //
 // `autocomplete = false` keeps the highlight overlay but drops suggestions
-// and predicate-sidebar insert registration — for fields (like a role's
-// variable name) where predicate/tier completion doesn't make sense but
-// syntax coloring of `?SELF`-style tokens still helps.
+// and predicate-sidebar insert registration.
+//
+// The textarea/input is UNCONTROLLED: React never writes `value` back to the
+// DOM element after mount. Programmatic insertions (Tab, autocomplete, sidebar)
+// go through document.execCommand('insertText') to preserve the undo stack.
 const VARIABLES = ['?SELF', '?OTHER', '?X', '?Y', '?Z', '?W'];
 
 export default function DslInput({
@@ -37,24 +46,72 @@ export default function DslInput({
   const [suggestions, setSuggestions] = useState([]);
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
+  const [localValue, setLocalValue] = useState(value ?? '');
+  // focusMode: multiline textarea with highlighting. The <pre> is hidden while
+  // the textarea is focused; the user types in a completely normal textarea.
+  const [focused, setFocused] = useState(false);
 
   const predByName = new Map(predicates.map(p => [p.name, p]));
+  const showHighlight = !!highlighter;
+  const focusMode = showHighlight && multiline;
 
-  // ── Sidebar insert target registration ──
+  // ── External value sync ──────────────────────────────────────────────────
+  useEffect(() => {
+    const el = ref.current;
+    if (el && el.value !== (value ?? '')) {
+      el.value = value ?? '';
+      setLocalValue(value ?? '');
+      if (highlightRef.current) {
+        highlightRef.current.scrollTop = 0;
+        highlightRef.current.scrollLeft = 0;
+      }
+    }
+  }, [value]);
+
+  // ── Scroll sync ──────────────────────────────────────────────────────────
+  // For single-line overlay mode: keep the <pre> horizontally in sync when the
+  // input scrolls. For focusMode: called once on blur to snapshot the scroll
+  // position before the <pre> becomes visible.
+  function syncScroll() {
+    if (highlightRef.current && ref.current) {
+      highlightRef.current.scrollTop  = ref.current.scrollTop;
+      highlightRef.current.scrollLeft = ref.current.scrollLeft;
+    }
+  }
+
+  // ── Programmatic text insertion ──────────────────────────────────────────
+  function execInsert(text) {
+    if (!document.execCommand('insertText', false, text)) {
+      const el = ref.current;
+      const s = el.selectionStart, e = el.selectionEnd;
+      el.value = el.value.slice(0, s) + text + el.value.slice(e);
+      el.setSelectionRange(s + text.length, s + text.length);
+    }
+  }
+
+  // ── Sidebar insert target registration ──────────────────────────────────
   const insertCtx = useInsert();
-  const valueRef = useRef(value);
-  valueRef.current = value;
 
   const inserter = useCallback((template, shift) => {
     const el = ref.current;
-    const current = valueRef.current ?? '';
-    const caret = el ? el.selectionStart : current.length;
-    const { text, pos } = computeInsert(current, template, shift, insertMode, caret);
-    onChange(text);
-    requestAnimationFrame(() => {
-      if (el) { el.focus(); el.setSelectionRange(pos, pos); }
-    });
-  }, [onChange, insertMode]);
+    if (!el) return;
+    el.focus();
+    const current = el.value;
+    const caret = el.selectionStart;
+    if (insertMode === 'replace' && !shift) {
+      el.setSelectionRange(0, current.length);
+      execInsert(template);
+    } else {
+      const at = insertMode === 'cursor' ? caret : current.length;
+      const before = current.slice(0, at);
+      el.setSelectionRange(at, at);
+      execInsert(connector(before, shift) + template);
+    }
+    const v = el.value;
+    setLocalValue(v);
+    onChange(v);
+    if (showHighlight && !multiline) requestAnimationFrame(syncScroll);
+  }, [onChange, insertMode, showHighlight, multiline]);
 
   useEffect(() => {
     if (!insertCtx || !autocomplete) return undefined;
@@ -62,6 +119,7 @@ export default function DslInput({
     return () => insertCtx.clear(inserter);
   }, [insertCtx, inserter, primary, autocomplete]);
 
+  // ── Autocomplete suggestions ─────────────────────────────────────────────
   function computeSuggestions(text, caret) {
     const before = text.slice(0, caret);
 
@@ -113,95 +171,109 @@ export default function DslInput({
   function apply(sug) {
     const el = ref.current;
     const caret = el.selectionStart;
-    const text = el.value;
-    const start = caret - sug.replace;
-    const next = text.slice(0, start) + sug.insert + text.slice(caret);
-    const newCaret = start + sug.insert.length - (sug.caretBack || 0);
-    onChange(next);
+    el.setSelectionRange(caret - sug.replace, caret);
+    execInsert(sug.insert);
+    if (sug.caretBack) {
+      const pos = el.selectionStart - sug.caretBack;
+      el.setSelectionRange(pos, pos);
+    }
+    const v = el.value;
+    setLocalValue(v);
+    onChange(v);
     setOpen(false);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(newCaret, newCaret);
-    });
+    if (showHighlight && !multiline) requestAnimationFrame(syncScroll);
+    requestAnimationFrame(() => el.focus());
   }
 
-  function onKeyDown(e) {
-    if (e.key === 'Tab' && (!open || suggestions.length === 0)) {
-      e.preventDefault();
-      const el = ref.current;
-      if (!el) return;
-      const caret = el.selectionStart;
-      const next = el.value.slice(0, caret) + '  ' + el.value.slice(el.selectionEnd);
-      onChange(next);
-      requestAnimationFrame(() => {
-        el.focus();
-        el.setSelectionRange(caret + 2, caret + 2);
-      });
-      return;
-    }
-
-    if (!open || suggestions.length === 0) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => (a + 1) % suggestions.length); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => (a - 1 + suggestions.length) % suggestions.length); }
-    else if (e.key === 'Enter' || e.key === 'Tab') {
-      if (!multiline || e.key === 'Tab' || open) { e.preventDefault(); apply(suggestions[active]); }
-    } else if (e.key === 'Escape') { setOpen(false); }
+  // ── Event handlers ───────────────────────────────────────────────────────
+  function handleChange(e) {
+    const v = e.target.value;
+    setLocalValue(v);
+    onChange(v);
+    if (showHighlight && !multiline) requestAnimationFrame(syncScroll);
   }
 
-  const showHighlight = !!highlighter;
-
-  // When the highlight overlay is active on a multiline textarea, we set an
-  // explicit pixel height on the wrapper and make BOTH the <pre> and <textarea>
-  // position:absolute inside it.  Both elements then share the exact same
-  // containing-block origin, so any browser-internal difference in where a
-  // <pre> vs <textarea> starts its content is impossible — they're both
-  // measured from the same zero point.  (When only one element is in flow and
-  // the other is absolute, a hidden browser offset on the form-control side
-  // can't be cancelled by CSS alone.)
-  //
-  // Constants must match the CSS values for .dsl-highlight-layer / .dsl-input:
-  //   line-height: 20px   padding: 8px 10px   border: 1px
-  const WRAP_LINE_H  = 20;
-  const WRAP_PAD_V   =  8;
-  const WRAP_BORDER  =  1;
-  const wrapH = showHighlight && multiline
-    ? rows * WRAP_LINE_H + 2 * WRAP_PAD_V + 2 * WRAP_BORDER
-    : undefined;
-
-  function syncScroll() {
-    if (highlightRef.current && ref.current) {
-      highlightRef.current.scrollTop  = ref.current.scrollTop;
-      highlightRef.current.scrollLeft = ref.current.scrollLeft;
+  function handleKeyDown(e) {
+    if (autocomplete) {
+      if (e.key === 'Tab' && (!open || suggestions.length === 0)) {
+        e.preventDefault();
+        const el = ref.current;
+        if (!el) return;
+        execInsert('  ');
+        const v = el.value;
+        setLocalValue(v);
+        onChange(v);
+        if (showHighlight && !multiline) requestAnimationFrame(syncScroll);
+        return;
+      }
+      if (open && suggestions.length > 0) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => (a + 1) % suggestions.length); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => (a - 1 + suggestions.length) % suggestions.length); return; }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          if (!multiline || e.key === 'Tab' || open) { e.preventDefault(); apply(suggestions[active]); return; }
+        }
+        if (e.key === 'Escape') { setOpen(false); return; }
+      }
     }
+    if (showHighlight && !multiline) requestAnimationFrame(syncScroll);
+  }
+
+  function handleKeyUp(e) {
+    if (autocomplete && !['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) refresh();
+    if (showHighlight && !multiline) requestAnimationFrame(syncScroll);
+  }
+
+  function handleClick() {
+    if (autocomplete) refresh();
+    if (showHighlight && !multiline) requestAnimationFrame(syncScroll);
   }
 
   const commonProps = {
     ref,
-    value,
+    defaultValue: value ?? '',
     placeholder,
-    className: `dsl-input ${showHighlight ? 'dsl-input-highlighted' : ''} ${className}`,
+    // focusMode: textarea is a plain form element — no dsl-input-highlighted class.
+    // single-line overlay: input gets dsl-input-highlighted for the transparent effect.
+    className: `dsl-input ${showHighlight && !multiline ? 'dsl-input-highlighted' : ''} ${className}`,
     spellCheck: false,
-    onChange: (e) => {
-      onChange(e.target.value);
-      if (showHighlight) requestAnimationFrame(syncScroll);
+    onChange: handleChange,
+    onKeyDown: handleKeyDown,
+    onKeyUp: handleKeyUp,
+    onClick: handleClick,
+    onFocus: () => {
+      if (autocomplete) insertCtx?.register(inserter);
+      if (focusMode) setFocused(true);
     },
-    onKeyUp: autocomplete ? (e) => { if (!['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) refresh(); } : undefined,
-    onClick: autocomplete ? refresh : undefined,
-    onFocus: autocomplete ? () => { insertCtx?.register(inserter); } : undefined,
-    onKeyDown: autocomplete ? onKeyDown : undefined,
-    onBlur: autocomplete ? () => setTimeout(() => setOpen(false), 120) : undefined,
-    onScroll: showHighlight ? syncScroll : undefined,
+    onBlur: () => {
+      if (autocomplete) setTimeout(() => setOpen(false), 120);
+      if (focusMode) {
+        // Sync the pre's scroll before it becomes visible so it shows the same
+        // portion of content the user was editing.
+        syncScroll();
+        setFocused(false);
+      }
+    },
+    onScroll: (showHighlight && !multiline) ? syncScroll : undefined,
   };
 
   return (
-    <div className="dsl-wrap" style={wrapH != null ? { height: wrapH } : undefined}>
+    <div className="dsl-wrap">
       {showHighlight && (
-        <pre ref={highlightRef} className={`dsl-highlight-layer ${multiline ? '' : 'single-line'}`} aria-hidden="true">
-          <code>{highlightedNodes(highlighter, value)}</code>
+        <pre
+          ref={highlightRef}
+          className={`dsl-highlight-layer ${multiline ? '' : 'single-line'}`}
+          aria-hidden="true"
+          // focusMode: hide while the textarea is focused; pointer-events:none lets
+          // clicks fall through to the textarea beneath (which then triggers onFocus
+          // to hide the pre). Both states use pointer-events:none — the pre is
+          // never interactive regardless.
+          style={focusMode ? { visibility: focused ? 'hidden' : 'visible' } : undefined}
+        >
+          <code>{highlightedNodes(highlighter, localValue)}</code>
         </pre>
       )}
       {multiline
-        ? <textarea {...commonProps} rows={rows} />
+        ? <textarea {...commonProps} rows={rows} style={focusMode ? { resize: 'none' } : undefined} />
         : <input {...commonProps} type="text" />}
       {autocomplete && open && (
         <ul className="dsl-suggest">
@@ -223,7 +295,6 @@ export default function DslInput({
   );
 }
 
-// Render highlighted lines the same way HighlightedCode does.
 function highlightedNodes(highlighter, text) {
   const lines = highlighter.highlight(text ?? '');
   return lines.map((toks, i) => (
@@ -237,25 +308,10 @@ function highlightedNodes(highlighter, text) {
   ));
 }
 
-// Compute the new field text when the sidebar inserts `template`.
-//   replace mode + plain click → the field becomes exactly the template
-//   otherwise → splice at the caret (cursor mode) or append (replace+shift),
-//   joined by a connector that respects a trailing `=>` and shift-conjunction.
-function computeInsert(current, template, shift, mode, caret) {
-  if (mode === 'replace' && !shift) {
-    return { text: template, pos: template.length };
-  }
-  const at = mode === 'cursor' ? caret : current.length;
-  const before = current.slice(0, at);
-  const after = current.slice(at);
-  const piece = connector(before, shift) + template;
-  return { text: before + piece + after, pos: (before + piece).length };
-}
-
 function connector(before, shift) {
   const t = before.replace(/\s+$/, '');
-  if (t === '') return '';          // nothing before → no separator
-  if (/=>$/.test(t)) return ' ';    // right after an arrow → start the RHS
-  if (/[(^]$/.test(t)) return ' ';  // right after '(' or '^'
-  return shift ? ' ^ ' : ' ';       // shift → conjunction; plain → a space
+  if (t === '') return '';
+  if (/=>$/.test(t)) return ' ';
+  if (/[(^]$/.test(t)) return ' ';
+  return shift ? ' ^ ' : ' ';
 }

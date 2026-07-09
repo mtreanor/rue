@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
+import ConfirmDelete from './ConfirmDelete.jsx';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const BOX_W        = 210;
@@ -745,6 +746,19 @@ export default function PipelinesTab({ scenario, data }) {
     } catch (e) { setError(e.message); }
   }
 
+  async function deletePipeline() {
+    if (!current) return;
+    try {
+      const list = await api.deletePipeline(scenario, current);
+      setPipelines(list);
+      userEdit.current = false;
+      const next = list[0] ?? null;
+      setCurrent(next?.name ?? '');
+      setLocalData(next);
+      setSelected(null);
+    } catch (e) { setError(e.message); }
+  }
+
   // Mutation helpers.
   function patch(update) { userEdit.current = true; setLocalData(d => ({ ...d, ...update })); }
 
@@ -848,6 +862,9 @@ export default function PipelinesTab({ scenario, data }) {
             }
           </select>
           <button className="btn tiny" onClick={createPipeline} title="Create pipeline">+</button>
+          {current && (
+            <ConfirmDelete onConfirm={deletePipeline} title={`Delete pipeline "${current}"`} />
+          )}
         </label>
       </div>
 

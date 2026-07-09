@@ -44,8 +44,13 @@ export function pendingChanges() {
   const changed = [];
   
   function check(real, shadow) {
-    if (existsSync(real) && statSync(real).isDirectory()) {
-      // It's a mirrored directory. Crawl all files recursively.
+    // A mirrored directory — either the real dir exists, or it's a brand-new
+    // scenario whose real dir doesn't exist yet but whose shadow tree already
+    // holds the starter files. Crawl the shadow tree either way, comparing each
+    // file to its (possibly missing) real counterpart.
+    const isDir = (existsSync(shadow) && statSync(shadow).isDirectory())
+               || (existsSync(real) && statSync(real).isDirectory());
+    if (isDir) {
       if (!existsSync(shadow)) return;
       function walk(dirReal, dirShadow) {
         const items = readdirSync(dirShadow);
@@ -56,6 +61,14 @@ export function pendingChanges() {
             walk(itemReal, itemShadow);
           } else {
             if (read(itemShadow) !== read(itemReal)) changed.push(itemReal);
+          }
+        }
+        // Deletions: real entries no longer present in the shadow — a file or
+        // whole subtree removed from the shadow (e.g. deletePipeline's
+        // unlinkSync) needs to surface as pending too, or it looks clean.
+        if (existsSync(dirReal)) {
+          for (const item of readdirSync(dirReal)) {
+            if (!items.includes(item)) changed.push(join(dirReal, item));
           }
         }
       }
@@ -74,7 +87,9 @@ export function saveToFile() {
   const saved = [];
   
   function flush(real, shadow) {
-    if (existsSync(real) && statSync(real).isDirectory()) {
+    const isDir = (existsSync(shadow) && statSync(shadow).isDirectory())
+               || (existsSync(real) && statSync(real).isDirectory());
+    if (isDir) {
       if (!existsSync(shadow)) return;
       function walk(dirReal, dirShadow) {
         const items = readdirSync(dirShadow);
@@ -90,6 +105,17 @@ export function saveToFile() {
               writeFileSync(itemReal, s);
               saved.push(itemReal);
             }
+          }
+        }
+        // Deletions: remove real entries no longer present in the shadow —
+        // the counterpart to the write loop above, so a file removed from the
+        // shadow (deletePipeline, etc.) actually disappears on disk too.
+        if (existsSync(dirReal)) {
+          for (const item of readdirSync(dirReal)) {
+            if (items.includes(item)) continue;
+            const itemReal = join(dirReal, item);
+            rmSync(itemReal, { recursive: true, force: true });
+            saved.push(itemReal);
           }
         }
       }

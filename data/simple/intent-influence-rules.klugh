@@ -1,0 +1,116 @@
+ruleset "intent-influence-rules"
+  # Tier-1 priming — accumulates the ephemeral intent-* numerics the
+  # social-actions actionset reads as utility. Single-pass per (?SELF, ?TARGET)
+  # pair, not fixpoint.
+
+  # ── antagonize ───────────────────────────────────────────────────────────────
+
+  rule "drunk agents antagonize more easily"
+    intoxication.drunk(?SELF)
+    => intent-antagonize(?SELF, ?TARGET) += 3
+
+  rule "repulsion drives antagonism"
+    attraction.repulsed(?SELF, ?TARGET)
+    => intent-antagonize(?SELF, ?TARGET) += 2
+
+  rule "exes bicker"
+    exes(?SELF, ?TARGET)
+    => intent-antagonize(?SELF, ?TARGET) += 2
+
+  rule "low impulse control provokes antagonism"
+    impulse_control.low(?SELF)
+    => intent-antagonize(?SELF, ?TARGET) += 1
+
+  rule "a losing streak breeds low-grade irritation"
+    losses(?SELF) > 3
+    => intent-antagonize(?SELF, ?TARGET) += 1
+
+  rule "repeated losses fray the nerves"
+    losses(?SELF) > 5
+    => intent-antagonize(?SELF, ?TARGET) += 1
+
+  rule "a long losing streak curdles into open grumpiness"
+    losses(?SELF) > 10
+    => intent-antagonize(?SELF, ?TARGET) += 3
+
+  rule "selfish agents provoke others"
+    selfish(?SELF)
+    => intent-antagonize(?SELF, ?TARGET) += 1
+
+  rule "disagreeable agents provoke more"
+    agreeable.low(?SELF)
+    => intent-antagonize(?SELF, ?TARGET) += 2
+
+  # ── flirt ────────────────────────────────────────────────────────────────────
+
+  rule "liquid courage"
+    intoxication.drunk(?SELF)
+    => intent-flirt(?SELF, ?TARGET) += 3
+
+  rule "attraction drives flirting"
+    attraction.attracted(?SELF, ?TARGET)
+    => intent-flirt(?SELF, ?TARGET) += 4
+
+  rule "unresolved tension with an ex"
+    exes(?SELF, ?TARGET)
+    => intent-flirt(?SELF, ?TARGET) += 2
+
+  rule "impulsive flirting"
+    impulse_control.low(?SELF)
+    => intent-flirt(?SELF, ?TARGET) += 2
+
+  # ── be nice ──────────────────────────────────────────────────────────────────
+
+  rule "attraction makes you kinder"
+    attraction.attracted(?SELF, ?TARGET)
+    => intent-be-nice(?SELF, ?TARGET) += 2
+
+  rule "close buddies are kind to each other"
+    buddy.high(?SELF, ?TARGET)
+    => intent-be-nice(?SELF, ?TARGET) += 3
+
+  rule "self-control supports measured kindness"
+    impulse_control.high(?SELF)
+    => intent-be-nice(?SELF, ?TARGET) += 1
+
+  rule "unselfish agents are nicer"
+    not selfish(?SELF)
+    => intent-be-nice(?SELF, ?TARGET) += 2
+
+  rule "pity for a target on a losing streak"
+    losses(?TARGET) > 5
+    => intent-be-nice(?SELF, ?TARGET) += 2
+
+  rule "agreeable agents are nicer"
+    agreeable.high(?SELF)
+    => intent-be-nice(?SELF, ?TARGET) += 3
+
+  # ── show off ─────────────────────────────────────────────────────────────────
+
+  rule "drunken bravado"
+    intoxication.drunk(?SELF)
+    => intent-show-off(?SELF, ?TARGET) += 2
+
+  rule "showing off for someone attractive"
+    attraction.attracted(?SELF, ?TARGET)
+    => intent-show-off(?SELF, ?TARGET) += 3
+
+  rule "showing off for a close friend"
+    buddy.high(?SELF, ?TARGET)
+    => intent-show-off(?SELF, ?TARGET) += 1
+
+  rule "impulsive showing off"
+    impulse_control.low(?SELF)
+    => intent-show-off(?SELF, ?TARGET) += 2
+
+  rule "a winning streak invites showing off"
+    wins(?SELF) > 5
+    => intent-show-off(?SELF, ?TARGET) += 2
+
+  rule "flaunting wealth"
+    money(?SELF) > 50
+    => intent-show-off(?SELF, ?TARGET) += 2
+
+  rule "selfish agents show off for their own glory"
+    selfish(?SELF)
+    => intent-show-off(?SELF, ?TARGET) += 2

@@ -95,13 +95,35 @@ export class Engine {
       }
     } else {
       if (paths.rulesets) {
-        for (const file of scanKlughFiles(paths.rulesets)) {
-          this.loadRules(readFileSync(file, 'utf-8'));
+        const rsVal = paths.rulesets;
+        if (typeof rsVal === 'string') {
+          for (const file of scanKlughFiles(rsVal)) {
+            this.loadRules(readFileSync(file, 'utf-8'));
+          }
+        } else {
+          // Object form { name: path | path[] } or array form [path, ...]
+          for (const pathOrPaths of Object.values(rsVal)) {
+            const files = Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths];
+            for (const file of files) {
+              this.loadRules(readFileSync(file, 'utf-8'));
+            }
+          }
         }
       }
       if (paths.actionsets) {
-        for (const file of scanKlughFiles(paths.actionsets)) {
-          this.loadActions(readFileSync(file, 'utf-8'));
+        const asVal = paths.actionsets;
+        if (typeof asVal === 'string') {
+          for (const file of scanKlughFiles(asVal)) {
+            this.loadActions(readFileSync(file, 'utf-8'));
+          }
+        } else {
+          // Object form { name: path | path[] } or array form [path, ...]
+          for (const pathOrPaths of Object.values(asVal)) {
+            const files = Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths];
+            for (const file of files) {
+              this.loadActions(readFileSync(file, 'utf-8'));
+            }
+          }
         }
       }
     }

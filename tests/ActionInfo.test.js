@@ -66,24 +66,25 @@ function makeEngine() {
 
   const actionsPath = join(dir, 'actions');
   writeFileSync(actionsPath, `
-    action "give"
-      roles: ?SELF: agent, ?Y: agent
-      info:
-        tag(?this_action, generous)
-        tag(?this_action, social)
-      effects gave(?SELF, ?Y)
+    actionset "social"
+      action "give"
+        roles: ?SELF: agent, ?Y: agent
+        info:
+          tag(?this_action, generous)
+          tag(?this_action, social)
+        effects gave(?SELF, ?Y)
 
-    action "insult"
-      roles: ?SELF: agent, ?Y: agent
-      info:
-        tag(?this_action, aggressive)
-      effects helped(?SELF, ?Y)
+      action "insult"
+        roles: ?SELF: agent, ?Y: agent
+        info:
+          tag(?this_action, aggressive)
+        effects helped(?SELF, ?Y)
 
-    action "share a kind word"
-      roles: ?SELF: agent, ?Y: agent
-      info:
-        tag(?this_action, social)
-      effects helped(?SELF, ?Y)
+      action "share a kind word"
+        roles: ?SELF: agent, ?Y: agent
+        info:
+          tag(?this_action, social)
+        effects helped(?SELF, ?Y)
   `);
 
   return new Engine({

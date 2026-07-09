@@ -38,6 +38,7 @@ export const api = {
   createSet: (scenario, kind, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/set`, { kind, name }).then(r => r.data),
   getPlayConfig: (scenario) => req('GET', `/api/scenario/${encodeURIComponent(scenario)}/play-config`).then(r => r.data),
   putPlayConfig: (scenario, content) => req('PUT', `/api/scenario/${encodeURIComponent(scenario)}/play-config`, content).then(r => r.data),
+  bootstrapPlay: (scenario) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/play-config/bootstrap`).then(r => r.data),
   match: (payload) => req('POST', '/api/match', payload).then(r => r.data),
   validate: (payload) => req('POST', '/api/validate', payload).then(r => r.data),
   addRule: (payload) => req('POST', '/api/rule', payload),
@@ -90,5 +91,6 @@ export const api = {
 
   pipelines: (scenario) => req('GET', `/api/state/${encodeURIComponent(scenario)}/pipelines`).then(r => r.data.pipelines ?? []),
   savePipeline: (scenario, data) => req('PUT', `/api/state/${encodeURIComponent(scenario)}/pipeline`, data).then(r => r.data.pipelines ?? []),
+  deletePipeline: (scenario, name) => req('DELETE', `/api/state/${encodeURIComponent(scenario)}/pipeline`, { name }).then(r => r.data.pipelines ?? []),
   createPipeline: (scenario, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/set`, { kind: 'pipeline', name }).then(r => r.data),
 };
