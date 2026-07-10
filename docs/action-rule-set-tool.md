@@ -10,7 +10,7 @@ npm run dev
 
 It reads scenarios from a `project.config.json` and edits the scenario files that config points at, in place.
 
-See the [tool README](../tools/action-rule-set-tool/README.md) for full setup and usage notes.
+See `tools/action-rule-set-tool/README.md` for full setup and usage notes.
 
 ---
 
@@ -66,4 +66,4 @@ A live scenario runner using [TickLoop](pipeline.md#tracing-and-interactive-runs
 
 The **You-play** filter selects which agents you control. At each selection point for a player-controlled agent, the tab shows the scored candidates with their utility breakdown, the tier and comparison premises that contributed to each score, and which action the engine would pick by default. You choose who actually acts.
 
-Requires a `play.json` at the scenario root. See the [tool README](../tools/action-rule-set-tool/README.md#play) for the format.
+Requires a `play.json` at the scenario root. See `tools/action-rule-set-tool/README.md` for the format.

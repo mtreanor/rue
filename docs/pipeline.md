@@ -356,8 +356,7 @@ selection points matching its player-control config through the suspended
 `decide` path. Play mode is activated by placing a `play.json` at the scenario
 root — it declares the `entityType` and `phases` array (pipeline phases with
 a `loop` of role variables, or ruleset phases) that the TickLoop runs each tick.
-See the [tool README](../tools/action-rule-set-tool/README.md#play) for the
-full format.
+See `tools/action-rule-set-tool/README.md` for the full format.
 
 ---
 
