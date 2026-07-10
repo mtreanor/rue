@@ -2,6 +2,7 @@ import { Predicate } from '../Predicate.js';
 import { LogicalVariable } from '../LogicalVariable.js';
 import { WhenPredicate } from './WhenPredicate.js';
 import { toFactArg } from '../entityValue.js';
+import { compareNumbers, cartesian } from '../numericOps.js';
 
 // Computes an aggregate function (count, avg, sum, max, min) over enumerated
 // entity combinations, filtered by a conjunction of boolean predicates, and
@@ -89,6 +90,7 @@ export class AggregatePredicate extends Predicate {
   }
 
   evaluate(binding, evaluationContext) {
+    if (this.rhs === null) throw new Error('AggregatePredicate.evaluate() called on an inner aggregate — use computeValue() instead');
     const aggregateValue = this.computeValue(binding, evaluationContext);
     if (aggregateValue === null) return false;
     const rhsValue = this._resolveRhs(binding, evaluationContext);
@@ -212,21 +214,3 @@ function applyFn(fn, values) {
   }
 }
 
-function compareNumbers(left, operator, right) {
-  switch (operator) {
-    case '>=': return left >= right;
-    case '<=': return left <= right;
-    case '>':  return left >  right;
-    case '<':  return left <  right;
-    case '!=': return left !== right;
-    default:   return left === right; // '='
-  }
-}
-
-function* cartesian(lists) {
-  if (lists.length === 0) { yield []; return; }
-  const [head, ...tail] = lists;
-  for (const item of head) {
-    for (const rest of cartesian(tail)) yield [item, ...rest];
-  }
-}

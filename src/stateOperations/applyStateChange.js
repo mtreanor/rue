@@ -134,9 +134,8 @@ export function applyStateChange(operation, binding, queryHandlers, {
       }
       const changed = numeric.setValue(operation.name, resolvedArgs, setTo, evaluationContext, provenance);
       if (strength !== 1.0) {
-        const record = factStore.factHistory.findLast(r =>
+        const record = factStore.recordsForName(operation.name).findLast(r =>
           r.isCurrentlyActive() &&
-          r.fact.name === operation.name &&
           r.fact.args.length === resolvedArgs.length &&
           r.fact.args.every((arg, i) => arg === resolvedArgs[i])
         );

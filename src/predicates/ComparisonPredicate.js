@@ -1,6 +1,7 @@
 import { Predicate } from '../Predicate.js';
 import { LogicalVariable } from '../LogicalVariable.js';
 import { toFactArg } from '../entityValue.js';
+import { compareNumbers } from '../numericOps.js';
 
 // Compares two predicate operands rather than a predicate against a literal.
 //
@@ -60,13 +61,3 @@ export class ComparisonPredicate extends Predicate {
   }
 }
 
-function compareNumbers(left, operator, right) {
-  switch (operator) {
-    case '>=': return left >= right;
-    case '<=': return left <= right;
-    case '>':  return left >  right;
-    case '<':  return left <  right;
-    case '!=': return left !== right;
-    default:   return left === right; // '='
-  }
-}

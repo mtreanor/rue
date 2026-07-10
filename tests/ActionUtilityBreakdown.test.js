@@ -28,29 +28,30 @@ function makeEngine() {
   `);
 
   writeFileSync(join(dir, 'actions'), `
-    action "impress"
-      roles: ?SELF: agent
-      utility
-        prestige(?SELF)
-      effects knows(?SELF, ?SELF)
+    actionset "acts"
+      action "impress"
+        roles: ?SELF: agent
+        utility
+          prestige(?SELF)
+        effects knows(?SELF, ?SELF)
 
-    action "scaled"
-      roles: ?SELF: agent
-      utility
-        prestige(?SELF) * 0.5
-      effects knows(?SELF, ?SELF)
+      action "scaled"
+        roles: ?SELF: agent
+        utility
+          prestige(?SELF) * 0.5
+        effects knows(?SELF, ?SELF)
 
-    action "product-of-two"
-      roles: ?SELF: agent
-      utility
-        prestige(?SELF) * wealth(?SELF)
-      effects knows(?SELF, ?SELF)
+      action "product-of-two"
+        roles: ?SELF: agent
+        utility
+          prestige(?SELF) * wealth(?SELF)
+        effects knows(?SELF, ?SELF)
 
-    action "with-rule"
-      roles: ?SELF: agent
-      utility
-        rule "knows someone" knows(?SELF, ?Y) => 3
-      effects knows(?SELF, ?SELF)
+      action "with-rule"
+        roles: ?SELF: agent
+        utility
+          rule "knows someone" knows(?SELF, ?Y) => 3
+        effects knows(?SELF, ?SELF)
   `);
 
   return new Engine({

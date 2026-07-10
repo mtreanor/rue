@@ -7,7 +7,7 @@
 // runs it.
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { Engine } from '../../src/Engine.js';
@@ -18,22 +18,21 @@ import { serializeTickTrace } from '../../src/pipeline/serializeTrace.js';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
 function buildLoop() {
-  const config   = JSON.parse(readFileSync(join(repoRoot, 'project.config.json'), 'utf-8'));
-  const scenario = config.scenarios.stress;
-  const path     = p => join(repoRoot, p);
+  const config      = JSON.parse(readFileSync(join(repoRoot, 'project.config.json'), 'utf-8'));
+  const scenarioDir = join(repoRoot, config.scenarios.stress);
 
-  const engine = new Engine({
-    predicates:  path(scenario.predicates),
-    entities:    path(scenario.entities),
-    state:       path(scenario.state),
-    definitions: path(scenario.definitions),
-    rulesets:    Object.fromEntries(Object.entries(scenario.rulesets).map(([k, v]) => [k, path(v)])),
-    actionsets:  Object.fromEntries(Object.entries(scenario.actionsets).map(([k, v]) => [k, path(v)])),
-  });
-  const pipelines = Object.fromEntries(
-    Object.entries(scenario.pipelines).map(([k, v]) => [k, pipelineFromJSON(JSON.parse(readFileSync(path(v), 'utf-8')))])
-  );
-  return { engine, loop: new TickLoop(engine, pipelines, scenario.play) };
+  const engine = new Engine(scenarioDir);
+
+  const pipelinesDir = join(scenarioDir, 'pipelines');
+  const pipelines = {};
+  for (const entry of readdirSync(pipelinesDir)) {
+    if (!entry.endsWith('.json')) continue;
+    const name = entry.replace(/\.json$/, '');
+    pipelines[name] = pipelineFromJSON(JSON.parse(readFileSync(join(pipelinesDir, entry), 'utf-8')));
+  }
+
+  const play = JSON.parse(readFileSync(join(scenarioDir, 'play.json'), 'utf-8'));
+  return { engine, loop: new TickLoop(engine, pipelines, play) };
 }
 
 // The chain of winning action names down one agent's pipeline trace.

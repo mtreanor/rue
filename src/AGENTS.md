@@ -109,6 +109,12 @@ Predicates never query `FactStore` directly. Each predicate calls `evaluationCon
 
 New sources of truth are added by registering new handlers on `World`.
 
+### Binding
+
+`Binding` maps logical variable names to resolved entity values. `toString()` is for display; `toKey()` produces a stable deduplication key by using each entity's non-enumerable `_eid` (rather than its name) — this distinguishes same-named entities of different types that may appear in the same binding. `ForwardChainer` uses `Binding.toKey()` to detect duplicate rule firings per pass.
+
+`World.addEntity()` stamps every registered entity with a non-enumerable `_eid` (a sequential integer) so entity identity is stable regardless of name collisions across types.
+
 ### ForwardChainer
 
 Runs rules to fixpoint via a callback. Has no side effects — all decisions about what to assert belong to the caller's `onApplication` callback. Returns `true` from the callback to signal a new conclusion was committed and trigger another pass.

@@ -73,6 +73,10 @@ export class World {
     if (!this.entityRegistry.has(type)) {
       this.entityRegistry.set(type, []);
     }
+    if (entity._eid === undefined) {
+      this._eidCounter = (this._eidCounter ?? 0) + 1;
+      Object.defineProperty(entity, '_eid', { value: this._eidCounter, enumerable: false });
+    }
     this.entityRegistry.get(type).push(entity);
     return this;
   }

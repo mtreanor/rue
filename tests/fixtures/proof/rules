@@ -1,21 +1,22 @@
-rule "respect flows from mentorship"
-  mentored(?X, ?Y)
-  => respected(?Y, ?X)
+ruleset "main"
+  rule "respect flows from mentorship"
+    mentored(?X, ?Y)
+    => respected(?Y, ?X)
 
-rule "allies through mutual respect, absent rivalry"
-  respected(?X, ?Y)
-  ^ respected(?Y, ?X)
-  ^ not rival(?X, ?Y)
-  => ally(?X, ?Y)
+  rule "allies through mutual respect, absent rivalry"
+    respected(?X, ?Y)
+    ^ respected(?Y, ?X)
+    ^ not rival(?X, ?Y)
+    => ally(?X, ?Y)
 
-rule "schedule a pairing for allies"
-  canPair(?X, ?Y)
-  => helped(?X, ?Y)
+  rule "schedule a pairing for allies"
+    canPair(?X, ?Y)
+    => helped(?X, ?Y)
 
-rule "helping warms a friendship"
-  helped(?X, ?Y)
-  => friendship(?X, ?Y) = 25
+  rule "helping warms a friendship"
+    helped(?X, ?Y)
+    => friendship(?X, ?Y) = 25
 
-rule "seniority from respecting many"
-  |respected(?Y, _)| >= 2
-  => senior(?Y)
+  rule "seniority from respecting many"
+    |respected(?Y, _)| >= 2
+    => senior(?Y)

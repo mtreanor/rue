@@ -354,6 +354,40 @@ describe('new entity() in effects', () => {
     assert.equal(buildings.length, 1);
     assert.equal(buildings[0].name, 'tavern');
   });
+
+  it('bare new entity(type) form creates an entity with no variable handle', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'klugh-new-entity-bare-'));
+    writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
+      predicates: { tagged: { type: 'boolean', args: ['agent'] } },
+    }));
+    writeFileSync(join(dir, 'entities.json'), JSON.stringify({
+      agent: { alice: {} },
+      token: {},
+    }));
+    writeFileSync(join(dir, 'state'), '# empty\n');
+    writeFileSync(join(dir, 'actions'), `
+      actionset "test"
+        action "spawn token"
+          roles: ?SELF: agent
+          effects
+            new entity(token)
+            tagged(?SELF)
+    `);
+    const engine = new Engine({
+      predicates: join(dir, 'predicates.json'),
+      entities:   join(dir, 'entities.json'),
+      state:      join(dir, 'state'),
+      actionsets: { test: join(dir, 'actions') },
+    });
+
+    const [c] = engine.scoreActionset('test', { SELF: 'alice' });
+    engine.execute(c);
+
+    const tokens = engine.world.entityRegistry.get('token');
+    assert.equal(tokens.length, 1);
+    assert.equal(tokens[0].name, 'token_1');
+    assert.ok(engine.world.factStore.contains('tagged', 'alice'));
+  });
 });
 
 // ── [name: "template_{?VAR}"] interpolation ─────────────────────────────────
@@ -559,11 +593,12 @@ describe('remove entity() in effects', () => {
     }));
     writeFileSync(join(dir, 'state'), '# empty\n');
     writeFileSync(join(dir, 'actions'), `
-      action "demolish ghost"
-        roles: ?SELF: agent
-        effects
-          remove entity(building, nonexistent)
-          done(?SELF)
+      actionset "test"
+        action "demolish ghost"
+          roles: ?SELF: agent
+          effects
+            remove entity(building, nonexistent)
+            done(?SELF)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -590,9 +625,10 @@ describe('remove entity() in effects', () => {
     }));
     writeFileSync(join(dir, 'state'), 'world\ncondemned(tavern)\n');
     writeFileSync(join(dir, 'rules'), `
-      rule "condemned buildings are removed"
-        condemned(?B)
-        => remove entity(building, ?B)
+      ruleset "test"
+        rule "condemned buildings are removed"
+          condemned(?B)
+          => remove entity(building, ?B)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),

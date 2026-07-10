@@ -27,7 +27,7 @@ function makeEngine(actionsText, extraPredicates = {}, extraEntities = {}) {
   writeFileSync(join(dir, 'state'), '# empty\n');
 
   const actionsPath = join(dir, 'actions');
-  writeFileSync(actionsPath, actionsText);
+  writeFileSync(actionsPath, `actionset "acts"\n${actionsText}`);
 
   return new Engine({
     predicates: join(dir, 'predicates.json'),

@@ -1,10 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { RuleLoader } from '../../src/loader/RuleLoader.js';
+import { DerivationRuleLoader } from '../../src/loader/DerivationRuleLoader.js';
+import { RuleParser } from '../../src/loader/RuleParser.js';
 import { PredicateSchema } from '../../src/PredicateSchema.js';
 import { RuleEvaluator } from '../../src/RuleEvaluator.js';
 import { FactStore } from '../../src/FactStore.js';
 import { FactStoreQueryHandler } from '../../src/queryHandlers/FactStoreQueryHandler.js';
+import { DerivedFactQueryHandler } from '../../src/queryHandlers/DerivedFactQueryHandler.js';
 import { QueryHandlers } from '../../src/QueryHandlers.js';
 import { EvaluationContext } from '../../src/EvaluationContext.js';
 import { Binding } from '../../src/Binding.js';
@@ -138,5 +141,68 @@ describe('ClosurePredicate ([degrees: N])', () => {
       assert.equal(agg.closureVars.length, 1);
       assert.equal(agg.entityCountingVars.length, 0);
     });
+  });
+});
+
+describe('ClosurePredicate — derived edge relation', () => {
+  // `related` is a derived predicate defined as `knows(?X, ?Y) => related(?X, ?Y)`.
+  // The closure should traverse derived edges the same way it traverses stored ones.
+  const derivedSchema = new PredicateSchema({
+    predicates: {
+      knows:   { type: 'boolean', args: ['agent', 'agent'] },
+      related: { type: 'derived', args: ['agent', 'agent'] },
+      score:   { type: 'numeric', args: ['agent', 'agent'], minValue: 0, maxValue: 100, default: 0 },
+    },
+  });
+
+  const alice = { name: 'alice' };
+  const bob   = { name: 'bob' };
+  const carol = { name: 'carol' };
+  const dave  = { name: 'dave' };
+  const agents = [alice, bob, carol, dave];
+
+  function derivedChainContext() {
+    // Stored chain alice→bob→carol→dave via `knows`; `related` is derived from `knows`.
+    const factStore = new FactStore();
+    factStore.assert(new Fact('knows', 'alice', 'bob'));
+    factStore.assert(new Fact('knows', 'bob', 'carol'));
+    factStore.assert(new Fact('knows', 'carol', 'dave'));
+
+    const derivedHandler = new DerivedFactQueryHandler();
+    const parser = new RuleParser(derivedSchema);
+    const { definitions } = new DerivationRuleLoader(derivedSchema).load(
+      parser.parseDefinitions(`define "related via knows"\n  knows(?X, ?Y)\n  => related(?X, ?Y)`)
+    );
+    derivedHandler.registerRules(definitions);
+
+    const qh = new QueryHandlers();
+    qh.register('factStore', new FactStoreQueryHandler(factStore, derivedSchema));
+    qh.register('derived',   derivedHandler);
+    return new EvaluationContext(qh, {
+      entityRegistry: new Map([['agent', agents]]),
+      predicateSchema: derivedSchema,
+    });
+  }
+
+  const derivedLoader = new RuleLoader(derivedSchema);
+  const X = new LogicalVariable('X');
+  const Y = new LogicalVariable('Y');
+
+  it('traverses a derived edge relation up to N hops', () => {
+    const { rulesets } = derivedLoader.load({
+      rulesets: { test: [{
+        name: 'R1',
+        predicates: [{ type: 'closure', name: 'related', args: ['?X', '?Y'], degrees: 2, dist: null }],
+        effects: [{ type: 'adjust-numeric', name: 'score', args: ['?X', '?Y'], delta: 1 }],
+      }] },
+    });
+    const rule = rulesets['test'][0];
+    const active = new RuleEvaluator()
+      .evaluate([rule], new Map([['agent', agents]]), derivedChainContext(), new Binding(), derivedSchema);
+    const reached = (active.get(rule) ?? [])
+      .filter(a => a.binding.resolve(X)?.name === 'alice')
+      .map(a => a.binding.resolve(Y).name).sort();
+    // via `related` (derived from `knows`): bob(1 hop), carol(2 hops); dave is 3 hops — excluded
+    assert.deepEqual(reached, ['bob', 'carol']);
   });
 });

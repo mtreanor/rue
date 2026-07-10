@@ -31,7 +31,7 @@ export class ForwardChainer {
       );
       for (const [, appList] of applications) {
         for (const app of appList) {
-          const key = `${rule.name}\0${app.binding}`;
+          const key = `${rule.name}\0${app.binding.toKey()}`;
           if (firedThisPass.has(key)) continue;
           if (onApplication(app)) {
             firedThisPass.add(key);

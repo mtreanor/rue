@@ -1,6 +1,6 @@
 # action-rule-set-tool
 
-`tools/action-rule-set-tool` is a local web app for inspecting, searching, and editing rulesets. Run it with:
+`tools/action-rule-set-tool` is a local web app for inspecting, searching, editing, and running klugh scenarios. Run it with:
 
 ```
 cd tools/action-rule-set-tool
@@ -8,7 +8,9 @@ npm install
 npm run dev
 ```
 
-It reads scenarios from a `project.config.json` and edits the rule files that config points at, in place.
+It reads scenarios from a `project.config.json` and edits the scenario files that config points at, in place.
+
+See the [tool README](../tools/action-rule-set-tool/README.md) for full setup and usage notes.
 
 ---
 
@@ -31,3 +33,37 @@ The tool resolves its `project.config.json` in this order:
 Scenario paths inside the config are resolved **relative to the config file's own directory**, so your config and data can live together anywhere — including a parent repo that vendors klugh as a submodule. The engine and syntax-highlighting grammar always load from the klugh submodule, so nothing about klugh needs editing.
 
 The server prints the resolved config path on startup, so you can confirm which one is in use.
+
+---
+
+## Tabs
+
+### Inspect
+
+Structural search over rules. Type a partial rule into the search box — a rule matches if it **contains every predicate you type**, anywhere in conditions or effects, with variable names ignored (only co-reference structure matters). Use `=>` to scope by side: `knows(?A, ?B) =>` matches conditions only; `=> knows(?A, ?B)` matches effects only. The rule name box filters by name substring independently.
+
+Rules are rendered with DSL syntax highlighting, using the TextMate grammar from `extensions/vscode/klugh.tmLanguage.json` (served by the backend), so tool colors always match the editor extension.
+
+### Add rule / Add action
+
+Schema-aware authoring with live validation: parse → schema check → cycle detection against the target file. Save is enabled only when the rule or action is fully valid. Autocomplete fills in predicate names, tier names, and entity/variable names.
+
+### Actionsets
+
+Lists every actionset in the scenario. Click an action to edit it in place.
+
+### State
+
+Shows the current world fact store (and per-entity private stores) as a searchable, filterable list. Click any fact to see its full assertion history and provenance — the rules that concluded it, and with what premises.
+
+### Pipelines
+
+Lists the pipelines defined in the scenario's `pipelines/` directory and their stage structure.
+
+### Play
+
+A live scenario runner using [TickLoop](pipeline.md#tracing-and-interactive-runs). Steps the scenario tick by tick, rendering the full decision trace for every pipeline run.
+
+The **You-play** filter selects which agents you control. At each selection point for a player-controlled agent, the tab shows the scored candidates with their utility breakdown, the tier and comparison premises that contributed to each score, and which action the engine would pick by default. You choose who actually acts.
+
+Requires a `play.json` at the scenario root. See the [tool README](../tools/action-rule-set-tool/README.md#play) for the format.

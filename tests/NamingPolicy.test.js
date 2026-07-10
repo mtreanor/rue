@@ -25,13 +25,14 @@ describe('entity naming policies', () => {
     }));
     writeFileSync(join(dir, 'state'), '');
     writeFileSync(join(dir, 'actions'), `
-      action "equip sword"
-        roles: ?X: owner, ?Y: owner
-        effects
-          new entity(part, ?P)
-          has(?X, ?P)
-          instanceOf(?P, "sword")
-          targets(?P, ?Y)
+      actionset "test"
+        action "equip sword"
+          roles: ?X: owner, ?Y: owner
+          effects
+            new entity(part, ?P)
+            has(?X, ?P)
+            instanceOf(?P, "sword")
+            targets(?P, ?Y)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -63,12 +64,13 @@ describe('entity naming policies', () => {
     }));
     writeFileSync(join(dir, 'state'), '');
     writeFileSync(join(dir, 'actions'), `
-      action "equip shield"
-        roles: ?X: owner
-        effects
-          new entity(part, ?P)
-          has(?X, ?P)
-          instanceOf(?P, "shield")
+      actionset "test"
+        action "equip shield"
+          roles: ?X: owner
+          effects
+            new entity(part, ?P)
+            has(?X, ?P)
+            instanceOf(?P, "shield")
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -99,12 +101,13 @@ describe('entity naming policies', () => {
     }));
     writeFileSync(join(dir, 'state'), '');
     writeFileSync(join(dir, 'actions'), `
-      action "equip"
-        roles: ?X: owner
-        effects
-          new entity(part, ?P)
-          has(?X, ?P)
-          instanceOf(?P, "armor")
+      actionset "test"
+        action "equip"
+          roles: ?X: owner
+          effects
+            new entity(part, ?P)
+            has(?X, ?P)
+            instanceOf(?P, "armor")
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -137,23 +140,25 @@ describe('entity naming policies', () => {
     }));
     writeFileSync(join(dir, 'state'), '');
     writeFileSync(join(dir, 'tackle'), `
-      action "tackle"
-        roles: ?A: owner, ?B: owner
-        effects
-          new entity(part, ?D)
-          has(?B, ?D)
-          instanceOf(?D, "destroy")
-          targets(?D, ?A)
+      actionset "mrs"
+        action "tackle"
+          roles: ?A: owner, ?B: owner
+          effects
+            new entity(part, ?D)
+            has(?B, ?D)
+            instanceOf(?D, "destroy")
+            targets(?D, ?A)
     `);
     writeFileSync(join(dir, 'score'), `
-      action "add scoring"
-        roles: ?A: owner, ?B: owner
-        effects
-          new entity(part, ?D)
-          has(?B, ?D)
-          instanceOf(?D, "destroy")
-          targets(?D, ?A)
-          scored(?D)
+      actionset "moves"
+        action "add scoring"
+          roles: ?A: owner, ?B: owner
+          effects
+            new entity(part, ?D)
+            has(?B, ?D)
+            instanceOf(?D, "destroy")
+            targets(?D, ?A)
+            scored(?D)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -192,12 +197,13 @@ describe('entity naming policies', () => {
     }));
     writeFileSync(join(dir, 'state'), '');
     writeFileSync(join(dir, 'actions'), `
-      action "special"
-        roles: ?X: owner
-        effects
-          new entity(part, ?P) [name: "myCustomName"]
-          has(?X, ?P)
-          instanceOf(?P, "armor")
+      actionset "test"
+        action "special"
+          roles: ?X: owner
+          effects
+            new entity(part, ?P) [name: "myCustomName"]
+            has(?X, ?P)
+            instanceOf(?P, "armor")
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -225,11 +231,12 @@ describe('entity naming policies', () => {
     }));
     writeFileSync(join(dir, 'state'), '');
     writeFileSync(join(dir, 'actions'), `
-      action "make"
-        roles: ?X: owner
-        effects
-          new entity(part, ?P)
-          has(?X, ?P)
+      actionset "test"
+        action "make"
+          roles: ?X: owner
+          effects
+            new entity(part, ?P)
+            has(?X, ?P)
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),
@@ -261,15 +268,16 @@ describe('entity naming policies', () => {
     }));
     writeFileSync(join(dir, 'state'), '');
     writeFileSync(join(dir, 'actions'), `
-      action "equip"
-        roles: ?X: owner
-        effects
-          new entity(part, ?P)
-          has(?X, ?P)
-          instanceOf(?P, "sword")
-          new entity(child, ?C)
-          hasChild(?P, ?C)
-          childType(?C, "gem")
+      actionset "test"
+        action "equip"
+          roles: ?X: owner
+          effects
+            new entity(part, ?P)
+            has(?X, ?P)
+            instanceOf(?P, "sword")
+            new entity(child, ?C)
+            hasChild(?P, ?C)
+            childType(?C, "gem")
     `);
     const engine = new Engine({
       predicates: join(dir, 'predicates.json'),

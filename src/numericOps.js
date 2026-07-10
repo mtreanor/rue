@@ -29,3 +29,22 @@ export function applyFunction(name, args) {
     default:      return null;
   }
 }
+
+export function compareNumbers(left, operator, right) {
+  switch (operator) {
+    case '>=': return left >= right;
+    case '<=': return left <= right;
+    case '>':  return left >  right;
+    case '<':  return left <  right;
+    case '!=': return left !== right;
+    default:   return left === right; // '='
+  }
+}
+
+export function* cartesian(lists) {
+  if (lists.length === 0) { yield []; return; }
+  const [head, ...tail] = lists;
+  for (const item of head) {
+    for (const rest of cartesian(tail)) yield [item, ...rest];
+  }
+}

@@ -1,9 +1,9 @@
 # action-rule-set-tool
 
-An authoring & visualization tool for klugh rulesets. It reads scenarios from the
-repo's `project.config.json`, lets you **inspect and structurally search** the
-rules in one or more rulesets, and **add / edit / delete** rules with
-schema-aware autocomplete and live DSL validation.
+An authoring & visualization tool for klugh scenarios. It reads scenarios from the
+repo's `project.config.json` and provides tabs for **inspecting, searching, and
+editing** rules and actions, **browsing world state**, **browsing pipelines**, and
+**running scenarios interactively** in Play mode.
 
 The backend imports klugh's own `RuleParser`, `RuleLoader`, `RuleSerializer`, and
 `RuleCycleDetector` directly from `../../src`, so parsing, validation, and cycle
@@ -96,7 +96,52 @@ and a body editor with autocomplete for predicate names, tier names (after a
 live — parse → schema check → cycle detection against the target ruleset — and
 Save is enabled only when it's valid.
 
-## Scope
+## Actions
 
-v1 covers **rules**. The backend and matcher are structured so **actions** can be
-added as a parallel set of endpoints and a tab later.
+The **Actionsets** tab lists every actionset defined in the scenario. The **Add
+action** tab (and the edit dialog in Actionsets) let you author actions with the
+same schema-aware autocomplete and live validation as the rule editor — including
+`utility`, `preconditions`, and `effects` blocks.
+
+## State
+
+The **State** tab shows the current contents of the world's fact store (and
+private stores) as a searchable list. Click any fact to see its provenance — the
+full assertion history for that fact, including the rules that fired to produce
+it.
+
+## Pipelines
+
+The **Pipelines** tab lists the pipelines defined in the scenario's `pipelines/`
+directory and shows their stage structure.
+
+## Play
+
+The **Play** tab is a live scenario runner. It steps the scenario's
+[TickLoop](../../docs/pipeline.md#tracing-and-interactive-runs) tick by tick
+against a live engine, rendering the full decision trace for every pipeline run.
+
+Configure which agents **you** control with the "You-play" filter. At each
+selection point for a player-controlled agent, the tab presents the scored
+candidates — including each candidate's utility breakdown, the tier and
+comparison premises that contributed to its score, and the agent's own action
+(what the engine would pick by default) — and waits for you to choose.
+
+Play mode is configured via a `play.json` at the scenario root:
+
+```json
+{
+  "entityType": "agent",
+  "phases": [
+    { "pipeline": "day", "loop": ["SELF"] },
+    { "ruleset": "day-consequences" },
+    { "pipeline": "react", "loop": ["SELF"] }
+  ]
+}
+```
+
+Each phase is either a pipeline phase (`{ "pipeline", "loop" }`) or a ruleset
+phase (`{ "ruleset" }`). The `loop` array names the binding variables the
+pipeline runs over — one pipeline run per entity of `entityType` bound to those
+variables. You can also edit the scenario's plan facts directly in the pre-session
+editor before starting a run.

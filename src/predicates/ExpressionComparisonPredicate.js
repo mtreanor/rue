@@ -1,4 +1,5 @@
 import { Predicate } from '../Predicate.js';
+import { compareNumbers } from '../numericOps.js';
 
 // Compares two numeric expressions: `expr op expr` — e.g.
 // `health(?X) - health(?Y) > 10`, `?d / 2 <= trust(?X, ?Y)`,
@@ -19,14 +20,7 @@ export class ExpressionComparisonPredicate extends Predicate {
     const l = this.left.evaluate(binding, evaluationContext);
     const r = this.right.evaluate(binding, evaluationContext);
     if (l === null || r === null) return false;
-    switch (this.operator) {
-      case '>':  return l >  r;
-      case '>=': return l >= r;
-      case '<':  return l <  r;
-      case '<=': return l <= r;
-      case '!=': return l !== r;
-      default:   return l === r; // '='
-    }
+    return compareNumbers(l, this.operator, r);
   }
 
   getVariables() {

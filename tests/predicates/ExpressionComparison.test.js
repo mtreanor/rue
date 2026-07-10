@@ -95,4 +95,25 @@ describe('ExpressionComparisonPredicate', () => {
     assert.equal(reparsed.rulesets['test'][0].predicates[0].type, 'expr-comparison');
     assert.ok(dsl.includes('min(health(?X), health(?Y))'));
   });
+
+  it('evaluates max(a, b) on the LHS', () => {
+    // max(50, 30)=50 >= 45 ✓; max(50, 45)=50 >= 45 ✓ — both pass
+    assert.deepEqual(firesForAlice('max(health(?X), health(?Y)) >= 45'), ['bob', 'carol']);
+  });
+
+  it('evaluates abs() on the LHS', () => {
+    // abs(50-30)=20 > 10 ✓; abs(50-45)=5 > 10 ✗
+    assert.deepEqual(firesForAlice('abs(health(?X) - health(?Y)) > 10'), ['bob']);
+  });
+
+  it('evaluates pow() on the LHS', () => {
+    // pow(2, health(?Y)/10): bob → pow(2,3)=8 >= 8 ✓; carol → pow(2,4.5)≈22.6 >=8 ✓
+    assert.deepEqual(firesForAlice('pow(2, health(?Y) / 10) >= 8'), ['bob', 'carol']);
+  });
+
+  it('evaluates clamp() on the LHS', () => {
+    // clamp(health(?Y), 0, 35): bob → clamp(30,0,35)=30; carol → clamp(45,0,35)=35
+    // >= 35: bob(30) ✗; carol(35) ✓
+    assert.deepEqual(firesForAlice('clamp(health(?Y), 0, 35) >= 35'), ['carol']);
+  });
 });
