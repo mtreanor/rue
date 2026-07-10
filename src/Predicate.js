@@ -33,12 +33,17 @@ export class Predicate {
   }
 
   // Resolves one predicate argument against a binding for display purposes.
-  // LogicalVariables are replaced with their bound value; null becomes '_'.
+  // LogicalVariables are replaced with their bound value; null (the DSL's
+  // own anonymous wildcard, `_`) becomes '_'. A *named* variable the binding
+  // doesn't have a value for yet — e.g. record(?occ)/new entity(?var) in an
+  // unexecuted candidate's effect preview, bound only at execution — renders
+  // as its own `?name` rather than the anonymous wildcard: it isn't nameless,
+  // it just hasn't happened yet.
   static renderArg(arg, binding) {
     if (arg === null) return '_';
     if (arg instanceof LogicalVariable) {
       const value = binding.resolve(arg);
-      if (value === null || value === undefined) return '_';
+      if (value === null || value === undefined) return arg.toString();
       return String(toFactArg(value));
     }
     return String(arg);

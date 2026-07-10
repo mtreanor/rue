@@ -30,10 +30,13 @@ import { entryStageRoles } from './pipelineRoles.js';
 //     named role's own full entity list (by its own introspected type, not
 //     a single shared `entityType`) becomes one invocation each, one full
 //     PipelineRunner call and its own trace entry per combination. `loop: []`
-//     (or omitted) means exactly one invocation. Two or more loop roles is a
-//     real cross product — 10 agents × 10 agents is 100 invocations — nothing
-//     filters out e.g. a role bound to itself; that's the pipeline's own
-//     precondition/distinctness concern, not TickLoop's.
+//     (or omitted) means exactly one invocation. Two or more loop roles of
+//     the same entity type is a cross product minus reflexive combinations
+//     — e.g. 10 agents × 10 agents is 90 invocations, not 100 — matching the
+//     `distinct` behavior variable enumeration already applies elsewhere
+//     (see `entities.json`'s per-type `distinct` flag, default `true`). Set
+//     `distinct: false` on the entity type to allow a role to bind the same
+//     entity as another loop role of that type.
 //   - left untouched (neither `loop` nor `bindings`) — FREE: not part of the
 //     initial binding at all, so the entry stage enumerates it internally and
 //     its own selectionStrategy picks one winner per invocation — the
@@ -126,14 +129,16 @@ export class TickLoop {
   }
 
   // The cross product of every loop role's own entity list, one plain
-  // { roleName: entityName } object per combination. An empty `loop` yields
-  // a single empty assignment — one invocation, no loop-bound roles at all.
+  // { roleName: entityName } object per combination — minus combinations
+  // that would bind two same-type roles to the same entity, unless that
+  // type's `distinct` flag is `false`. An empty `loop` yields a single
+  // empty assignment — one invocation, no loop-bound roles at all.
   *_enumerateLoop(pipeline, loop) {
     if (loop.length === 0) { yield {}; return; }
     const roles = entryStageRoles(this.engine, pipeline);
     const lists = loop.map(role => {
       const type = this._resolveRoleType(pipeline, roles, role);
-      return { role, names: this._entityNamesOfType(type) };
+      return { role, type, names: this._entityNamesOfType(type) };
     });
     yield* this._cross(lists, 0, {});
   }
@@ -156,11 +161,22 @@ export class TickLoop {
 
   *_cross(lists, i, acc) {
     if (i === lists.length) { yield { ...acc }; return; }
-    const { role, names } = lists[i];
+    const { role, type, names } = lists[i];
     for (const name of names) {
+      if (this._collidesWithEarlierRole(lists, i, type, name, acc)) continue;
       acc[role] = name;
       yield* this._cross(lists, i + 1, acc);
     }
+  }
+
+  // True when `name` is already bound to an earlier loop role of the same
+  // entity type, and that type requires distinct bindings (the default).
+  _collidesWithEarlierRole(lists, i, type, name, acc) {
+    if (this.engine.world.entityTypeConfig.get(type)?.distinct === false) return false;
+    for (let j = 0; j < i; j++) {
+      if (lists[j].type === type && acc[lists[j].role] === name) return true;
+    }
+    return false;
   }
 
   _runRulesetPhase(phase) {

@@ -85,15 +85,25 @@ function serializeEvaluation(evaluation) {
 // same breakdown depth as an already-executed candidate in a serialized trace
 // — one serialization, so "what can I inspect" never differs between
 // choosing an action and reviewing one that already happened.
+//
+// preconditions/effects are the action's own authored conjunction/effects
+// list — not the winner's post-execution record — rendered against this
+// candidate's binding, so a candidate that never runs still shows exactly
+// what it would have checked and done. An effect arg only bound at execution
+// (record()'s ?occ, new entity()'s auto-generated ?var) won't resolve here;
+// structuredEffectInfo/safeDescribe already degrade to a plain description
+// for that rather than throwing.
 export function serializeCandidate(candidate) {
   return {
-    stageName:  candidate._stageName,
-    actionName: candidate.action.name,
-    label:      candidate.label,
-    score:      candidate.score,
-    belowFloor: candidate.belowFloor,
-    binding:    serializeBinding(candidate.binding),
-    breakdown:  (candidate.breakdown ?? []).map(serializeBreakdown),
+    stageName:     candidate._stageName,
+    actionName:    candidate.action.name,
+    label:         candidate.label,
+    score:         candidate.score,
+    belowFloor:    candidate.belowFloor,
+    binding:       serializeBinding(candidate.binding),
+    preconditions: candidate.action.preconditions.map(({ predicate }) => serializePremise(predicate, candidate.binding)),
+    effects:       candidate.action.effects.map(effect => serializeEffect(effect, candidate.binding)),
+    breakdown:     (candidate.breakdown ?? []).map(serializeBreakdown),
   };
 }
 
@@ -134,18 +144,16 @@ function serializeApplications(applications) {
 }
 
 // One premise or effect, rendered two ways: `description` (always present, a
-// human-readable string built by the predicate/operation's own .describe())
-// and, where the predicate resolves to a plain named fact (a FactPredicate,
-// DerivedFactPredicate, numeric tier/comparison, or explicit negation — optionally
-// wrapped in one `not`/`~` and/or a private-store scope), the structured
-// { name, args, owner, tier?, comparison? } a PredicateView can render with
-// syntax highlighting and use as an explain target. A numeric tier/comparison
-// predicate's condition (which tier, or which operator/threshold) rides along
-// in `tier`/`comparison` — without it, a structured render would lose exactly
-// the part of the premise that explains why the rule fired. Compound forms
-// (aggregates, temporal chains, sensors, closures) fall back to
-// description-only — displayed as text, not explainable — rather than
-// guessing at a shape that would misrepresent them.
+// human-readable string built by the predicate/operation's own .describe() —
+// this is what the UI actually displays, as the exact DSL as authored: a
+// tier, a comparison, a `+=`, whatever form it is) and, where the predicate
+// resolves to a plain named fact (a FactPredicate, DerivedFactPredicate,
+// numeric tier/comparison, or explicit negation — optionally wrapped in one
+// `not`/`~` and/or a private-store scope), the structured { name, args,
+// owner } identifying it as an explain target. Compound forms (aggregates,
+// temporal chains, sensors, closures) fall back to description-only —
+// displayed as text, not explainable — rather than guessing at a shape that
+// would misrepresent them.
 function serializePremise(predicate, binding) {
   return { description: safeDescribe(predicate, binding), ...structuredPredicateInfo(predicate, binding) };
 }
@@ -194,10 +202,7 @@ function structuredPredicateInfo(predicate, binding) {
   try {
     const args    = target.args.map(a => toFactArg(binding.resolve(a)));
     const negated = ctorName(target) === 'ExplicitNegationPredicate';
-    const extra   = ctorName(target) === 'NumericTierPredicate' ? { tier: target.tier }
-      : ctorName(target) === 'NumericComparisonPredicate' ? { comparison: { operator: target.operator, threshold: target.threshold } }
-      : {};
-    return { name: target.name, args, owner, negated, ...extra };
+    return { name: target.name, args, owner, negated };
   } catch {
     return null;
   }

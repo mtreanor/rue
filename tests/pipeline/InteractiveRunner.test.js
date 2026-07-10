@@ -284,15 +284,13 @@ describe('TickLoop', () => {
 
 describe('TickLoop — loop / bindings / free roles', () => {
   // A pipeline with two entry-stage roles of the same type, so a 2-loop plan
-  // is a genuine cross product — including the reflexive SELF===OTHER
-  // combination. `guarded` controls whether "greet" has a precondition
-  // excluding self-reference. This matters because klugh's distinct-args
-  // protection only ever operates during *enumeration* of a free variable
-  // (RuleEvaluator's isAlreadyBound skip) — it has nothing to do when both
-  // roles arrive already-bound, which is exactly what a 2-loop TickLoop
-  // assignment does. So an unguarded action genuinely self-greets; nothing
-  // in TickLoop or the engine's role handling filters it out for you.
-  function makeGreetEngine({ guarded } = {}) {
+  // is a cross product minus reflexive combinations: TickLoop skips binding
+  // two same-type loop roles to the same entity unless that entity type's
+  // `distinct` flag is `false`. `guarded` controls whether "greet" also has
+  // a precondition excluding self-reference — with `agentDistinct: false`,
+  // reflexive combinations reach the pipeline again, so the precondition is
+  // what would exclude them there.
+  function makeGreetEngine({ guarded, agentDistinct = true } = {}) {
     const engine = new Engine({
       predicates: {
         predicates: {
@@ -300,7 +298,10 @@ describe('TickLoop — loop / bindings / free roles', () => {
           feels:   { type: 'boolean', args: ['agent', 'topic'] },
         },
       },
-      entities: { agent: { alice: {}, bob: {} }, topic: { weather: {}, harvest: {} } },
+      entities: {
+        agent: { distinct: agentDistinct, alice: {}, bob: {} },
+        topic: { weather: {}, harvest: {} },
+      },
     });
     engine.loadActions(`
       actionset "greetings"
@@ -332,7 +333,7 @@ describe('TickLoop — loop / bindings / free roles', () => {
     assert.ok(engine.world.factStore.contains('greeted', 'alice', 'bob'));
   });
 
-  it('two loop roles produce the full cross product, and an unguarded action genuinely self-binds', async () => {
+  it('two loop roles of a distinct entity type skip reflexive combinations by default', async () => {
     const { engine, pipeline } = makeGreetEngine({ guarded: false });
     const loop = new TickLoop(engine, { 'greet-test': pipeline }, {
       entityType: 'agent',
@@ -341,7 +342,29 @@ describe('TickLoop — loop / bindings / free roles', () => {
 
     const trace = await loop.runTick();
     const phase = trace.phases[0];
-    // 2 agents × 2 agents = 4 invocations — nothing skips the reflexive pair.
+    // 2 agents × 2 agents, minus the 2 reflexive pairs `agent`'s default
+    // distinct: true excludes — 2 invocations, not 4.
+    assert.equal(phase.runs.length, 2);
+    assert.deepEqual(phase.runs.map(r => r.label).sort(), ['alice × bob', 'bob × alice']);
+
+    assert.ok(phase.runs.every(r => r.trace.root.winners.length === 1));
+    assert.ok(engine.world.factStore.contains('greeted', 'alice', 'bob'));
+    assert.ok(engine.world.factStore.contains('greeted', 'bob', 'alice'));
+    assert.ok(!engine.world.factStore.contains('greeted', 'alice', 'alice'));
+    assert.ok(!engine.world.factStore.contains('greeted', 'bob', 'bob'));
+  });
+
+  it('an entity type with distinct: false allows loop roles to bind the same entity, so an unguarded action genuinely self-binds', async () => {
+    const { engine, pipeline } = makeGreetEngine({ guarded: false, agentDistinct: false });
+    const loop = new TickLoop(engine, { 'greet-test': pipeline }, {
+      entityType: 'agent',
+      phases: [{ pipeline: 'greet-test', loop: ['SELF', 'OTHER'] }],
+    });
+
+    const trace = await loop.runTick();
+    const phase = trace.phases[0];
+    // With `distinct: false` on `agent`, TickLoop no longer excludes the
+    // reflexive pair — the full 2 × 2 cross product runs.
     assert.equal(phase.runs.length, 4);
     assert.deepEqual(phase.runs.map(r => r.label).sort(), ['alice × alice', 'alice × bob', 'bob × alice', 'bob × bob']);
 
@@ -354,8 +377,8 @@ describe('TickLoop — loop / bindings / free roles', () => {
     assert.ok(engine.world.factStore.contains('greeted', 'bob', 'alice'));
   });
 
-  it('an explicit distinctness precondition is what actually excludes the reflexive pair', async () => {
-    const { engine, pipeline } = makeGreetEngine({ guarded: true });
+  it('with distinct: false, an explicit precondition is what excludes the reflexive pair instead', async () => {
+    const { engine, pipeline } = makeGreetEngine({ guarded: true, agentDistinct: false });
     const loop = new TickLoop(engine, { 'greet-test': pipeline }, {
       entityType: 'agent',
       phases: [{ pipeline: 'greet-test', loop: ['SELF', 'OTHER'] }],

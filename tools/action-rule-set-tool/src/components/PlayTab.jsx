@@ -447,7 +447,7 @@ export default function PlayTab({ scenario, highlighter }) {
         </div>
       )}
 
-      {hasPlayConfig === true && (
+      {hasPlayConfig === true && !session?.exists && (
         <div className="play-plan-panel">
           <div className="play-plan-head">
             <span className="filter-label" title="Which pipelines/rulesets the next Step tick runs, and in what order">Pipeline plan:</span>
@@ -604,16 +604,20 @@ export default function PlayTab({ scenario, highlighter }) {
         />
       )}
 
-      {session?.exists && ticks.length > 0 && (
-        <div className="play-timeline">
-          {ticks.map(t => (
-            <button key={t} className={'chip' + (t === focusTick ? ' on' : '')} onClick={() => focusOnTick(scenario, t)}>tick {t}</button>
-          ))}
+      {(ticks.length > 0 || focusTick != null) && (
+        <div className="play-trace-area">
+          {session?.exists && ticks.length > 0 && (
+            <div className="play-timeline">
+              {ticks.map(t => (
+                <button key={t} className={'chip' + (t === focusTick ? ' on' : '')} onClick={() => focusOnTick(scenario, t)}>tick {t}</button>
+              ))}
+            </div>
+          )}
+
+          {focusTick != null && !focusTrace && <div className="dim">Loading tick {focusTick}…</div>}
+          {focusTrace && <TickView trace={focusTrace} onExplain={showExplain} highlighter={highlighter} />}
         </div>
       )}
-
-      {focusTick != null && !focusTrace && <div className="dim">Loading tick {focusTick}…</div>}
-      {focusTrace && <TickView trace={focusTrace} onExplain={showExplain} highlighter={highlighter} />}
 
       {session?.exists && ticks.length === 0 && !pending && (
         <div className="empty">Session live at tick {session.tick}. Step a tick to record and inspect a trace.</div>
@@ -735,6 +739,9 @@ function AgentRunView({ run, onExplain, highlighter }) {
 // the pooled candidate list, and each winner's execution + continuation.
 function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
   const selection = evaluation.selection;
+  const indexed   = evaluation.candidates.map((c, i) => ({ c, i }));
+  const chosen    = indexed.filter(({ i }) => selection?.winnerIndexes?.includes(i));
+  const others    = indexed.filter(({ i }) => !selection?.winnerIndexes?.includes(i));
   return (
     <div className="play-eval" style={{ marginLeft: depth === 0 ? 0 : 18 }}>
       <div className="play-eval-head">
@@ -754,14 +761,25 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
 
       <div className="play-candidates">
         <div className="play-section-label">candidates</div>
-        {evaluation.candidates.map((c, i) => (
+        {chosen.map(({ c, i }) => (
           <CandidateRow
-            key={i} candidate={c}
-            winner={selection?.winnerIndexes?.includes(i)}
+            key={i} candidate={c} winner
             showStage={evaluation.pooled}
             onExplain={onExplain} highlighter={highlighter}
           />
         ))}
+        {others.length > 0 && (
+          <details className="play-other-candidates">
+            <summary>Other candidates <span className="dim">({others.length})</span></summary>
+            {others.map(({ c, i }) => (
+              <CandidateRow
+                key={i} candidate={c}
+                showStage={evaluation.pooled}
+                onExplain={onExplain} highlighter={highlighter}
+              />
+            ))}
+          </details>
+        )}
         {evaluation.candidates.length === 0 && <div className="dim" style={{padding:'2px 6px'}}>no candidates</div>}
       </div>
 
@@ -779,14 +797,17 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
   );
 }
 
-// One candidate's full inspection surface — binding, utility breakdown down
-// to numeric history, and a provenance drill-in on every predicate leaf. This
-// is the single component for "what do I know about this candidate,"
-// reused identically whether the candidate already executed (winner mode,
-// starred) or is still being decided (choice mode, a checkbox to pick it).
-// Uniform depth in both places is the point: the exploration available after
-// an action happened is exactly what's available while deciding it.
+// One candidate's full inspection surface — the action itself (preconditions
+// and effects, as authored, resolved against this candidate's binding) above
+// the utility breakdown that explains its score, with a provenance drill-in
+// on every predicate leaf. This is the single component for "what do I know
+// about this candidate," reused identically whether the candidate already
+// executed (winner mode, starred) or is still being decided (choice mode, a
+// checkbox to pick it). Uniform depth in both places is the point: the
+// exploration available after an action happened is exactly what's available
+// while deciding it.
 function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSelect, showStage, onExplain, highlighter }) {
+  const hasAction = candidate.preconditions?.length > 0 || candidate.effects?.length > 0 || candidate.breakdown?.length > 0;
   return (
     <details className={'play-cand' + (winner ? ' winner' : '') + (candidate.belowFloor ? ' below-floor' : '')}>
       <summary>
@@ -808,8 +829,37 @@ function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSe
         <span className="score">{round(candidate.score)}</span>
       </summary>
       <div className="play-cand-body">
-        {candidate.breakdown.length > 0 && <div className="play-section-label">utility</div>}
-        {candidate.breakdown.map((b, i) => <BreakdownNode key={i} node={b} onExplain={onExplain} highlighter={highlighter} />)}
+        {hasAction && (
+          <>
+            <div className="play-section-label">action</div>
+            <div className="play-cand-group">
+              {candidate.label && candidate.label !== candidate.actionName && (
+                <div className="play-cand-action-label">{candidate.label}</div>
+              )}
+              {candidate.preconditions.map((p, i) => (
+                <div key={i} className="app-line dim"><PremiseOrEffect entry={p} onExplain={onExplain} highlighter={highlighter} /></div>
+              ))}
+              {candidate.effects.length > 0 && (
+                <>
+                  <div className="play-section-label">effect</div>
+                  <div className="play-cand-group">
+                    {candidate.effects.map((e, i) => (
+                      <div key={i} className="app-line"><PremiseOrEffect entry={e} onExplain={onExplain} highlighter={highlighter} /></div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {candidate.breakdown.length > 0 && (
+                <>
+                  <div className="play-section-label">utility</div>
+                  <div className="play-cand-group">
+                    {candidate.breakdown.map((b, i) => <BreakdownNode key={i} node={b} onExplain={onExplain} highlighter={highlighter} />)}
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </details>
   );
@@ -1016,12 +1066,14 @@ function RulesetPhaseView({ phase, highlighter, onExplain }) {
   );
 }
 
-// A rule premise or a rule/action effect. Structured ones (a plain named
-// fact, optionally negated/private-scoped — see structuredPredicateInfo /
-// structuredEffectInfo in serializeTrace.js) render as PredicateView, with an
-// explain trigger when the caller wants one; compound forms the serializer
+// A rule premise or a rule/action effect, shown as its own authored DSL text
+// (entry.description — a tier, a comparison, a `+=`, whatever it actually is,
+// verbatim). Structured ones (a plain named fact, optionally
+// negated/private-scoped — see structuredPredicateInfo / structuredEffectInfo
+// in serializeTrace.js) render as PredicateView so they get syntax
+// highlighting and an explain trigger; compound forms the serializer
 // couldn't structure (aggregates, temporal chains, sensors) fall back to
-// their description text, same as before — no crash, just no explain target.
+// plain unhighlighted text, same as before — no crash, just no explain target.
 function PremiseOrEffect({ entry, onExplain, highlighter, chip = false }) {
   if (!entry.name) {
     return chip ? <code className="effect-chip">{entry.description}</code> : <code>{entry.description}</code>;
@@ -1029,7 +1081,7 @@ function PremiseOrEffect({ entry, onExplain, highlighter, chip = false }) {
   const view = (
     <PredicateView
       name={entry.name} args={entry.args} owner={entry.owner} negated={entry.negated}
-      tier={entry.tier} comparison={entry.comparison}
+      text={entry.description}
       highlighter={highlighter} onExplain={onExplain}
     />
   );
