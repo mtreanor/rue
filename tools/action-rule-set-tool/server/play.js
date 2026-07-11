@@ -7,6 +7,7 @@ import { entryStageRoles, entryStageRolesPlain } from '../../../src/pipeline/pip
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 import {
   onReload,
+  ensureScenarioFiles,
   listFactsForEngine, listEntitiesForEngine, runQueryForEngine,
   assertFactForEngine, deleteFactForEngine,
   whyFactForEngine, explainFactForEngine,
@@ -50,6 +51,7 @@ function loadPlayContent(scenarioName) {
   if (!scenario) throw new Error(`Unknown scenario "${scenarioName}"`);
 
   const paths = resolveScenarioPaths(scenario);
+  ensureScenarioFiles(paths);
   if (!existsSync(paths.play)) {
     throw new Error(`Scenario "${scenarioName}" has no play.json — Play mode needs one ({ entityType, phases })`);
   }

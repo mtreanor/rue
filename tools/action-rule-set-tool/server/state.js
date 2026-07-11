@@ -3,7 +3,7 @@ import { Engine } from '../../../src/Engine.js';
 import { Fact } from '../../../src/Fact.js';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 
-function ensureScenarioFiles(paths) {
+export function ensureScenarioFiles(paths) {
   mkdirSync(paths.dir, { recursive: true });
   if (!existsSync(paths.predicates)) writeFileSync(paths.predicates, '{\n  "predicates": {}\n}\n');
   if (!existsSync(paths.entities))   writeFileSync(paths.entities, '{}\n');
