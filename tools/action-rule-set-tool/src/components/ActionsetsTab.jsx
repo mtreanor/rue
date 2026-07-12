@@ -8,10 +8,10 @@ import { api } from '../api.js';
 // mirroring the non-structural parts of the rulesets Inspect tab. Edit
 // loads the action into the Add action tab (see App.jsx's onEdit) rather than
 // opening a popup.
-export default function ActionsetsTab({ scenario, data, highlighter, onChanged, onEdit }) {
+export default function ActionsetsTab({ scenario, data, highlighter, onChanged, onEdit, nameQuery, onNameQueryChange }) {
   const allActionsetNames = data.actionsets.map(as => as.name);
   const [selected, setSelected] = useState(allActionsetNames);
-  const [nameQuery, setNameQuery] = useState('');
+  const setNameQuery = onNameQueryChange;
   const [sort, setSort] = useState('source');
   const [dir, setDir] = useState('asc');
 
@@ -21,7 +21,11 @@ export default function ActionsetsTab({ scenario, data, highlighter, onChanged, 
     const selSet = new Set(selected);
     let list = data.actionsets.filter(as => selSet.has(as.name)).flatMap(as => as.actions);
     const nq = nameQuery.trim().toLowerCase();
-    if (nq) list = list.filter(a => a.name.toLowerCase().includes(nq));
+    if (nq) list = list.filter(a =>
+      a.name.toLowerCase().includes(nq) ||
+      (a.bodyText ?? '').toLowerCase().includes(nq) ||
+      (a.comment ?? '').toLowerCase().includes(nq)
+    );
     const idx = a => Number(a.id.split('::')[1] ?? 0);
     const roles = a => a.roleCount ?? 0;
     const preconds = a => a.preconditionCount ?? 0;
@@ -83,7 +87,7 @@ export default function ActionsetsTab({ scenario, data, highlighter, onChanged, 
         <input
           type="text" className="name-search" value={nameQuery}
           onChange={e => setNameQuery(e.target.value)}
-          placeholder="action name…" spellCheck={false}
+          placeholder="search actions…" spellCheck={false}
         />
         <select value={sort} onChange={e => setSort(e.target.value)} title="Sort by">
           <option value="source">Source order</option>

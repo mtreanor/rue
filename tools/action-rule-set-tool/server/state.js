@@ -1,6 +1,7 @@
 import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { Engine } from '../../../src/Engine.js';
 import { Fact } from '../../../src/Fact.js';
+import { formatBoundRule } from '../../../src/RuleFormatter.js';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 
 export function ensureScenarioFiles(paths) {
@@ -277,4 +278,129 @@ export function runQueryForEngine(engine, text, scopedTo = null) {
 
 export function runStateQuery(name, text, scopedTo = null) {
   return runQueryForEngine(getStateEngine(name), text, scopedTo);
+}
+
+// ── Interpreter commands ──────────────────────────────────────────────────────
+
+// Advance time by `amount` ticks, resetting ephemeral predicates.
+export function stateTick(name, amount = 1) {
+  const engine = getStateEngine(name);
+  engine.advanceTick(amount);
+  return { tick: engine.world.tickTracker.currentTick };
+}
+
+// Degree query — returns satisfaction scores for all variable bindings.
+export function stateDegree(name, text) {
+  const engine = getStateEngine(name);
+  const applications = engine.evaluateDegrees(text);
+  const visible = applications.filter(a => a.satisfactionScore > 0);
+  return {
+    count: visible.length,
+    results: visible.map(app => ({
+      score: app.satisfactionScore,
+      bindings: Object.fromEntries(
+        [...app.binding.assignments.entries()].map(([k, v]) => [k, v?.name ?? String(v)])
+      ),
+      predicates: app.predicateResults.map(({ predicate, importance, satisfied }) => ({
+        text: predicate.describe(app.binding),
+        importance,
+        satisfied,
+      })),
+    })),
+  };
+}
+
+// List all rulesets loaded into the live engine, with rule counts.
+export function stateRulesets(name) {
+  const engine = getStateEngine(name);
+  return {
+    rulesets: [...engine.rulesets.entries()].map(([n, rules]) => ({ name: n, count: rules.length })),
+  };
+}
+
+// List rules in a named ruleset with their free variables.
+export function stateRules(scenario, rulesetName) {
+  const engine = getStateEngine(scenario);
+  const rules = engine.rulesets.get(rulesetName);
+  if (!rules) throw new Error(`No ruleset named "${rulesetName}"`);
+  return {
+    name: rulesetName,
+    rules: rules.map(rule => ({
+      name: rule.name,
+      variables: rule.collectVariables().map(v => `?${v.name}`),
+    })),
+  };
+}
+
+// List all actionsets loaded into the live engine, with action counts.
+export function stateActionsets(name) {
+  const engine = getStateEngine(name);
+  return {
+    actionsets: [...engine.actionsets.entries()].map(([n, actions]) => ({ name: n, count: actions.length })),
+  };
+}
+
+// List actions in a named actionset with their roles.
+export function stateActions(scenario, actionsetName) {
+  const engine = getStateEngine(scenario);
+  const actions = engine.actionsets.get(actionsetName);
+  if (!actions) throw new Error(`No actionset named "${actionsetName}"`);
+  return {
+    name: actionsetName,
+    actions: actions.map(action => ({
+      name: action.name,
+      roles: action.roles.length > 0 ? action.roles.map(r => `${r.variable}: ${r.type}`) : null,
+    })),
+  };
+}
+
+// Run a ruleset to fixpoint; return the formatted text of each application.
+// Mutates the live engine state (rule effects fire); persists to the shadow file.
+export function stateRun(scenario, rulesetName, bindings = {}) {
+  const engine = getStateEngine(scenario);
+  const fired = engine.runRulesetFixpoint(rulesetName, { startingBinding: bindings });
+  if (fired.length > 0) persistEngineState(scenario);
+  return {
+    count: fired.length,
+    applications: fired.map(app => ({
+      text: formatBoundRule(app.rule, app.binding, {
+        satisfactionScore: app.satisfactionScore < 1.0 ? app.satisfactionScore : null,
+      }),
+    })),
+  };
+}
+
+// Score all actions in a named actionset; return candidates ranked by utility.
+export function stateScore(scenario, actionsetName, bindings = {}) {
+  const engine = getStateEngine(scenario);
+  const candidates = engine.scoreActionset(actionsetName, bindings);
+  return {
+    count: candidates.length,
+    candidates: candidates.map(c => ({
+      name: c.action.name,
+      score: c.score,
+      bindings: Object.fromEntries(
+        [...c.binding.assignments.entries()].map(([k, v]) => [k, v?.name ?? String(v)])
+      ),
+    })),
+  };
+}
+
+// Score an actionset and execute the top candidate. Mutates state; persists.
+export function stateSelect(scenario, actionsetName, bindings = {}) {
+  const engine = getStateEngine(scenario);
+  const candidates = engine.scoreActionset(actionsetName, bindings);
+  if (candidates.length === 0) return { selected: null };
+  const best = candidates[0];
+  engine.execute(best);
+  persistEngineState(scenario);
+  return {
+    selected: {
+      name: best.action.name,
+      score: best.score,
+      bindings: Object.fromEntries(
+        [...best.binding.assignments.entries()].map(([k, v]) => [k, v?.name ?? String(v)])
+      ),
+    },
+  };
 }

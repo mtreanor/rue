@@ -8,11 +8,11 @@ import { useDebounced } from '../hooks.js';
 // a rule matches if it structurally contains every typed predicate (co-reference
 // aware), variable names aside. Edit loads the rule into the Add rule tab
 // (see App.jsx's onEdit) rather than opening a popup.
-export default function InspectTab({ scenario, data, highlighter, onChanged, onEdit }) {
+export default function InspectTab({ scenario, data, highlighter, onChanged, onEdit, query, onQueryChange, nameQuery, onNameQueryChange }) {
   const allRulesetNames = data.rulesets.map(rs => rs.name);
   const [selected, setSelected] = useState(allRulesetNames);
-  const [query, setQuery] = useState('');
-  const [nameQuery, setNameQuery] = useState('');
+  const setQuery = onQueryChange;
+  const setNameQuery = onNameQueryChange;
   const [sort, setSort] = useState('source');
   const [dir, setDir] = useState('asc');
   const [matchIds, setMatchIds] = useState(null); // null = show all

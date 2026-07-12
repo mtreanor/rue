@@ -6,7 +6,7 @@ import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
-import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines } from './state.js';
+import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines, stateTick, stateDegree, stateRulesets, stateRules, stateActionsets, stateActions, stateRun, stateScore, stateSelect } from './state.js';
 import { startPlaySession, getPlaySession, peekPlaySession, resetPlaySession, previewPlayInfo } from './play.js';
 import { listPipelines, savePipeline, deletePipeline } from './pipelines.js';
 import {
@@ -344,6 +344,46 @@ router.post('/state/:scenario/delete', h((req, res) => {
 router.post('/state/:scenario/reload', h((req, res) => {
   reloadStateEngine(req.params.scenario);
   res.json({ ok: true });
+}));
+
+// ── Interpreter commands ──────────────────────────────────────────────────────
+
+router.post('/state/:scenario/tick', h((req, res) => {
+  const amount = Number(req.body.amount ?? 1);
+  if (!Number.isInteger(amount) || amount < 1) throw new Error('amount must be a positive integer');
+  res.json(stateTick(req.params.scenario, amount));
+}));
+
+router.post('/state/:scenario/degree', h((req, res) => {
+  res.json(stateDegree(req.params.scenario, req.body.text));
+}));
+
+router.get('/state/:scenario/rulesets', h((req, res) => {
+  res.json(stateRulesets(req.params.scenario));
+}));
+
+router.get('/state/:scenario/ruleset/:name', h((req, res) => {
+  res.json(stateRules(req.params.scenario, req.params.name));
+}));
+
+router.get('/state/:scenario/actionsets', h((req, res) => {
+  res.json(stateActionsets(req.params.scenario));
+}));
+
+router.get('/state/:scenario/actionset/:name', h((req, res) => {
+  res.json(stateActions(req.params.scenario, req.params.name));
+}));
+
+router.post('/state/:scenario/run', h((req, res) => {
+  res.json(stateRun(req.params.scenario, req.body.name, req.body.bindings ?? {}));
+}));
+
+router.post('/state/:scenario/score', h((req, res) => {
+  res.json(stateScore(req.params.scenario, req.body.name, req.body.bindings ?? {}));
+}));
+
+router.post('/state/:scenario/select', h((req, res) => {
+  res.json(stateSelect(req.params.scenario, req.body.name, req.body.bindings ?? {}));
 }));
 
 // Structural search. Body: { scenario, files: [rulesetName], query }.

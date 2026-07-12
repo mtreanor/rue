@@ -69,4 +69,12 @@ export class FactRecord {
     }
     return this.events.slice(since).filter(e => e.type === 'asserted');
   }
+
+  eventsInRange(from, to) {
+    return this.events.filter(e => e.tick >= from && e.tick <= to);
+  }
+
+  eventsAt(tick) {
+    return this.eventsInRange(tick, tick);
+  }
 }

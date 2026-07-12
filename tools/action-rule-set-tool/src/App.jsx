@@ -6,6 +6,7 @@ import AddActionTab from './components/AddActionTab.jsx';
 import StateTab from './components/StateTab.jsx';
 import PipelinesTab from './components/PipelinesTab.jsx';
 import PlayTab from './components/PlayTab.jsx';
+import InterpreterTab from './components/InterpreterTab.jsx';
 import PredicateSidebar from './components/PredicateSidebar.jsx';
 import EntitySidebar from './components/EntitySidebar.jsx';
 import { InsertContext } from './InsertContext.js';
@@ -28,6 +29,14 @@ export default function App() {
   // so switching to Add rule/Add action manually always starts a blank form.
   const [editingRule, setEditingRule] = useState(null);
   const [editingAction, setEditingAction] = useState(null);
+
+  // Filter/session state lifted here so it survives tab switches.
+  const [ruleQuery, setRuleQuery] = useState('');
+  const [ruleNameQuery, setRuleNameQuery] = useState('');
+  const [actionNameQuery, setActionNameQuery] = useState('');
+  const [interpOpen, setInterpOpen] = useState(false);
+  const [interpHistory, setInterpHistory] = useState(null); // null = not yet initialized
+  const [interpCmdHistory, setInterpCmdHistory] = useState([]);
 
   function goTo(name) {
     setEditingRule(null);
@@ -183,6 +192,18 @@ export default function App() {
           >
             Save to File{pending.length ? ` · ${pending.length}` : ''}
           </button>
+          <button
+            className={'btn interp-toggle' + (interpOpen ? ' active' : '')}
+            onClick={() => setInterpOpen(o => !o)}
+            title="Interpreter"
+            aria-label="Interpreter"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="1" y="2.5" width="16" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M4.5 7l3 2-3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="9" y1="11" x2="13" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
         </header>
 
         {error && <div className="banner error global">{error}</div>}
@@ -208,6 +229,8 @@ export default function App() {
                 <InspectTab
                   scenario={scenario} data={data} highlighter={highlighter}
                   onChanged={() => reload()} onEdit={startEditRule}
+                  query={ruleQuery} onQueryChange={setRuleQuery}
+                  nameQuery={ruleNameQuery} onNameQueryChange={setRuleNameQuery}
                 />
               )}
               {data && tab === 'add-rule' && (
@@ -223,6 +246,7 @@ export default function App() {
                 <ActionsetsTab
                   scenario={scenario} data={data} highlighter={highlighter}
                   onChanged={() => reload()} onEdit={startEditAction}
+                  nameQuery={actionNameQuery} onNameQueryChange={setActionNameQuery}
                 />
               )}
               {data && tab === 'add-action' && (
@@ -256,6 +280,23 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {interpOpen && (
+        <>
+          <div className="interp-backdrop" onClick={() => setInterpOpen(false)} />
+          <div className="interp-panel">
+            <div className="interp-panel-header">
+              <span className="interp-panel-title">Interpreter</span>
+              <button className="btn tiny ghost" onClick={() => setInterpOpen(false)} aria-label="Close interpreter">✕</button>
+            </div>
+            <InterpreterTab
+              scenario={scenario} data={data}
+              history={interpHistory} onHistory={setInterpHistory}
+              cmdHistory={interpCmdHistory} onCmdHistory={setInterpCmdHistory}
+            />
+          </div>
+        </>
+      )}
     </InsertContext.Provider>
   );
 }
