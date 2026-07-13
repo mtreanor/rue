@@ -563,6 +563,26 @@ export class DSLParser {
     const args = this.parseArgs();
     this.expect('RPAREN');
 
+    return this.parseComparisonTail(name, args, { insideAggregate: false });
+  }
+
+  // Shared by a rule LHS predicate atom and an aggregate-pipe filter atom:
+  // after `name(args)` (no tier — tiers never take a trailing comparison,
+  // they're already boolean-shaped), check for a trailing comparison operator
+  // and build the appropriate AST node. With no operator, it's a plain
+  // predicate reference.
+  //
+  // Inside an aggregate (`insideAggregate: true`), only a numeric-literal RHS
+  // (`numeric-value`, e.g. `intoxication(_p) > 5`) is supported — that's the
+  // shape `buildAggregateInner`'s filter/value classification and
+  // `rewriteAggregateArgs`'s wildcard rewriting are built for, since its args
+  // sit flat on the node exactly like a bare fact/tier atom's do. `comparison`
+  // (pred vs pred) and `pred-aggregate-comparison` (pred vs nested aggregate)
+  // nest their args under `left`/`right` instead, which the aggregate-side
+  // wildcard rewriter doesn't currently walk into — supporting those as
+  // aggregate filters is a real but separate follow-up, not silently
+  // mishandled here.
+  parseComparisonTail(name, args, { insideAggregate }) {
     let operator;
     if      (this.check('GTE')) { this.advance(); operator = '>='; }
     else if (this.check('LTE')) { this.advance(); operator = '<='; }
@@ -570,29 +590,32 @@ export class DSLParser {
     else if (this.check('LT'))  { this.advance(); operator = '<';  }
     else if (this.check('EQ'))  { this.advance(); operator = '=';  }
     else if (this.check('NEQ')) { this.advance(); operator = '!='; }
-    if (operator !== undefined) {
-      // RHS is a numeric literal, an aggregate expression, or another predicate.
-      if (this.check('NUMBER')) {
-        const threshold = this.advance().value;
-        return { type: 'numeric-value', name, args, operator, threshold };
-      }
-      if (this.check('IDENT') && AGGREGATE_FNS.has(this.peek().value) && this.tokens[this.pos + 1]?.type === 'PIPE') {
-        const right = this.parseAggregateExpr();
-        return { type: 'pred-aggregate-comparison', left: { name, args }, operator, right };
-      }
-      const rhsName = this.expect('IDENT').value;
-      this.expect('LPAREN');
-      const rhsArgs = this.parseArgs();
-      this.expect('RPAREN');
-      return {
-        type: 'comparison',
-        left:  { name, args },
-        operator,
-        right: { name: rhsName, args: rhsArgs },
-      };
+    if (operator === undefined) {
+      return { type: this.resolveType(name), name, args };
     }
 
-    return { type: this.resolveType(name), name, args };
+    // RHS is a numeric literal, an aggregate expression, or another predicate.
+    if (this.check('NUMBER')) {
+      const threshold = this.advance().value;
+      return { type: 'numeric-value', name, args, operator, threshold };
+    }
+    if (insideAggregate) {
+      throw new Error(`"${name}(...) ${operator} ..." inside an aggregate must compare against a numeric literal (e.g. "${name}(...) ${operator} 5") — comparing against another predicate or a nested aggregate isn't supported inside aggregate pipes yet`);
+    }
+    if (this.check('IDENT') && AGGREGATE_FNS.has(this.peek().value) && this.tokens[this.pos + 1]?.type === 'PIPE') {
+      const right = this.parseAggregateExpr();
+      return { type: 'pred-aggregate-comparison', left: { name, args }, operator, right };
+    }
+    const rhsName = this.expect('IDENT').value;
+    this.expect('LPAREN');
+    const rhsArgs = this.parseArgs();
+    this.expect('RPAREN');
+    return {
+      type: 'comparison',
+      left:  { name, args },
+      operator,
+      right: { name: rhsName, args: rhsArgs },
+    };
   }
 
   resolveType(name) {
@@ -940,11 +963,13 @@ export class DSLParser {
       this.expect('LPAREN');
       const args = this.parseArgs();
       this.expect('RPAREN');
-      // resolveType (not a hardcoded 'fact') so a derived predicate used
-      // inside a conjunction — e.g. sameGroup(?SELF, _) — is correctly tagged
-      // 'derived' and dispatches to DerivedFactPredicate, not a raw fact-store
-      // lookup for a fact that's never actually asserted.
-      result = { type: this.resolveType(name), name, args };
+      // parseComparisonTail (not a hardcoded 'fact') so a derived predicate
+      // used inside a conjunction — e.g. sameGroup(?SELF, _) — is correctly
+      // tagged 'derived' and dispatches to DerivedFactPredicate rather than a
+      // raw fact-store lookup for a fact that's never actually asserted, and
+      // so a trailing comparison — e.g. intoxication(_p) > 5 — is recognized
+      // as a numeric filter rather than rejected outright.
+      result = this.parseComparisonTail(name, args, { insideAggregate: true });
     }
     // Optional modifiers inside an aggregate: [when: _t] event enumeration, or
     // [degrees: N] bounded closure (its target `_` counts the reachable set).
@@ -964,10 +989,15 @@ export class DSLParser {
       }
       this.expect('RBRACKET');
     }
-    if (tickVar) {
-      result = { type: 'when', name: result.name, args: result.args, tickVar };
-    } else if (degrees !== null) {
-      result = { type: 'closure', name: result.name, args: result.args, degrees, dist: null };
+    if (tickVar || degrees !== null) {
+      if (result.args === undefined) {
+        throw new Error(`[when:]/[degrees:] cannot be combined with a "${result.type}" comparison filter inside an aggregate`);
+      }
+      if (tickVar) {
+        result = { type: 'when', name: result.name, args: result.args, tickVar };
+      } else {
+        result = { type: 'closure', name: result.name, args: result.args, degrees, dist: null };
+      }
     }
     return owner ? { type: 'private', ...owner, predicate: result } : result;
   }

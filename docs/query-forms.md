@@ -240,7 +240,7 @@ The simple forms above (`pred op N`, `pred op pred`, `?v op rhs`) are unchanged:
 
 ## Count
 
-`|conjunction| > N` counts how many entity combinations satisfy every predicate in the conjunction, then compares the count to a threshold. Supports `< N`, `= N`, `>= N`, `<= N`, `!= N` as well. Use `_` for the positions being counted over. Bare `|...|` is sugar for `count|...|` — see [Aggregate](#aggregate) below, whose conjunction/filtering/wildcard-sharing rules apply identically. `count` has no numeric value predicate; every predicate in the conjunction is a filter.
+`|conjunction| > N` counts how many entity combinations satisfy every predicate in the conjunction, then compares the count to a threshold. Supports `< N`, `= N`, `>= N`, `<= N`, `!= N` as well. Use `_` for the positions being counted over. Bare `|...|` is sugar for `count|...|` — see [Aggregate](#aggregate) below, whose conjunction/filtering/wildcard-sharing rules apply identically. `count` has no numeric value predicate; every predicate in the conjunction is a filter — a bare reference to a numeric predicate (e.g. `intoxication(_)`) is rejected for exactly this reason, since it filters on whether the predicate holds, not on its value. Use a comparison against a numeric literal instead (`intoxication(_) > 5`) to filter on the value.
 
 ```klugh
 rule "popular when many agents feel warm toward SELF"
@@ -254,7 +254,15 @@ rule "isolated when SELF knows fewer than two agents"
 rule "close when SELF both knows and trusts the same person"
   count|knows(?SELF, _p) ^ trusts(?SELF, _p)| >= 1
   => close(?SELF) += 1.0
+
+rule "wants out when several people nearby are visibly drunk"
+  sober(?SELF)
+  ^ inGroup(?SELF, ?G)
+  ^ count|inGroup(_p, ?G) ^ intoxication(_p) > 5| > 2
+  => leave(?SELF) += 4.0
 ```
+
+A comparison filter's right-hand side must be a numeric literal (`pred(...) > N`) — comparing against another predicate or a nested aggregate isn't supported inside aggregate pipes yet.
 
 The type of each `_` position is inferred from the predicate schema, so non-agent entities (knowledge domains, items, etc.) are enumerated correctly. Note the named wildcard `_p`: it makes the two positions join on the *same* person. A bare `count|knows(?SELF, _) ^ trusts(?SELF, _)|` would instead count "knows someone and trusts someone" independently — see [wildcard identity](#aggregate) below.
 
@@ -278,11 +286,12 @@ rule "carol is admired more than bob overall"
   => moreAdmiredThanBob(carol)
 ```
 
-**Group filtering** — add boolean predicates to the conjunction inside the pipes with `^`. Boolean predicates (including tier checks) act as filters; the one numeric predicate provides the values.
+**Group filtering** — add boolean predicates to the conjunction inside the pipes with `^`. Boolean predicates, tier checks, and numeric-literal comparisons all act as filters; the one bare numeric predicate provides the values.
 
 ```klugh
 avg|warmth(_a, carol) ^ knows(_a, carol)|  // average warmth among agents who know carol
 avg|warmth(_a, carol) ^ trust.high(_a, carol)|  // average warmth among high-trust agents
+avg|warmth(_a, carol) ^ prestige(_a) > 5|  // average warmth among high-prestige agents
 ```
 
 **Wildcard identity** — identity is name-based, as everywhere else in the language. A bare `_` is anonymous: it gets a fresh enumeration variable each time and never joins with another `_`. A named wildcard `_name` shares one enumeration variable across all its occurrences, so `warmth(_a, carol) ^ knows(_a, carol)` iterates one agent at a time through *both* predicates (joining on `_a`), whereas `warmth(_, carol) ^ knows(_, carol)` would range over the two positions independently. Occurrences of one named wildcard must agree on entity type (validated at load); different names never join.

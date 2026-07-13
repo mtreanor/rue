@@ -25,6 +25,17 @@ import { ComparisonPredicate } from '../predicates/ComparisonPredicate.js';
 import { AtTickPredicate } from '../predicates/AtTickPredicate.js';
 import { AggregatePredicate } from '../predicates/AggregatePredicate.js';
 
+// AST node types that already resolve to a boolean via their own .evaluate()
+// even when the predicate they read is numeric-typed — a tier check or a
+// threshold comparison, as opposed to a bare reference to the predicate's raw
+// value. avg/sum/max/min's value-vs-filter split (buildAggregateInner) must
+// never treat one of these as "the value being aggregated," or the
+// tier/threshold itself goes unchecked: `valuePred` only carries `{name,
+// args}`, so classifying e.g. a `numeric-tier` atom as the value silently
+// discards the tier and aggregates the predicate's raw, unfiltered value
+// instead of the count of results actually meeting the tier.
+const COMPARISON_SHAPED_TYPES = new Set(['numeric-tier', 'numeric-value']);
+
 function* walkPredicates(predicate) {
   yield predicate;
   if (predicate.predicate)      yield* walkPredicates(predicate.predicate);
@@ -321,9 +332,11 @@ export class RuleLoader {
     for (const pred of rewrittenPredicates) {
       const effective  = unwrapPrivate(pred);
       const schemaType = this.predicateSchema.getDefinition(effective.name)?.type;
-      // A [when: _t] atom counts assertion events; it is always a filter, never
-      // the aggregated numeric value, even when its predicate is numeric.
-      if ((schemaType === 'numeric' || schemaType === 'sensor-numeric') && effective.type !== 'when') {
+      // A [when: _t] atom counts assertion events, and a tier/threshold check
+      // (COMPARISON_SHAPED_TYPES) already resolves to a boolean — both are
+      // always filters, never the aggregated numeric value, even when the
+      // predicate they read is itself numeric.
+      if ((schemaType === 'numeric' || schemaType === 'sensor-numeric') && effective.type !== 'when' && !COMPARISON_SHAPED_TYPES.has(effective.type)) {
         if (valuePred !== null) {
           throw new Error(`Aggregate conjunction has more than one numeric predicate: "${valuePred.name}" and "${effective.name}"`);
         }

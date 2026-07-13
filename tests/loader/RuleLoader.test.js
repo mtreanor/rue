@@ -579,4 +579,134 @@ describe('RuleLoader', () => {
       assert.equal(firedThree.length, 0, 'threshold of 3 should NOT be met — sam is excluded by sameGroup');
     });
   });
+
+  // Aggregate pipes originally only accepted a bare predicate or a
+  // predicate.tier(...) check as a filter — parseAggregateAtom never parsed a
+  // trailing comparison operator at all, so `count|pred(...) > N|` was a parse
+  // error despite RuleLoader's own error message for a bare numeric reference
+  // inside count telling the author to "use a comparison ... instead" (a
+  // capability that didn't actually exist). Fixed by sharing the same
+  // trailing-comparison parsing (parseComparisonTail) between a rule LHS atom
+  // and an aggregate-pipe atom, scoped inside an aggregate to a numeric
+  // literal RHS only (comparison and pred-aggregate-comparison nest their args
+  // under left/right rather than flat args, which rewriteAggregateArgs's
+  // wildcard rewriter doesn't walk into — out of scope here, and rejected with
+  // a clear error rather than silently mishandled).
+  //
+  // Found and fixed alongside it: avg/sum/max/min's value-vs-filter split
+  // classified *any* numeric-schema predicate as "the value being aggregated"
+  // unless it was a `[when:]` atom — including a `.tier(...)` filter on a
+  // numeric predicate, silently discarding the tier and aggregating the raw
+  // value instead. COMPARISON_SHAPED_TYPES fixes both the pre-existing tier
+  // case and the new comparison case the same way.
+  describe('aggregate conjunctions with comparison filters', () => {
+    function buildEngine() {
+      return new Engine({
+        predicates: { predicates: {
+          inGroup:       { type: 'boolean', args: ['agent', 'group'] },
+          sober:         { type: 'boolean', args: ['agent'] },
+          // Two tiers, not just "drunk" alone — with a single tier, any value
+          // outside its range is a "gap" and PredicateSchema.matchesTier's
+          // nearest-tier fallback assigns every gap value to the only tier
+          // there is, so an untouched default (0) would wrongly read as drunk.
+          intoxication:  { type: 'numeric', args: ['agent'], minValue: 0, maxValue: 10, default: 0, tiers: { sober: [0, 6], drunk: [6, 10] } },
+          metCount:      { type: 'numeric', args: ['agent', 'agent'], minValue: 0, maxValue: 10, default: 0 },
+          leaveFlag:     { type: 'boolean', args: ['agent'] },
+        }},
+        entities: { agent: { drell: {}, alice: {}, bob: {}, carol: {} } },
+      });
+    }
+
+    it('counts groupmates passing a numeric-literal comparison filter, joined on a named wildcard', () => {
+      const engine = buildEngine();
+      engine.world.addEntity('group', { name: 'g1' });
+      engine.world.factStore.assert(new Fact('inGroup', 'drell', 'g1'));
+      engine.world.factStore.assert(new Fact('inGroup', 'alice', 'g1'));
+      engine.world.factStore.assert(new Fact('inGroup', 'bob',   'g1'));
+      engine.world.factStore.assert(new Fact('inGroup', 'carol', 'g1'));
+      engine.world.queryHandlers.getHandler('numeric').setValue('intoxication', ['alice'], 7);
+      engine.world.queryHandlers.getHandler('numeric').setValue('intoxication', ['bob'],   8);
+      engine.world.queryHandlers.getHandler('numeric').setValue('intoxication', ['carol'], 2);
+
+      engine.loadRules(`
+        ruleset "r"
+          rule "gt1"
+            sober(?SELF)
+            ^ inGroup(?SELF, ?G)
+            ^ count|inGroup(_p, ?G) ^ intoxication(_p) > 5| > 1
+            => leaveFlag(?SELF)
+          rule "gt2"
+            sober(?SELF)
+            ^ inGroup(?SELF, ?G)
+            ^ count|inGroup(_p, ?G) ^ intoxication(_p) > 5| > 2
+            => leaveFlag(?SELF)
+      `);
+      engine.world.factStore.assert(new Fact('sober', 'drell'));
+
+      // predicateEntries[2]: sober(?SELF), inGroup(?SELF,?G), then the aggregate.
+      const gt1 = engine.rulesets.get('r')[0].predicateEntries[2].predicate;
+      assert.ok(gt1.filterPredicates[1] instanceof NumericComparisonPredicate,
+        'the numeric-value atom must build a NumericComparisonPredicate filter, not a dead fact lookup');
+
+      const overOne = engine.runRulesetSingle('r', { startingBinding: { SELF: 'drell' } });
+      assert.equal(overOne.length, 1, 'alice (7) and bob (8) both exceed 5 — threshold of >1 should be met');
+    });
+
+    it('rejects a bare numeric predicate inside count but accepts the equivalent comparison', () => {
+      const engine = buildEngine();
+      assert.throws(() => engine.loadRules(`
+        ruleset "r"
+          rule "bad"
+            count|intoxication(_)| > 1
+            => leaveFlag(?SELF)
+      `), /Use a comparison/);
+
+      assert.doesNotThrow(() => engine.loadRules(`
+        ruleset "r2"
+          rule "good"
+            count|intoxication(_) > 5| > 1
+            => leaveFlag(?SELF)
+      `));
+    });
+
+    it('does not misclassify a tier-checked numeric predicate as the aggregated value', () => {
+      const engine = buildEngine();
+      engine.world.queryHandlers.getHandler('numeric').setValue('intoxication', ['alice'], 8);
+      engine.world.queryHandlers.getHandler('numeric').setValue('intoxication', ['bob'],   9);
+      // avg|metCount ^ intoxication.drunk| must average metCount only over
+      // agents whose intoxication is in the "drunk" tier — if intoxication.drunk
+      // were wrongly treated as a second value predicate this throws "more
+      // than one numeric predicate" instead of loading.
+      engine.world.queryHandlers.getHandler('numeric').setValue('metCount', ['drell', 'alice'], 4);
+      engine.world.queryHandlers.getHandler('numeric').setValue('metCount', ['drell', 'bob'],   6);
+      assert.doesNotThrow(() => engine.loadRules(`
+        ruleset "r"
+          rule "t"
+            avg|metCount(?SELF, _p) ^ intoxication.drunk(_p)| > 4
+            => leaveFlag(?SELF)
+      `));
+      const fired = engine.runRulesetSingle('r', { startingBinding: { SELF: 'drell' } });
+      assert.equal(fired.length, 1, 'avg(4, 6) = 5 > 4 over alice+bob, both in the drunk tier');
+    });
+
+    it('rejects a predicate-vs-predicate comparison inside an aggregate with a clear error, not a mis-parse', () => {
+      const engine = buildEngine();
+      assert.throws(() => engine.loadRules(`
+        ruleset "r"
+          rule "t"
+            count|metCount(?SELF, _p) > intoxication(_p)| > 1
+            => leaveFlag(?SELF)
+      `), /must compare against a numeric literal/);
+    });
+
+    it('rejects a nested-aggregate comparison inside an aggregate with a clear error, not a mis-parse', () => {
+      const engine = buildEngine();
+      assert.throws(() => engine.loadRules(`
+        ruleset "r"
+          rule "t"
+            count|metCount(?SELF, _p) > avg|intoxication(_)|| > 1
+            => leaveFlag(?SELF)
+      `), /must compare against a numeric literal/);
+    });
+  });
 });
