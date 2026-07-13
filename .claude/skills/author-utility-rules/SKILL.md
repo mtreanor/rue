@@ -92,6 +92,48 @@ Write the manifest, then proceed to Tier 1.
 
 ## Argument-binding convention
 
+### Epistemic perspective — no reading another agent's inner state
+
+Every rule is authored from `?SELF`'s own point of view: what would this
+agent plausibly know, given what they could see another agent do or hear
+them say? The engine's FactStore doesn't distinguish "world fact `?SELF`
+could witness" from "world fact that only exists in the shared store for
+bookkeeping convenience" — predicates like `socialConfidence` and
+`ticksAlone` are asserted in the world store purely so the engine can update
+them, not because they're public information. Treat them as private to
+their owner regardless of which store they're actually asserted in:
+
+- Never bind another agent's own internal/psychological state as an LHS
+  premise — `socialConfidence(?OTHER)` /
+  `socialConfidence.rattled(?OTHER)` / `socialConfidence.onARoll(?OTHER)`,
+  `ticksAlone(?OTHER)`, or any future predicate modeling what ?OTHER is
+  feeling or privately tracking rather than what they're visibly doing.
+  `?SELF` has no way to perceive it. This is a hard exclusion, not a
+  caution — don't propose these at all.
+- Traits and roles that function as public labels (`isStudent`,
+  `isOrganizer`, `isKeynoteSpeaker`, `famous`, `isIndustry`, `drinkSeeking`,
+  `hungover`, `onPhone`, `transactional`, `genuine`, `cool`) remain fair
+  game bound to `?OTHER` — these are either structural facts about who
+  someone is at the conference or externally visible behavior, not hidden
+  mental state. The caution note below (needing specific justification for
+  a `?TARGET`-bound personal-record predicate) still applies to genuinely
+  ambiguous cases — a trait that could plausibly be either public
+  reputation or private self-conception — but is a lower bar than the hard
+  exclusion above.
+- Another agent's private-store opinions are already excluded by
+  construction: `?SELF.pred(...)` always resolves against the *evaluating*
+  agent's own store, so there's no syntax for "what `?OTHER` privately
+  thinks of someone" bound to `?SELF`'s decision in the first place.
+- `?OTHER`'s **history** — past occurrences they took part in, what they
+  were witnessed doing, judgements already formed about them
+  (`embarrassedThemselves`, `judged`, `metCount`) — is the intended substitute
+  for reading their inner state directly: it's how `?SELF` would plausibly
+  form an opinion about someone without telepathy. Expect this to matter
+  more as `judgement-acts.klugh`/`judgement-rules.klugh` get authored and
+  start producing more standing-record predicates; actively look for
+  opportunities to bind on history/track-record predicates once they
+  exist, not just present disposition or labels.
+
 Infer roles from the target predicate's arity in `predicates.json`:
 
 - 1 `agent` arg → role `?SELF`.
@@ -108,14 +150,17 @@ role becomes a **free variable**, left for the rule evaluator to enumerate:
 - 1-arg considered predicate (e.g. `drinkSeeking(agent)`) against a 2-arg
   target → **two** separate candidates, one bound to `?SELF`, one to
   `?TARGET` (e.g. `drinkSeeking(?SELF)` and `drinkSeeking(?TARGET)`), since
-  they carry different meanings ("I am drink-seeking" vs "they are"). Treat
+  they carry different meanings ("I am drink-seeking" vs "they are"). If
+  the predicate is a hidden psychological/internal one, the epistemic
+  perspective rule above already excludes it outright. Otherwise, treat
   the `?TARGET`-bound candidate with caution when the predicate describes
-  the target's own inner state or standing (a trait like `selfish` or
-  `gullible`, a personal-record numeric like `wins`/`money`) rather than
-  something about the relationship between the two agents — these read as
-  the acting agent reacting to the target's private self, which it usually
-  has no way to perceive directly, and are a common source of proposals the
-  user rejects wholesale on review (confirmed: a user excluded every
+  the target's own standing rather than something about the relationship
+  between the two agents (a personal-record numeric like `wins`/`money`,
+  a trait that's ambiguous between public reputation and private
+  self-conception) — these read as the acting agent reacting to something
+  about the target it usually has no way to perceive directly, and are a
+  common source of proposals the user rejects wholesale on review
+  (confirmed: a user excluded every
   `?TARGET`-bound 1-arg-predicate rule in a Tier 1 batch except one they
   deliberately chose to keep). Still propose them — flag the concern
   in-line rather than silently dropping the candidate — but expect them to
@@ -154,8 +199,8 @@ Reflexive self-belief readings are unusual here and shouldn't be the
 default; only propose one if a specific predicate plausibly works that way
 and say so explicitly in the proposal.
 
-Three of the relational numeric predicates — `warmth`, `resentment`,
-`admiration` — and `met` are private-store-only by convention in this
+Four of the relational numeric predicates — `warmth`, `resentment`,
+`admiration`, `metCount` — are private-store-only by convention in this
 dataset (the design doc and `state.klugh` only ever assert them inside
 `private <agent>` blocks). Don't propose a `world`-store version of these;
 only the private free-`?OTHER` form applies.
