@@ -219,6 +219,12 @@ router.get('/play/:scenario/entities', h((req, res) => {
 router.post('/play/:scenario/query', h((req, res) => {
   res.json(getPlaySession(req.params.scenario).runQuery(req.body.text, req.body.scopedTo ?? null));
 }));
+// The scenario's declared play.json `views`, re-run against the session's
+// current state — GET, not POST, since it takes no input beyond the running
+// session itself; called after Start and after every Step/Choose.
+router.get('/play/:scenario/views', h((req, res) => {
+  res.json({ views: getPlaySession(req.params.scenario).runViews() });
+}));
 // Provenance of a fact. Body: { name, args, owner } — the same shape the
 // State viewer's /why and /explain take, not a pre-rendered text string.
 router.post('/play/:scenario/why', h((req, res) => {

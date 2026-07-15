@@ -29,7 +29,7 @@ export class DerivedFactQueryHandler extends QueryHandler {
   registerRules(definitions) {
     for (const rule of definitions) {
       const name = rule.conclusion.name;
-      const map  = rule.conclusionOwnerVar !== null
+      const map  = (rule.conclusionOwnerVar !== null || rule.conclusionOwnerEntity !== null)
         ? this.rulesByPrivateConclusion
         : this.rulesByConclusion;
       if (!map.has(name)) map.set(name, []);
@@ -50,12 +50,6 @@ export class DerivedFactQueryHandler extends QueryHandler {
   evaluate(predicate, binding, evaluationContext) {
     this.ensureCacheForTick(evaluationContext.currentTick);
 
-    // Premises always query the world store unless they carry an explicit owner
-    // prefix. Strip any inherited private-store scope before backward chaining.
-    const proofContext = evaluationContext.activeStore
-      ? evaluationContext.scopedToStore(null)
-      : evaluationContext;
-
     const resolvedArgs = predicate.args.map(arg => toFactArg(binding.resolve(arg)));
     if (resolvedArgs.some(arg => arg == null)) return false;
 
@@ -69,11 +63,23 @@ export class DerivedFactQueryHandler extends QueryHandler {
 
     let result = false;
     try {
-      // Private query: try owner-prefixed conclusion rules first.
+      // Private query: try owner-prefixed conclusion rules first. A
+      // dedicated private-conclusion rule's own body decides its own
+      // scoping explicitly (its premises are evaluated world-first, exactly
+      // like any other define rule's premises are — nested predicates that
+      // want private data still say so with their own owner prefix), which
+      // is why it runs against a world-stripped context with the owner
+      // pre-bound to whichever conclusion-owner variable the rule declared.
       if (evaluationContext.activeStore) {
-        const ownerName    = this.resolveOwnerName(evaluationContext);
-        const privateRules = this.rulesByPrivateConclusion.get(predicate.name) ?? [];
+        const ownerName = this.resolveOwnerName(evaluationContext);
+        const privateRules = (this.rulesByPrivateConclusion.get(predicate.name) ?? [])
+          // A ground-owner conclusion (`=> alice.pred(...)`) only ever
+          // applies to that one entity's store — unlike a variable-owner
+          // conclusion, there's no unification to reject a mismatch with,
+          // so it has to be filtered here explicitly.
+          .filter(rule => rule.conclusionOwnerEntity === null || rule.conclusionOwnerEntity === ownerName);
         if (ownerName !== null && privateRules.length > 0) {
+          const proofContext = evaluationContext.scopedToStore(null);
           const ownerBinding = this.buildOwnerBinding(privateRules, ownerName);
           const paths = this.backwardChainer.run(
             predicate.name, resolvedArgs, privateRules, proofContext,
@@ -86,13 +92,25 @@ export class DerivedFactQueryHandler extends QueryHandler {
         }
       }
 
-      // World-level rules: used for world queries and as fallback for private
-      // queries that have no matching private-conclusion rules.
+      // World-level rules: used for world queries and as fallback for
+      // private queries with no matching private-conclusion rule. Runs
+      // against the CALLER's own context, not forced to world — a derived
+      // predicate works like any other predicate here: its definition's
+      // premises see whatever store the caller's query was actually scoped
+      // to (including an explicit `?OWNER.` prefix with no dedicated
+      // private-conclusion rule authored for it), and each premise's own
+      // owner-prefix — or lack of one — governs from there, the same way a
+      // plain FactPredicate/NumericTierPredicate nested inside a
+      // PrivatePredicate already does. Forcing world here regardless would
+      // make `?OWNER.derivedPred(...)` a silent no-op whenever no dedicated
+      // private-conclusion rule exists — indistinguishable from `?OWNER`
+      // being wrong or absent, since the query would just quietly answer
+      // from world instead. See docs/private-stores.md.
       if (!result) {
         const rules = this.rulesByConclusion.get(predicate.name) ?? [];
         if (rules.length > 0) {
           const paths = this.backwardChainer.run(
-            predicate.name, resolvedArgs, rules, proofContext,
+            predicate.name, resolvedArgs, rules, evaluationContext,
             new Binding(), this.proofInProgress, { findAll: false }
           );
           if (paths.length > 0) {
@@ -100,7 +118,7 @@ export class DerivedFactQueryHandler extends QueryHandler {
             this.proofPathCache.set(cacheKey, paths[0]);
           }
         } else if (this.derivations.has(predicate.name)) {
-          result = this.derivations.get(predicate.name)(resolvedArgs, proofContext);
+          result = this.derivations.get(predicate.name)(resolvedArgs, evaluationContext);
         }
       }
     } finally {

@@ -77,12 +77,15 @@ export class DerivationRuleLoader {
   buildDeriveRule(data) {
     const premiseEntries = data.predicates.map(entry => this.ruleLoader.buildPredicateEntry(entry));
 
-    let conclusionNode   = data.conclusion;
-    let conclusionOwnerVar = null;
+    let conclusionNode      = data.conclusion;
+    let conclusionOwnerVar    = null;
+    let conclusionOwnerEntity = null;
 
     if (conclusionNode.type === 'private') {
       if (conclusionNode.ownerVar) {
         conclusionOwnerVar = new LogicalVariable(conclusionNode.ownerVar.slice(1));
+      } else if (conclusionNode.ownerEntity) {
+        conclusionOwnerEntity = conclusionNode.ownerEntity;
       }
       conclusionNode = conclusionNode.predicate;
     }
@@ -102,6 +105,6 @@ export class DerivationRuleLoader {
     }
 
     const conclusion = this.ruleLoader.buildPredicate({ ...conclusionNode, type: 'derived' });
-    return new DerivationRule(data.name, premiseEntries, conclusion, conclusionOwnerVar);
+    return new DerivationRule(data.name, premiseEntries, conclusion, conclusionOwnerVar, conclusionOwnerEntity);
   }
 }

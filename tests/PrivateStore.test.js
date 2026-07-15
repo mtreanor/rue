@@ -31,9 +31,18 @@ describe('Private stores in logic', () => {
     assert.equal(result.length, 1);
   });
 
-  it('returns false when the owner variable is unbound', () => {
+  it('enumerates every agent whose private store has the fact, when the owner variable is otherwise free', () => {
+    // The owner is a variable of this predicate like any other — it gets
+    // enumerated the same way ?X/?Y would, not treated as a special
+    // never-auto-bound slot. alice and carol both privately hold
+    // perceivedThreat(carol, alice) (carol's positive belief coexists with
+    // an explicit disbelief under her store's allow policy — see the weak-
+    // negation tests below); bob's store has no such record.
     const engine = new Engine(dataDir);
-    assert.deepEqual(engine.query('?OWNER.perceivedThreat(carol, alice)'), []);
+    const owners = engine.query('?OWNER.perceivedThreat(carol, alice)')
+      .map(b => { const v = b.assignments.get('OWNER'); return v?.name ?? v; })
+      .sort();
+    assert.deepEqual(owners, ['alice', 'carol']);
   });
 
   it('returns false when the owner has no private store', () => {

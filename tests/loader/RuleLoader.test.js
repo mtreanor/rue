@@ -415,8 +415,12 @@ describe('RuleLoader', () => {
       return warnings;
     }
 
-    it('warns when a private-store owner variable appears nowhere in the predicate args', () => {
-      // ?Z is the owner but only appears as a prefix — never in (?X, ?Y) args
+    it('does not warn when a positive private-store owner appears nowhere in the predicate args — it is auto-enumerated like any other free variable', () => {
+      // ?Z is the owner and never appears in (?X, ?Y) — this used to be
+      // exactly the shape that left ?Z permanently unbound (PrivatePredicate
+      // didn't report its own owner via getVariables()). It's now a variable
+      // of the predicate like any other, so it enumerates correctly instead
+      // of warning.
       const warnings = captureWarnings(() => loader.load(rulesetOf([{
         name: 'check-belief',
         predicates: [
@@ -425,9 +429,7 @@ describe('RuleLoader', () => {
         ],
         effects: [{ type: 'adjust-numeric', name: 'friendship', args: ['?X', '?Y'], delta: 1.0 }],
       }])));
-      assert.ok(warnings.length > 0);
-      assert.ok(warnings[0].includes('?Z'));
-      assert.ok(warnings[0].includes('never be bound'));
+      assert.strictEqual(warnings.length, 0);
     });
 
     it('does not warn when the owner variable appears in the inner predicate args', () => {

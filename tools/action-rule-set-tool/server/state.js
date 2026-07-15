@@ -234,8 +234,17 @@ export function serializeProof(node, maxDepth, depth = 0) {
   };
 }
 
+// A wildcard-bound arg (`_` in the DSL) resolves to `null`/`undefined` by
+// the time it reaches here (toFactArg's identity pass-through for a
+// non-object value) — Array.join() renders that as an EMPTY string, not the
+// literal `_`, which produces invalid klugh syntax the moment the hole
+// isn't in the trailing position (`pred(a, , b)` — a bare double-comma the
+// parser rejects outright, not merely a fact with a missing arg). Render it
+// back as `_` so the text stays valid regardless of which position the
+// wildcard was in.
 function factText({ name, args }) {
-  return `${name}(${(args ?? []).join(', ')})`;
+  const rendered = (args ?? []).map(a => (a == null ? '_' : a));
+  return `${name}(${rendered.join(', ')})`;
 }
 
 function proofForEngine(engine, fact, maxDepth) {
@@ -264,9 +273,13 @@ export function explainFact(scenario, fact) {
 
 // Run a query (predicate conjunction, with variables and any time brackets),
 // optionally scoped to an owner's private store. Returns the free-variable
-// names and one row of bindings per satisfying combination.
-export function runQueryForEngine(engine, text, scopedTo = null) {
-  const bindings = engine.query(text, {}, { scopedTo });
+// names and one row of bindings per satisfying combination. `partialBinding`
+// pre-binds variables (e.g. a pinned view's `[when: ?tick]` variable to the
+// session's current tick — see PlaySession.runViews) the same way any other
+// engine.query() caller pre-binds a role variable; it's plain pass-through,
+// not a new query mechanism.
+export function runQueryForEngine(engine, text, scopedTo = null, partialBinding = {}) {
+  const bindings = engine.query(text, partialBinding, { scopedTo });
   const vars = new Set();
   const rows = bindings.map(b => {
     const row = {};

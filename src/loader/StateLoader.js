@@ -29,11 +29,16 @@ export class StateLoader {
   applyEntry(entry, defaultStore, groundBinding, world) {
     if (entry.tick !== undefined) {
       // Backdating must preserve the fact's value (set-numeric) and polarity
-      // (-pred) just like the non-backdated path does.
+      // (-pred) just like the non-backdated path does — and, like that path,
+      // must resolve to whichever store an inline owner prefix names, not
+      // unconditionally the surrounding block's own store. A
+      // `?bob.trust(alice, bob) [tick: -3]` line inside a `private alice`
+      // block used to silently land in alice's store instead of bob's.
       const fact = entry.type === 'set-numeric'
         ? Fact.withValue(entry.name, entry.args, entry.value)
         : new Fact(entry.name, ...entry.args, { negated: entry.negated ?? false });
-      defaultStore.assertAt(fact, entry.tick, null, entry.strength ?? 1.0);
+      const targetStore = this.resolveBackdateTargetStore(entry, defaultStore, world);
+      targetStore.assertAt(fact, entry.tick, null, entry.strength ?? 1.0);
       return;
     }
 
@@ -45,6 +50,29 @@ export class StateLoader {
       targetFactStore,
       world,
     });
+  }
+
+  // Mirrors applyStateChange's own owner resolution (getTargetStores) for
+  // the one case a backdated state-file entry can actually carry: a ground
+  // entity name. A variable owner (`?VAR.pred(...)`) is syntactically
+  // reachable here (parseOwnerPrefix is used generically for every state
+  // assertion) but state files have no runtime binding to resolve it
+  // against — groundBinding is always empty — so it can only ever be a
+  // genuine authoring mistake, not a legitimate use, and fails loudly
+  // rather than silently landing in the wrong store.
+  resolveBackdateTargetStore(entry, defaultStore, world) {
+    if (!entry.ownerVar && !entry.ownerEntity) return defaultStore;
+    if (entry.ownerVar) {
+      throw new Error(
+        `Cannot backdate "${entry.name}(...)" [tick: ${entry.tick}]: owner ${entry.ownerVar} is a variable, ` +
+        `but state files have no binding to resolve it against — use a ground entity name.`
+      );
+    }
+    const store = world.getPrivateStore(entry.ownerEntity);
+    if (!store) {
+      throw new Error(`Cannot backdate "${entry.name}(...)" [tick: ${entry.tick}]: entity "${entry.ownerEntity}" has no private store.`);
+    }
+    return store;
   }
 }
 

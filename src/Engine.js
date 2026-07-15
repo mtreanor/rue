@@ -490,7 +490,7 @@ export class Engine {
 
     if (this.schema.getDefinition(name)?.type === 'numeric') {
       const numeric = this.world.queryHandlers.getHandler('numeric');
-      const record  = numeric?.getRecord(name, args);
+      const record  = numeric?.getRecord(name, args, this._scopedContext(scopedTo));
       return record ? record.events : [];
     }
 
@@ -498,6 +498,19 @@ export class Engine {
       ? this.world.getPrivateStore(scopedTo) ?? this.world.factStore
       : this.world.factStore;
     return store.getRecords(name, args).flatMap(record => record.currentReasons());
+  }
+
+  // An evaluation context scoped to `scopedTo`'s private store when given
+  // (and it exists) — the world context otherwise. Shared by why()/explain()
+  // so a numeric fact's history and its recursive proof both resolve against
+  // the same store a fact's *value* would — see NumericStateQueryHandler.
+  _scopedContext(scopedTo) {
+    let ctx = this.world.createEvaluationContext();
+    if (scopedTo) {
+      const store = this.world.getPrivateStore(scopedTo);
+      if (store) ctx = ctx.scopedToStore(store);
+    }
+    return ctx;
   }
 
   // Like why(), but returns the full recursive proof tree behind a ground fact:
@@ -508,11 +521,7 @@ export class Engine {
   // scopedTo: entity name — if provided, look in that entity's private store.
   explain(factText, { scopedTo = null } = {}) {
     const { name, args } = this._groundFact(factText);
-    let ctx = this.world.createEvaluationContext();
-    if (scopedTo) {
-      const store = this.world.getPrivateStore(scopedTo);
-      if (store) ctx = ctx.scopedToStore(store);
-    }
+    const ctx = this._scopedContext(scopedTo);
     if (this.schema.getDefinition(name)?.type === 'numeric') {
       return proofNodeForNumeric(name, args, ctx);
     }

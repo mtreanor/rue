@@ -4,6 +4,9 @@ import { LogicalVariable } from './LogicalVariable.js';
 import { bindingSatisfiesDistinctArguments } from './DistinctArguments.js';
 import { inferVariableTypes } from './inferVariableTypes.js';
 import { toFactArg } from './entityValue.js';
+import { WhenPredicate } from './predicates/WhenPredicate.js';
+import { PrivatePredicate } from './predicates/PrivatePredicate.js';
+import { scopeToOwner } from './predicates/resolveOwnerScope.js';
 
 export class RuleEvaluator {
   constructor({ minimumSatisfactionScore = 0 } = {}) {
@@ -150,18 +153,45 @@ export class RuleEvaluator {
 
   // Candidate ticks for a [when: ?t] variable — the union of assertion ticks
   // from every predicate whose tick variable is this one, with the sibling args
-  // resolved against the current partial binding.
+  // resolved against the current partial binding. Looks through a
+  // PrivatePredicate wrapper (`?OWNER.pred(...) [when: ?t]`) to find the
+  // WhenPredicate inside, threading the owner-scoped context through so the
+  // candidate ticks come from the SAME store the point-check at evaluation
+  // time will read from — a top-level `predicate.tickVar` check alone would
+  // never recognize a wrapped WhenPredicate as a tick source at all (it has
+  // no .tickVar of its own), silently enumerating zero ticks regardless of
+  // whether the owner's store actually has the fact.
   tickCandidates(variable, predicateEntries, startingBinding, evaluationContext) {
     if (!predicateEntries || !evaluationContext) return [];
     const seen  = new Set();
     const ticks = [];
     for (const { predicate } of predicateEntries) {
-      if (predicate.tickVar?.name !== variable.name) continue;
-      for (const t of predicate.assertionTicks(startingBinding, evaluationContext)) {
-        if (!seen.has(t)) { seen.add(t); ticks.push(t); }
+      for (const { pred, ctx } of this.whenPredicatesIn(predicate, startingBinding, evaluationContext)) {
+        if (pred.tickVar?.name !== variable.name) continue;
+        for (const t of pred.assertionTicks(startingBinding, ctx)) {
+          if (!seen.has(t)) { seen.add(t); ticks.push(t); }
+        }
       }
     }
     return ticks;
+  }
+
+  // Yields every WhenPredicate reachable from `predicate`, paired with the
+  // evaluationContext it should actually run against — unwrapping a
+  // PrivatePredicate re-scopes the context per layer, mirroring
+  // PrivatePredicate.evaluate()'s own owner resolution exactly. Other
+  // wrapper shapes (negation forms) are deliberately not unwrapped: a
+  // [when:] variable inside a negation isn't meaningfully enumerable, same
+  // "negation can't bind" principle as everywhere else in this evaluator.
+  *whenPredicatesIn(predicate, binding, evaluationContext) {
+    if (predicate instanceof WhenPredicate) {
+      yield { pred: predicate, ctx: evaluationContext };
+      return;
+    }
+    if (predicate instanceof PrivatePredicate) {
+      const scopedContext = scopeToOwner(predicate.owner, predicate.isVariable, binding, evaluationContext);
+      yield* this.whenPredicatesIn(predicate.innerPredicate, binding, scopedContext);
+    }
   }
 
   distinctArgValuesForVariable(variable, predicateEntries, startingBinding, evaluationContext) {

@@ -192,5 +192,96 @@ describe('ComparisonPredicate', () => {
       const names = pred.getVariables().map(v => v.name).sort();
       assert.deepEqual(names, ['X', 'Y']);
     });
+
+    it('includes a variable owner from either operand', () => {
+      const X     = new LogicalVariable('X');
+      const OWNER = new LogicalVariable('OWNER');
+      const owned = num('health', [X]);
+      owned.owner = OWNER;
+      owned.ownerIsVariable = true;
+      const pred = new ComparisonPredicate('numeric', owned, '>', num('stamina', ['bob']));
+      const names = pred.getVariables().map(v => v.name).sort();
+      assert.deepEqual(names, ['OWNER', 'X']);
+    });
+  });
+
+  // Regression coverage for a real bug: ComparisonPredicate used to read
+  // both operands through one shared evaluationContext, so an outer
+  // PrivatePredicate wrapping the whole comparison (or, before the fix, no
+  // grammar path for a second, independent owner at all) forced whichever
+  // owner prefixed one side onto the other side too — even a side written
+  // with no prefix at all. Two operands of one comparison are two different
+  // facts and must resolve against two independently-scoped contexts.
+  describe('per-operand private-store scoping (owner)', () => {
+    function buildPrivateContext() {
+      const worldStore = new FactStore();
+      const numericHandler = new NumericStateQueryHandler(worldStore, schema);
+      const queryHandlers = new QueryHandlers();
+      queryHandlers.register('numeric', numericHandler);
+      queryHandlers.register('factStore', new FactStoreQueryHandler(worldStore, schema));
+
+      const aliceStore = new FactStore();
+      const bobStore   = new FactStore();
+      const privateStores = new Map([['alice', aliceStore], ['bob', bobStore]]);
+      const ctx = new EvaluationContext(queryHandlers, { predicateSchema: schema, privateStores });
+
+      numericHandler.setValue('health', ['carol'], 85);                                          // world
+      numericHandler.setValue('health', ['carol'], 85, ctx.scopedToStore(aliceStore));            // alice's private opinion — same value as world
+      numericHandler.setValue('health', ['carol'], 5,  ctx.scopedToStore(bobStore));              // bob's private opinion — different
+
+      return { ctx, numericHandler };
+    }
+
+    it('a world-scoped operand does not read the other operand\'s owner store', () => {
+      // ?OWNER.health(carol) > health(carol), OWNER=alice: LHS (alice's
+      // private store) is 85, RHS (world, unprefixed) is also 85 — not
+      // greater, so this must be false. The bug would have scoped the RHS
+      // to alice's store too, but the comparison is against the SAME
+      // store's SAME value either way, so this case alone can't distinguish
+      // correct from buggy — see the next test for that.
+      const { ctx } = buildPrivateContext();
+      const left  = num('health', ['carol']); left.owner = 'alice'; left.ownerIsVariable = false;
+      const right = num('health', ['carol']); // no owner — must read world
+      const pred  = new ComparisonPredicate('numeric', left, '>', right);
+      assert.ok(!pred.evaluate(new Binding(), ctx));
+    });
+
+    it('an unprefixed operand reads world even when the OTHER operand is privately scoped to a store with a different value for the same name+args', () => {
+      // The actual bug: bob's private health(carol) is 5, world's is 85.
+      // ?OWNER.health(carol) > health(carol), OWNER=bob must compare bob's
+      // 5 against WORLD's 85 (false) — a buggy implementation that scopes
+      // both sides to bob's store would compare 5 > 5 (false too, by
+      // coincidence) or, for a genuinely asymmetric case, silently read the
+      // wrong store. Assert the RHS reads world's value directly instead of
+      // relying on inequality alone.
+      const { ctx, numericHandler } = buildPrivateContext();
+      const worldValue = numericHandler.getValue('health', ['carol']); // 85, unscoped
+      const left  = num('health', ['carol']); left.owner = 'bob'; left.ownerIsVariable = false;
+      const right = num('health', ['carol']);
+      const pred  = new ComparisonPredicate('numeric', left, '=', right);
+      // bob's private value (5) must NOT equal world's value (85) — proves
+      // the RHS actually read world, not bob's store.
+      assert.notEqual(worldValue, 5);
+      assert.ok(!pred.evaluate(new Binding(), ctx));
+    });
+
+    it('two operands independently scoped to two different owners each read their own store', () => {
+      const { ctx } = buildPrivateContext();
+      const left  = num('health', ['carol']); left.owner = 'bob';   left.ownerIsVariable = false;   // 5
+      const right = num('health', ['carol']); right.owner = 'alice'; right.ownerIsVariable = false;  // 85
+      const pred  = new ComparisonPredicate('numeric', left, '<', right);
+      assert.ok(pred.evaluate(new Binding(), ctx)); // 5 < 85
+    });
+
+    it('a variable owner resolves per-side from the binding, independently', () => {
+      const { ctx } = buildPrivateContext();
+      const OWNER1 = new LogicalVariable('OWNER1');
+      const OWNER2 = new LogicalVariable('OWNER2');
+      const left  = num('health', ['carol']); left.owner = OWNER1; left.ownerIsVariable = true;
+      const right = num('health', ['carol']); right.owner = OWNER2; right.ownerIsVariable = true;
+      const pred  = new ComparisonPredicate('numeric', left, '<', right);
+      const binding = new Binding().extend(OWNER1, { name: 'bob' }).extend(OWNER2, { name: 'alice' });
+      assert.ok(pred.evaluate(binding, ctx)); // bob=5 < alice=85
+    });
   });
 });

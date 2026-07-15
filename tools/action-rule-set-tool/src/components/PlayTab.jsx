@@ -29,6 +29,7 @@ export default function PlayTab({ scenario, highlighter }) {
   const [ctlAgents, setCtlAgents] = useState([]);
   const [ctlStages, setCtlStages] = useState([]);
   const [showState, setShowState] = useState(false);
+  const [views, setViews] = useState([]);            // this scenario's play.json `views`, re-run each tick
   const [stateSource, setStateSource] = useState('play'); // 'authored' | 'play'
   const [predsByName, setPredsByName] = useState(new Map());
   const [newPhaseKind, setNewPhaseKind] = useState('pipeline'); // 'pipeline' | 'ruleset'
@@ -80,6 +81,15 @@ export default function PlayTab({ scenario, highlighter }) {
       setPredsByName(new Map((data?.predicates ?? []).map(p => [p.name, p])));
     }).catch(() => {});
   }, [scenario]);
+
+  // The scenario's declared views (play.json), re-run every time the live
+  // session's tick advances — same "always current" convention as the
+  // embedded state browser's stateSourceKey below. No views declared is a
+  // silent no-op, not an error (a scenario opts in by adding the field).
+  useEffect(() => {
+    if (!session?.exists) { setViews([]); return; }
+    api.playViews(scenario).then(setViews).catch(() => {});
+  }, [scenario, session?.exists, session?.tick]);
 
   // Loads a tick's trace on demand and focuses it — from the local cache if a
   // prior fetch (this mount or an earlier one) already has it, else from the
@@ -425,6 +435,15 @@ export default function PlayTab({ scenario, highlighter }) {
         </div>
       )}
 
+      {session?.exists && views.length > 0 && (
+        <div className="play-views">
+          {views.map(view => view.kind === 'judgements'
+            ? <JudgementsPanel key={view.label} view={view} scenario={scenario} onExplain={showExplain} highlighter={highlighter} />
+            : <PinnedView key={view.label} view={view} onExplain={showExplain} highlighter={highlighter} />
+          )}
+        </div>
+      )}
+
       {session?.exists && (
         <div className="play-control-config">
           <div className="play-chip-row">
@@ -638,6 +657,118 @@ export default function PlayTab({ scenario, highlighter }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Pinned views ──────────────────────────────────────────────────────────────
+//
+// A scenario's play.json `views` are just named queries — nothing here knows
+// what "groups" or "topics" mean, only how to run a query and render a row.
+// The predicate name isn't part of the view's row data (runQueryForEngine
+// returns plain { var: value } bindings, not a reconstructed fact), so it's
+// pulled from the leading identifier of the view's own query text — safe for
+// the single-predicate queries this feature is meant for; a view author
+// writing a multi-predicate conjunction would get a misleading name here,
+// which is a reason to keep pinned views to single predicates, not a case
+// this needs to handle.
+
+function queryPredicateName(query) {
+  return query.match(/^\s*([\w-]+)\(/)?.[1] ?? query;
+}
+
+function PinnedView({ view, onExplain, highlighter }) {
+  const name = queryPredicateName(view.query);
+  return (
+    <div className="play-view">
+      <div className="play-view-label">{view.label} <span className="dim tiny-note">({view.count})</span></div>
+      {view.count === 0
+        ? <div className="dim tiny-note">none</div>
+        : (
+          <div className="play-view-rows">
+            {view.rows.map((row, i) => (
+              <PredicateView
+                key={i} name={name} args={view.vars.map(v => row[v])}
+                highlighter={highlighter} onExplain={onExplain}
+              />
+            ))}
+          </div>
+        )}
+    </div>
+  );
+}
+
+// The one pinned-view shape that isn't a flat row list: "who judged what as
+// what" is inherently one occurrence with several judges, each reading it
+// from their own private store — a flat table of (judge, occurrence) rows
+// would bury that structure. Built on the same view (kind: 'judgements',
+// giving the this-tick (judge, occurrence) pairs via judged(?J,?O)) plus two
+// follow-up query patterns already established elsewhere in this codebase:
+// role(occ, SELF, actor) for who acted (act-step-consequences.klugh's own
+// anchor), and a bound-owner judgement(judge, occ, ?reading) scoped query per
+// (judge, occurrence) pair — the same pattern ConsoleSocialReporter.
+// attribution() uses, which sidesteps owner-free-variable enumeration
+// entirely by binding the owner before asking, rather than relying on it
+// being auto-enumerated (which private-store predicates never are — see
+// docs/private-stores.md's "Owner binding" section).
+function JudgementsPanel({ view, scenario, onExplain, highlighter }) {
+  const [readings, setReadings] = useState({}); // "judge\0occ" -> reading | null (loading)
+  const [actors, setActors] = useState({});     // occ -> actor name | undefined (loading)
+
+  // Named, not positional: `vars`' order reflects binding-assignment order,
+  // not query-text order — a `tickBound` variable (pre-bound via
+  // partialBinding) lands first regardless of where it appears in the query
+  // text, so index [0]/[1] would silently grab the wrong columns. The view's
+  // query is authored as `judged(?J, ?O) [when: ?t]` — J/O are known names,
+  // not inferred from position.
+  const pairs = view.rows.map(row => ({ judge: row.J, occ: row.O }));
+  const pairKey = pairs.map(p => `${p.judge}\0${p.occ}`).join('|');
+  const occs = [...new Set(pairs.map(p => p.occ))];
+
+  useEffect(() => {
+    let cancelled = false;
+    for (const occ of occs) {
+      api.playQuery(scenario, `role(${occ}, SELF, ?A)`).then(({ rows }) => {
+        if (!cancelled) setActors(prev => ({ ...prev, [occ]: rows[0]?.A ?? null }));
+      }).catch(() => {});
+    }
+    for (const { judge, occ } of pairs) {
+      api.playQuery(scenario, `judgement(${judge}, ${occ}, ?R)`, judge).then(({ rows }) => {
+        if (!cancelled) setReadings(prev => ({ ...prev, [`${judge}\0${occ}`]: rows[0]?.R ?? null }));
+      }).catch(() => {});
+    }
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenario, pairKey]);
+
+  return (
+    <div className="play-view">
+      <div className="play-view-label">{view.label} <span className="dim tiny-note">({occs.length})</span></div>
+      {occs.length === 0
+        ? <div className="dim tiny-note">none</div>
+        : occs.map(occ => (
+          <details key={occ} className="play-judgement-occurrence">
+            <summary>
+              {actors[occ] === undefined ? '…' : (actors[occ] ?? '?')} — {occ}
+            </summary>
+            <div className="play-view-rows">
+              {pairs.filter(p => p.occ === occ).map(({ judge }) => {
+                const reading = readings[`${judge}\0${occ}`];
+                return (
+                  <div key={judge}>
+                    {judge} read it as{' '}
+                    {reading === undefined
+                      ? '…'
+                      : <PredicateView
+                          name="judgement" args={[judge, occ, reading]} owner={judge}
+                          text={reading ?? '(no reading)'} highlighter={highlighter} onExplain={onExplain}
+                        />}
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        ))}
     </div>
   );
 }

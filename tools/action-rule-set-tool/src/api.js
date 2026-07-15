@@ -63,6 +63,7 @@ export const api = {
   playFacts: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/facts`).then(r => r.data.facts ?? []),
   playEntities: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/entities`).then(r => r.data.entities ?? []),
   playQuery: (name, text, scopedTo = null) => req('POST', `/api/play/${encodeURIComponent(name)}/query`, { text, scopedTo }).then(r => r.data),
+  playViews: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/views`).then(r => r.data.views ?? []),
   playAssert: (name, text) => req('POST', `/api/play/${encodeURIComponent(name)}/assert`, { text }).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data.facts ?? []; }),
   playDelete: (name, fact) => req('POST', `/api/play/${encodeURIComponent(name)}/delete`, fact).then(r => r.data.facts ?? []),
   playWhy: (name, fact) => req('POST', `/api/play/${encodeURIComponent(name)}/why`, fact).then(r => r.data),

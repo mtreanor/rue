@@ -94,3 +94,44 @@ describe('Proof trees (engine.explain)', () => {
     assert.equal(text.includes('[cycle]'), false);
   });
 });
+
+// why()/explain() must resolve a numeric fact's history against the SAME
+// store scopedTo names, not always world — regression coverage for a bug
+// where both methods accepted `scopedTo` but the numeric branch silently
+// ignored it, always reading world's copy of the record regardless (see
+// NumericStateQueryHandler.js's getRecord()).
+describe('Proof trees — scopedTo resolves the numeric branch too', () => {
+  let engine;
+
+  beforeEach(() => {
+    engine = new Engine({
+      predicates: { predicates: { friendship: { type: 'numeric', args: ['agent', 'agent'], minValue: 0, maxValue: 100, default: 0 } } },
+      entities:   { agent: { alice: {}, bob: {}, carol: {} } },
+    });
+    const numeric = engine.world.queryHandlers.getHandler('numeric');
+    const aliceStore = engine.world.registerPrivateStore('alice');
+    const aliceCtx   = engine.world.createEvaluationContext().scopedToStore(aliceStore);
+    numeric.setValue('friendship', ['bob', 'carol'], 10);          // world's copy
+    numeric.setValue('friendship', ['bob', 'carol'], 77, aliceCtx); // alice's own private opinion
+  });
+
+  it('why() with no scopedTo reads the world record', () => {
+    const events = engine.why('friendship(bob, carol)');
+    assert.deepEqual(events.map(e => e.value), [10]);
+  });
+
+  it('why() with scopedTo reads that owner\'s own record, not world\'s', () => {
+    const events = engine.why('friendship(bob, carol)', { scopedTo: 'alice' });
+    assert.deepEqual(events.map(e => e.value), [77]);
+  });
+
+  it('explain() with no scopedTo builds the proof tree from the world record', () => {
+    const node = engine.explain('friendship(bob, carol)');
+    assert.match(node.statement, /= 10$/);
+  });
+
+  it('explain() with scopedTo builds the proof tree from that owner\'s own record', () => {
+    const node = engine.explain('friendship(bob, carol)', { scopedTo: 'alice' });
+    assert.match(node.statement, /= 77$/);
+  });
+});

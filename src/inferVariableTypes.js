@@ -46,6 +46,17 @@ function scanPredicateForTypes(pred, schema, types) {
     assignTypesFromArgs(pred.name, pred.args, schema, types);
     return;
   }
+  // PrivatePredicate (`?OWNER.pred(...)`) and WeakNegationPredicate
+  // (`~pred(...)`) both wrap another predicate via .innerPredicate and have
+  // no .name of their own — descend to infer types (including a nested
+  // WhenPredicate's tick variable — see below) from the real predicate
+  // underneath. Distinct from NegationPredicate (`not pred(...)`, wraps via
+  // .predicate instead), whose variables are deliberately NOT inferred this
+  // way — see the comment below.
+  if (pred.innerPredicate) {
+    scanPredicateForTypes(pred.innerPredicate, schema, types);
+    return;
+  }
   // NegationPredicate has no .name — variables must already be bound by positive predicates
   if (!pred.name) return;
   assignTypesFromArgs(pred.name, pred.args, schema, types);

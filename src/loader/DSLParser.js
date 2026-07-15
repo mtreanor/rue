@@ -516,6 +516,17 @@ export class DSLParser {
     const inner = this.parsePredicateBody();
 
     if (owner) {
+      // A `comparison` node already has two independent operands (`left`,
+      // and `right` with its own owner, if any, from parseComparisonTail) —
+      // wrapping the whole node in an outer `private` would scope BOTH
+      // sides to this one owner, which is wrong the moment the right side
+      // is a genuinely different fact (even a plain world one:
+      // `?OWNER.pred(x) > pred2(y)` must not read pred2 from ?OWNER's store
+      // too). This owner belongs to the LHS operand specifically, since
+      // it was parsed before `parsePredicateBody` ever saw the RHS.
+      if (inner.type === 'comparison') {
+        return { ...inner, left: { ...inner.left, ...owner } };
+      }
       return { type: 'private', ...owner, predicate: inner };
     }
     return inner;
@@ -606,6 +617,12 @@ export class DSLParser {
       const right = this.parseAggregateExpr();
       return { type: 'pred-aggregate-comparison', left: { name, args }, operator, right };
     }
+    // The RHS gets its own, independent owner prefix — `pred(x) > ?OTHER.pred2(y)`
+    // reads pred2 from ?OTHER's own store while pred stays world-scoped (or
+    // whatever the LHS's own owner, attached by the caller, resolves to).
+    // Two operands of one comparison are not the same fact and must not be
+    // forced into one shared scope.
+    const rhsOwner = this.parseOwnerPrefix();
     const rhsName = this.expect('IDENT').value;
     this.expect('LPAREN');
     const rhsArgs = this.parseArgs();
@@ -614,7 +631,7 @@ export class DSLParser {
       type: 'comparison',
       left:  { name, args },
       operator,
-      right: { name: rhsName, args: rhsArgs },
+      right: { name: rhsName, args: rhsArgs, ...(rhsOwner ?? {}) },
     };
   }
 
@@ -683,20 +700,29 @@ export class DSLParser {
       return { type: 'record', bindVar };
     }
 
-    // 'not' means retract; 'not -' means retract the negated fact
+    // 'not' means retract; 'not -' means retract the negated fact. The
+    // minus can appear on either side of an owner prefix — `not
+    // -?SELF.pred(...)` and `not ?SELF.-pred(...)` are both accepted,
+    // matching the premise-side grammar (parsePredicate already accepts
+    // both orderings for `not`/`~`/explicit negation) — an effect
+    // shouldn't be pickier about ordering than the premise it mirrors.
     if (this.check('IDENT', 'not')) {
       this.advance();
-      const negated = this.check('MINUS') ? (this.advance(), true) : false;
+      let negated = this.check('MINUS') ? (this.advance(), true) : false;
       const owner = this.parseOwnerPrefix();
+      if (!negated && this.check('MINUS')) { this.advance(); negated = true; }
       const { name, args } = this.parseNameAndArgs();
       return { type: 'retract', name, args, negated, ...this.ownerFields(owner) };
     }
 
-    const owner = this.parseOwnerPrefix();
+    let owner = this.parseOwnerPrefix();
 
-    // '-pred' means assert with negated: true
+    // '-pred' means assert with negated: true — same either-order owner
+    // support as the `not` branch above: `-?SELF.pred(...)` (minus first)
+    // and `?SELF.-pred(...)` (owner first) both parse.
     if (this.check('MINUS')) {
       this.advance();
+      owner = owner ?? this.parseOwnerPrefix();
       const { name, args } = this.parseNameAndArgs();
       return { type: 'assert', name, args, negated: true, ...this.ownerFields(owner), strength: 1.0 };
     }

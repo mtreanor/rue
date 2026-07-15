@@ -590,6 +590,17 @@ input.dsl-input-highlighted {
 
 .banner.warn { background: #3a3320; color: var(--warn); border: 1px solid #5a4d28; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
 
+.play-views { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.play-view {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; min-width: 180px; flex: 1;
+}
+.play-view-label { font-weight: 600; margin-bottom: 6px; }
+.play-view-rows { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.play-judgement-occurrence { margin-bottom: 6px; }
+.play-judgement-occurrence summary { cursor: pointer; font-size: 13px; }
+.play-judgement-occurrence .play-view-rows { margin: 4px 0 4px 14px; }
+
 .play-control-config { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
 .play-chip-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 3px 0; }
 .chip {

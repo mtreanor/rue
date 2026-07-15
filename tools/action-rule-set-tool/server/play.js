@@ -316,6 +316,35 @@ class PlaySession {
   whyFact(fact)             { return whyFactForEngine(this.engine, fact); }
   explainFact(fact)         { return explainFactForEngine(this.engine, fact); }
 
+  // A scenario's play.json can declare `views`: named, always-on queries
+  // (label + DSL text) re-run against this session's live engine — "who's in
+  // which group," "what's each group's active topic," and so on, rendered
+  // generically by the Play tab via the same PredicateView/explain machinery
+  // every fact row already uses (see PlayTab.jsx's PinnedViewsPanel). Nothing
+  // scenario-specific lives in the tool itself — a view is just a query the
+  // scenario author wrote, the same way a rule or an action is.
+  //
+  // `tickBound`, when set on a view, pre-binds that query variable to the
+  // session's current tick — e.g. `{ query: "judged(?J, ?O) [when: ?t]",
+  // tickBound: "t" }` becomes "judged this tick, exactly," not "ever judged."
+  // Plain pass-through into engine.query()'s existing partialBinding
+  // mechanism (runQueryForEngine), not a new query feature.
+  runViews() {
+    const views = this.playConfig.views ?? [];
+    const tick  = this.engine.world.tickTracker.currentTick;
+    return views.map(view => {
+      const partialBinding = view.tickBound ? { [view.tickBound]: tick } : {};
+      // label/query/kind pass straight through from the config — the client
+      // needs `query` itself (PinnedView derives the predicate name from it
+      // to render each row) and `kind` (routes 'judgements' views to the
+      // rollup component), not just this run's results.
+      return {
+        label: view.label, query: view.query, kind: view.kind ?? null,
+        ...runQueryForEngine(this.engine, view.query, null, partialBinding),
+      };
+    });
+  }
+
   _serializeRequest(request) {
     return {
       tick:       request.tick,

@@ -9,6 +9,13 @@ export class NumericStateQueryHandler extends QueryHandler {
     super();
     this.factStore = factStore;
     this.schema    = schema;
+    // Map<FactStore, Map<recordKey, NumericRecord>> — a numeric fact's
+    // adjustment history belongs to whichever store (world or a specific
+    // private store) it was actually written in. Two stores holding the same
+    // name+args (two agents' differing private opinions of the same
+    // predicate, or a private override coexisting with the world default)
+    // must never share one ledger; see getRecord()'s header for how reads
+    // resolve the right sub-map.
     this._records  = new Map();
   }
 
@@ -61,7 +68,7 @@ export class NumericStateQueryHandler extends QueryHandler {
     const clamped   = this.schema.clamp(name, value);
     factStore.retract(Fact.withValue(name, args, null));
     factStore.assert(Fact.withValue(name, args, clamped));
-    const record = this._getOrCreateRecord(name, args);
+    const record = this._getOrCreateRecord(name, args, factStore);
     record.addGiven(this.factStore.currentTick, clamped, provenance ?? new GivenProvenance());
     return clamped !== current;
   }
@@ -72,7 +79,7 @@ export class NumericStateQueryHandler extends QueryHandler {
     const factStore = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
     factStore.retract(Fact.withValue(name, args, null));
     factStore.assert(Fact.withValue(name, args, clamped));
-    const record = this._getOrCreateRecord(name, args);
+    const record = this._getOrCreateRecord(name, args, factStore);
     if (record.events.length === 0) {
       record.addGiven(this.factStore.currentTick, current, new GivenProvenance());
     }
@@ -80,13 +87,27 @@ export class NumericStateQueryHandler extends QueryHandler {
     return clamped !== current;
   }
 
-  getRecord(name, args) {
-    return this._records.get(this._recordKey(name, args)) ?? null;
+  // evaluationContext resolves to a raw store the same way getValue()/
+  // setValue() already do — omitting it (or passing none) resolves to the
+  // world store. Passing the *value read's own context* here (not a fresh
+  // one) is what keeps a numeric's displayed history matching the store its
+  // displayed value actually came from; see PredicateUtilitySource,
+  // Engine.why()/explain(), and ProofTree's proofNodeForNumeric for the call
+  // sites this matters for.
+  getRecord(name, args, evaluationContext = null) {
+    const store = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
+    return this._records.get(store)?.get(this._recordKey(name, args)) ?? null;
   }
 
+  // Sweeps every store's ledger for this predicate name — called once per
+  // ephemeral predicate per tick (Engine.advanceTick), not scoped to a
+  // single store, since an ephemeral's private-store copies (if any) get
+  // wiped alongside its world copy.
   clearRecords(name) {
-    for (const key of this._records.keys()) {
-      if (key.startsWith(`${name}(`)) this._records.delete(key);
+    for (const storeRecords of this._records.values()) {
+      for (const key of storeRecords.keys()) {
+        if (key.startsWith(`${name}(`)) storeRecords.delete(key);
+      }
     }
   }
 
@@ -94,10 +115,12 @@ export class NumericStateQueryHandler extends QueryHandler {
     return `${name}(${args.join(',')})`;
   }
 
-  _getOrCreateRecord(name, args) {
+  _getOrCreateRecord(name, args, store) {
+    if (!this._records.has(store)) this._records.set(store, new Map());
+    const records = this._records.get(store);
     const key = this._recordKey(name, args);
-    if (!this._records.has(key)) this._records.set(key, new NumericRecord(name, args));
-    return this._records.get(key);
+    if (!records.has(key)) records.set(key, new NumericRecord(name, args));
+    return records.get(key);
   }
 
   wasEverInTier(name, args, tier, evaluationContext = null) {

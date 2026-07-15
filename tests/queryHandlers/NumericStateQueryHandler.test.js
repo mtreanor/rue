@@ -209,4 +209,82 @@ describe('NumericStateQueryHandler', () => {
       assert.equal(handler.getValue('topicStance', ['pets'], ctx), -3);
     });
   });
+
+  describe('store-scoped record history', () => {
+    // Two agents' own private opinions of the same name+args must never
+    // share one adjustment ledger, and neither may collide with the world
+    // store's own history for that same name+args — this is the bug fixed
+    // alongside this test (previously _records was a single flat map keyed
+    // by name+args alone, regardless of which store the value lived in).
+    function buildPrivateContext(handler, queryHandlers, privateStores, owner) {
+      return new EvaluationContext(queryHandlers, { privateStores }).scopedToStore(privateStores.get(owner));
+    }
+
+    it('keeps separate histories for the same name+args in different private stores', () => {
+      const worldStore = new FactStore();
+      const handler = buildHandler(worldStore);
+      const queryHandlers = new QueryHandlers();
+      queryHandlers.register('numeric', handler);
+
+      const aliceStore = new FactStore();
+      const bobStore   = new FactStore();
+      const privateStores = new Map([['alice', aliceStore], ['bob', bobStore]]);
+
+      const aliceCtx = buildPrivateContext(handler, queryHandlers, privateStores, 'alice');
+      const bobCtx   = buildPrivateContext(handler, queryHandlers, privateStores, 'bob');
+
+      handler.setValue('friendship', ['carol', 'dan'], 40, aliceCtx);
+      handler.setValue('friendship', ['carol', 'dan'], 90, bobCtx);
+
+      assert.equal(handler.getValue('friendship', ['carol', 'dan'], aliceCtx), 40);
+      assert.equal(handler.getValue('friendship', ['carol', 'dan'], bobCtx), 90);
+
+      const aliceRecord = handler.getRecord('friendship', ['carol', 'dan'], aliceCtx);
+      const bobRecord   = handler.getRecord('friendship', ['carol', 'dan'], bobCtx);
+      assert.notEqual(aliceRecord, bobRecord);
+      assert.deepEqual(aliceRecord.events.map(e => e.value), [40]);
+      assert.deepEqual(bobRecord.events.map(e => e.value), [90]);
+    });
+
+    it('keeps a private store\'s history separate from world\'s for the same name+args', () => {
+      const worldStore = new FactStore();
+      const handler = buildHandler(worldStore);
+      const queryHandlers = new QueryHandlers();
+      queryHandlers.register('numeric', handler);
+
+      const aliceStore = new FactStore();
+      const privateStores = new Map([['alice', aliceStore]]);
+      const aliceCtx = buildPrivateContext(handler, queryHandlers, privateStores, 'alice');
+
+      handler.setValue('friendship', ['carol', 'dan'], 10); // world, no context
+      handler.setValue('friendship', ['carol', 'dan'], 99, aliceCtx);
+
+      assert.equal(handler.getValue('friendship', ['carol', 'dan']), 10);
+      assert.equal(handler.getValue('friendship', ['carol', 'dan'], aliceCtx), 99);
+
+      const worldRecord = handler.getRecord('friendship', ['carol', 'dan']);
+      const aliceRecord = handler.getRecord('friendship', ['carol', 'dan'], aliceCtx);
+      assert.deepEqual(worldRecord.events.map(e => e.value), [10]);
+      assert.deepEqual(aliceRecord.events.map(e => e.value), [99]);
+    });
+
+    it('clearRecords sweeps a name\'s history out of every store, not just world', () => {
+      const worldStore = new FactStore();
+      const handler = buildHandler(worldStore);
+      const queryHandlers = new QueryHandlers();
+      queryHandlers.register('numeric', handler);
+
+      const aliceStore = new FactStore();
+      const privateStores = new Map([['alice', aliceStore]]);
+      const aliceCtx = buildPrivateContext(handler, queryHandlers, privateStores, 'alice');
+
+      handler.setValue('friendship', ['carol', 'dan'], 10);
+      handler.setValue('friendship', ['carol', 'dan'], 99, aliceCtx);
+
+      handler.clearRecords('friendship');
+
+      assert.equal(handler.getRecord('friendship', ['carol', 'dan']), null);
+      assert.equal(handler.getRecord('friendship', ['carol', 'dan'], aliceCtx), null);
+    });
+  });
 });

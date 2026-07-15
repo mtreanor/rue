@@ -38,7 +38,7 @@ export function proofNodeForFact(name, args, ctx, statement = describeFact(name,
 // Top-level entry: build the proof tree for a numeric fact.
 export function proofNodeForNumeric(name, args, ctx) {
   const numeric   = ctx.getHandler('numeric');
-  const record    = numeric?.getRecord?.(name, args) ?? null;
+  const record    = numeric?.getRecord?.(name, args, ctx) ?? null;
   const value     = numeric?.getValue?.(name, args, ctx) ?? null;
   const statement = `${describeFact(name, args)} = ${value}`;
   if (!record) return new ProofNode({ statement, via: 'given' });

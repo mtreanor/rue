@@ -142,4 +142,43 @@ describe('StateOperationLoader — actuator dispatch', () => {
     assert.equal(effect.numericOperation, '=');
     assert.equal(effect.value, 0);
   });
+
+  // Regression coverage for a real bug: an owner prefix on an actuator
+  // effect used to parse fine and then be silently discarded — the built
+  // StateOperation carried no owner at all, so `?SELF.alert(...)` and
+  // `alert(...)` were indistinguishable by the time they reached the
+  // actuator handler. An actuator fires against one globally-registered
+  // handler, not a specific entity's private store, so there's no correct
+  // way to honor the prefix — it must fail to load instead.
+  describe('owner-prefixed actuators are rejected at load time, not silently ignored', () => {
+    it('rejects a variable-owner prefix on a boolean actuator effect', () => {
+      const schema = new PredicateSchema(schemaData);
+      const parser = new RuleParser(schema);
+      const dsl = `ruleset "test"\n  rule "R" alert(?SELF) => ?SELF.alert(?SELF)`;
+      assert.throws(
+        () => new RuleLoader(schema).load(parser.parse(dsl)),
+        /Actuator predicate "alert" cannot be owner-prefixed/
+      );
+    });
+
+    it('rejects a variable-owner prefix on a numeric actuator effect', () => {
+      const schema = new PredicateSchema(schemaData);
+      const parser = new RuleParser(schema);
+      const dsl = `ruleset "test"\n  rule "R" alert(?SELF) => ?SELF.demoCount() += 1`;
+      assert.throws(
+        () => new RuleLoader(schema).load(parser.parse(dsl)),
+        /Actuator predicate "demoCount" cannot be owner-prefixed/
+      );
+    });
+
+    it('rejects a ground-owner prefix on an actuator effect', () => {
+      const schema = new PredicateSchema(schemaData);
+      const parser = new RuleParser(schema, { entityNames: new Set(['alice']) });
+      const dsl = `ruleset "test"\n  rule "R" alert(?SELF) => alice.alert(?SELF)`;
+      assert.throws(
+        () => new RuleLoader(schema).load(parser.parse(dsl)),
+        /Actuator predicate "alert" cannot be owner-prefixed/
+      );
+    });
+  });
 });

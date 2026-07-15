@@ -41,7 +41,20 @@ export class StateOperationLoader {
 
     const schemaType = this.predicateSchema?.getDefinition(data.name)?.type;
 
-    // Actuator dispatch — checked before fact-store operations.
+    // Actuator dispatch — checked before fact-store operations. An actuator
+    // fires against a handler registered once, globally, by name — there is
+    // no fact-store-backed notion of "whose store" it would even mean to
+    // scope that firing to (unlike an assert/adjust-numeric, which targets
+    // a concrete FactStore). An owner prefix here is a real authoring
+    // mistake, not something to silently drop and pretend never happened —
+    // reject it loudly, matching how then[N] temporal chains already
+    // reject private predicates outright rather than misbehaving quietly.
+    if ((schemaType === 'actuator' || schemaType === 'actuator-numeric') && (data.ownerVar || data.ownerEntity)) {
+      throw new Error(
+        `Actuator predicate "${data.name}" cannot be owner-prefixed (${data.ownerVar ?? data.ownerEntity}.${data.name}(...)) — ` +
+        `actuators fire against a single globally-registered handler, not a specific entity's private store.`
+      );
+    }
     if (schemaType === 'actuator') {
       const negated = (data.type === 'retract') || (data.negated ?? false);
       return new StateOperation('actuate', data.name, args, { negated });

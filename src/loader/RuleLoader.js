@@ -136,6 +136,22 @@ export class RuleLoader {
   buildPredicate(data) {
     if (data.type === 'private') {
       const inner = this.buildPredicate(data.predicate);
+      // A sensor reads a single globally-registered handler (e.g. "current
+      // time") — there's no fact-store-backed notion of "whose store" it
+      // would mean to scope that read to. The grammar accepts an owner
+      // prefix here generically (it's not special-cased out), but silently
+      // ignoring it — as SensorPredicate/SensorNumericTierPredicate/
+      // SensorNumericComparisonPredicate's evaluate() methods do, none of
+      // them ever consult evaluationContext.activeStore — would make
+      // `?OWNER.someSensor(...)` read identically regardless of OWNER, with
+      // no error to say why. Reject it loudly instead, the same way
+      // then[N] temporal chains already reject private predicates outright.
+      if (inner instanceof SensorPredicate || inner instanceof SensorNumericTierPredicate || inner instanceof SensorNumericComparisonPredicate) {
+        throw new Error(
+          `Sensor predicate "${data.predicate.name}" cannot be owner-prefixed (${data.ownerVar ?? data.ownerEntity}.${data.predicate.name}(...)) — ` +
+          `a sensor reads a single globally-registered handler, not a specific entity's private store.`
+        );
+      }
       const owner = data.ownerVar
         ? new LogicalVariable(data.ownerVar.slice(1))
         : data.ownerEntity;
@@ -222,9 +238,9 @@ export class RuleLoader {
         }
         return new ComparisonPredicate(
           leftKind,
-          { name: data.left.name,  args: this.resolveArgs(data.left.args) },
+          this.buildComparisonOperand(data.left),
           data.operator,
-          { name: data.right.name, args: this.resolveArgs(data.right.args) },
+          this.buildComparisonOperand(data.right),
         );
       }
       case 'aggregate': {
@@ -296,6 +312,28 @@ export class RuleLoader {
     if (type === 'numeric' || type === 'sensor-numeric') return 'numeric';
     if (type === 'boolean' || type === 'derived' || type === 'sensor') return 'boolean';
     throw new Error(`Predicate "${name}" (type ${type ?? 'unknown'}) cannot be used in a comparison`);
+  }
+
+  // One side of a predicate-vs-predicate `comparison` node — its own
+  // independent owner (or none), same shape/resolution as the 'private'
+  // predicate case above, since a comparison operand is scoped exactly the
+  // way a whole owner-prefixed predicate would be (see
+  // ComparisonPredicate/resolveOwnerScope.js).
+  buildComparisonOperand(side) {
+    if ((side.ownerVar || side.ownerEntity) && this.predicateSchema?.getDefinition(side.name)?.type === 'sensor-numeric') {
+      // Same reasoning as the 'private' case in buildPredicate() above — a
+      // sensor reads a single globally-registered handler, not a specific
+      // entity's private store, so an owner prefix here would silently do
+      // nothing rather than actually scope anything.
+      throw new Error(
+        `Sensor predicate "${side.name}" cannot be owner-prefixed (${side.ownerVar ?? side.ownerEntity}.${side.name}(...)) — ` +
+        `a sensor reads a single globally-registered handler, not a specific entity's private store.`
+      );
+    }
+    const owner = side.ownerVar
+      ? new LogicalVariable(side.ownerVar.slice(1))
+      : (side.ownerEntity ?? null);
+    return { name: side.name, args: this.resolveArgs(side.args), owner, ownerIsVariable: !!side.ownerVar };
   }
 
   // fn distinguishes two shapes of aggregate:

@@ -3,7 +3,15 @@ import { Fact } from './Fact.js';
 import { NumericRecord } from './NumericRecord.js';
 import { toFactArg } from './entityValue.js';
 
-const SNAPSHOT_VERSION = 1;
+// Bumped to 2: numeric records are now stored per-store (world vs. each
+// private store) rather than in one flat map keyed by name+args alone — see
+// NumericStateQueryHandler.js. A serialized record now carries an `owner`
+// (null for world, an entity name for a private store) so restore() puts it
+// back in the store it actually came from. No migration path from version 1
+// — the existing version guard below already rejects a mismatched snapshot
+// outright, which is the correct behavior for a format change, not a gap to
+// paper over.
+const SNAPSHOT_VERSION = 2;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -19,7 +27,7 @@ export function save(engine) {
     privateStores:   Object.fromEntries(
       [...world.privateStores.entries()].map(([name, store]) => [name, serializeFactStore(store)])
     ),
-    numericRecords:  numericHandler ? serializeNumericRecords(numericHandler) : [],
+    numericRecords:  numericHandler ? serializeNumericRecords(numericHandler, world) : [],
     actionLog:       world.actionLog.map(serializeActionRecord),
     planLog:         world.planLog.map(serializePlanRecord),
   };
@@ -78,7 +86,9 @@ export function restore(engine, snapshot) {
           record.addAdjustment(ev.tick, ev.delta, ev.value, deserializeProvenance(ev.provenance, recordsByKey));
         }
       }
-      numericHandler._records.set(`${sr.name}(${sr.args.join(',')})`, record);
+      const targetStore = sr.owner != null ? world.privateStores.get(sr.owner) : world.factStore;
+      if (!numericHandler._records.has(targetStore)) numericHandler._records.set(targetStore, new Map());
+      numericHandler._records.get(targetStore).set(`${sr.name}(${sr.args.join(',')})`, record);
     }
   }
 
@@ -191,21 +201,37 @@ function serializeJustification(j) {
   return out;
 }
 
-function serializeNumericRecords(handler) {
-  return [...handler._records.values()].map(record => ({
-    name:   record.name,
-    args:   record.args,
-    events: record.events.map(ev => {
-      const out = {
-        type:       ev.type,
-        tick:       ev.tick,
-        value:      ev.value,
-        provenance: serializeProvenance(ev.provenance),
-      };
-      if (ev.type === 'adjusted') out.delta = ev.delta;
-      return out;
-    }),
-  }));
+function serializeNumericRecords(handler, world) {
+  const ownerOf = store => {
+    if (store === handler.factStore) return null;
+    for (const [entityName, s] of world.privateStores) {
+      if (s === store) return entityName;
+    }
+    return null; // a store not registered as private is treated as world
+  };
+
+  const out = [];
+  for (const [store, records] of handler._records) {
+    const owner = ownerOf(store);
+    for (const record of records.values()) {
+      out.push({
+        owner,
+        name:   record.name,
+        args:   record.args,
+        events: record.events.map(ev => {
+          const serialized = {
+            type:       ev.type,
+            tick:       ev.tick,
+            value:      ev.value,
+            provenance: serializeProvenance(ev.provenance),
+          };
+          if (ev.type === 'adjusted') serialized.delta = ev.delta;
+          return serialized;
+        }),
+      });
+    }
+  }
+  return out;
 }
 
 function serializeActionRecord(ar) {

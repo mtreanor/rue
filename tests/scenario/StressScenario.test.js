@@ -92,13 +92,17 @@ function ruleContributions(world, name, args) {
   return sums;
 }
 
-// Every rule name that contributed any numeric adjustment anywhere.
+// Every rule name that contributed any numeric adjustment anywhere, across
+// every store (world and every private store — numeric records are kept
+// per-store, see NumericStateQueryHandler.js).
 function allFiringRuleNames(world) {
   const names = new Set();
-  for (const record of world.queryHandlers.getHandler('numeric')._records.values()) {
-    for (const event of record.events) {
-      if (event.type === 'adjusted' && event.provenance?.rule?.name) {
-        names.add(event.provenance.rule.name);
+  for (const storeRecords of world.queryHandlers.getHandler('numeric')._records.values()) {
+    for (const record of storeRecords.values()) {
+      for (const event of record.events) {
+        if (event.type === 'adjusted' && event.provenance?.rule?.name) {
+          names.add(event.provenance.rule.name);
+        }
       }
     }
   }

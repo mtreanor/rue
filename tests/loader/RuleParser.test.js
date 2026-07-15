@@ -142,6 +142,55 @@ describe('RuleParser', () => {
     });
   });
 
+  describe('rules — predicate-vs-predicate comparisons with independent owners', () => {
+    // Regression coverage for a real bug: a single owner prefix used to
+    // apply to the WHOLE comparison (RuleLoader wrapped the entire
+    // `comparison` node in one outer PrivatePredicate), so the unprefixed
+    // side silently read from the prefixed side's store too. Each side now
+    // carries its own independent ownerVar/ownerEntity.
+    it('attaches an owner prefix on the left side only to the left operand', () => {
+      const rules = parseRules(`
+        rule "R1"
+          ?SELF.prestige(?X) > prestige(?Y)
+          => exploitative(?SELF, ?Y) += 3.0
+      `);
+      assert.deepEqual(rules[0].predicates[0], {
+        type: 'comparison',
+        left:  { name: 'prestige', args: ['?X'], ownerVar: '?SELF', ownerEntity: null },
+        operator: '>',
+        right: { name: 'prestige', args: ['?Y'] },
+      });
+    });
+
+    it('attaches an owner prefix on the right side only to the right operand', () => {
+      const rules = parseRules(`
+        rule "R1"
+          prestige(?X) > ?SELF.prestige(?Y)
+          => exploitative(?SELF, ?Y) += 3.0
+      `);
+      assert.deepEqual(rules[0].predicates[0], {
+        type: 'comparison',
+        left:  { name: 'prestige', args: ['?X'] },
+        operator: '>',
+        right: { name: 'prestige', args: ['?Y'], ownerVar: '?SELF', ownerEntity: null },
+      });
+    });
+
+    it('supports two independent owners, one per side', () => {
+      const rules = parseRules(`
+        rule "R1"
+          ?A.prestige(?X) > ?B.prestige(?Y)
+          => exploitative(?A, ?B) += 3.0
+      `);
+      assert.deepEqual(rules[0].predicates[0], {
+        type: 'comparison',
+        left:  { name: 'prestige', args: ['?X'], ownerVar: '?A', ownerEntity: null },
+        operator: '>',
+        right: { name: 'prestige', args: ['?Y'], ownerVar: '?B', ownerEntity: null },
+      });
+    });
+  });
+
   describe('rules — history and temporal predicates', () => {
     it('parses [ever] as a historical-window predicate with no window', () => {
       const rules = parseRules(`
@@ -429,6 +478,65 @@ describe('RuleParser', () => {
       assert.deepEqual(rules[0].effects[0], {
         type: 'assert', name: 'perceivedThreat', args: ['?SELF', '?Y'],
         negated: true, ownerVar: null, ownerEntity: null, strength: 1.0,
+      });
+    });
+  });
+
+  describe('rules — effect-side negation with an owner prefix, either ordering', () => {
+    // Regression coverage for a real bug: an owner-prefixed negated effect
+    // only parsed with the owner BEFORE the minus (`?SELF.-pred(...)`) —
+    // the mirrored ordering premises already accept (`-?SELF.pred(...)`)
+    // threw a parse error as an effect. Both orders must produce the
+    // identical AST either way.
+    it('assert: owner before minus and minus before owner parse identically', () => {
+      const ownerFirst = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => ?SELF.-trusts(?Y)
+      `)[0].effects[0];
+      const minusFirst = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => -?SELF.trusts(?Y)
+      `)[0].effects[0];
+
+      const expected = {
+        type: 'assert', name: 'trusts', args: ['?Y'],
+        negated: true, ownerVar: '?SELF', ownerEntity: null, strength: 1.0,
+      };
+      assert.deepEqual(ownerFirst, expected);
+      assert.deepEqual(minusFirst, expected);
+    });
+
+    it('retract (not -pred): owner before minus and minus before owner parse identically', () => {
+      const minusFirst = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => not -?SELF.trusts(?Y)
+      `)[0].effects[0];
+      const ownerFirst = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => not ?SELF.-trusts(?Y)
+      `)[0].effects[0];
+
+      const expected = {
+        type: 'retract', name: 'trusts', args: ['?Y'],
+        negated: true, ownerVar: '?SELF', ownerEntity: null,
+      };
+      assert.deepEqual(minusFirst, expected);
+      assert.deepEqual(ownerFirst, expected);
+    });
+
+    it('retract (not pred, no minus) still carries the owner prefix', () => {
+      const rules = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => not ?SELF.trusts(?Y)
+      `);
+      assert.deepEqual(rules[0].effects[0], {
+        type: 'retract', name: 'trusts', args: ['?Y'],
+        negated: false, ownerVar: '?SELF', ownerEntity: null,
       });
     });
   });

@@ -115,7 +115,7 @@ Every predicate mechanism that can be scoped to a private store — `PrivatePred
 
 - no private store exists for the owner at all
 - a private store exists but has no record for this exact predicate+args
-- the owner variable itself is unbound
+- the owner variable itself is unbound (only reachable for a negated owner-prefixed predicate now — `not`/`~`/`-?SELF.pred(...)` — since a positive one auto-enumerates its owner the same way any other free variable does; see `docs/private-stores.md`'s "Owner binding")
 
 All three route through the exact same code path: `PrivatePredicate` and `OwnerPredRef` scope to a permanently-empty store (`emptyFactStore.js`) rather than world directly when there's no real store to use, so "no store" and "a store with nothing for this fact" are indistinguishable by the time they reach the query-handler layer — there is exactly one fallback decision, not two. The query handlers gate that one decision on `schema.getPrivateFallback(name)`: `'default-first'` (the default) stops at the active store's own answer — `unknown` for booleans, the schema `default` for numerics — and never reads world; `'world-first'` falls through to world before that. A private store existing for unrelated reasons must never mask the world's real value when `world-first` is set — only the exact predicate+args in question has to be missing for the fallback to trigger.
 

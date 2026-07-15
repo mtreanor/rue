@@ -181,7 +181,17 @@ describe('Derived fact inference', () => {
   });
 
   describe('private store scope', () => {
-    it('ignores caller store scope — unprefixed premises always query the world store', () => {
+    it('a world-conclusion rule\'s unprefixed premises read the caller\'s ambient scope, like any other predicate does', () => {
+      // Regression coverage for a real bug: a derived predicate with no
+      // dedicated private-conclusion rule used to force ALL of its
+      // premises to world regardless of the caller's own scope — so
+      // `?OWNER.trusted(...)` silently answered from world, identical to
+      // an unscoped query, no matter who OWNER was. A derived predicate
+      // now works like any other predicate: its definition's own premises
+      // see whatever store is actually active, and each premise's own
+      // owner-prefix (or lack of one) governs from there — exactly like a
+      // plain FactPredicate/NumericTierPredicate nested inside a
+      // PrivatePredicate already does.
       const schema = new PredicateSchema({
         predicates: {
           friendship: {
@@ -213,12 +223,14 @@ describe('Derived fact inference', () => {
 
       const pred = new DerivedFactPredicate('trusted', 'bob', 'alice');
 
-      // False from world context — no world-store friendship fact
+      // False from an unscoped (world) context — no world-store friendship fact
       assert.equal(world.queryHandlers.getHandler('derived').evaluate(pred, new Binding(), world.createEvaluationContext()), false);
 
-      // Also false from scoped context — caller scope is stripped before backward chaining
+      // True from alice's scoped context — the SAME rule, the SAME
+      // unprefixed premise, now correctly reads alice's own 85 (strong)
+      // because that's the store the caller's query was actually scoped to.
       const scopedCtx = world.createEvaluationContext().scopedToStore(world.getPrivateStore('alice'));
-      assert.equal(world.queryHandlers.getHandler('derived').evaluate(pred, new Binding(), scopedCtx), false);
+      assert.equal(world.queryHandlers.getHandler('derived').evaluate(pred, new Binding(), scopedCtx), true);
     });
 
     it('explicit owner prefix in a definition premise reads from that entity\'s private store', () => {
@@ -351,6 +363,75 @@ describe('Derived fact inference', () => {
       assert.equal(world.queryHandlers.getHandler('derived').evaluate(pred, new Binding(), aliceCtx), true);
       // bob has no such friendship fact — should be false independently of alice's cached result
       assert.equal(world.queryHandlers.getHandler('derived').evaluate(pred, new Binding(), bobCtx), false);
+    });
+
+    // Regression coverage for a real bug: a ground (literal-entity) owner on
+    // a define conclusion — `define ... => alice.pred(...)`, as opposed to
+    // the variable-owner form (`=> ?X.pred(...)`) — used to be silently
+    // discarded by the loader (only ownerVar was captured), so the rule
+    // registered as a plain world-level conclusion instead of a private one.
+    describe('ground-owner conclusions (`=> alice.pred(...)`)', () => {
+      const makeGroundOwnerWorld = () => {
+        const schema = new PredicateSchema({
+          predicates: {
+            friendship: {
+              type: 'numeric', args: ['agent', 'agent'],
+              minValue: 0, maxValue: 100, default: 50, tiers: { strong: [80, 100] },
+            },
+            trusted: { type: 'derived', args: ['agent', 'agent'] },
+          },
+        });
+        const world = new World(schema);
+        new EntityLoader().load({ agent: { alice: {}, bob: {}, carol: {} } }, world, schema);
+        world.registerPrivateStore('alice');
+        world.registerPrivateStore('bob');
+        world.queryHandlers.register('numeric', new NumericStateQueryHandler(world.factStore, schema));
+
+        const parser = new RuleParser(schema, { entityNames: world.entityNames });
+        const deriveData = parser.parseDefinitions(`
+          define "alice's own view of trust"
+            alice.friendship.strong(?X, ?Y)
+            => alice.trusted(?X, ?Y)
+        `);
+        const { definitions } = new DerivationRuleLoader(schema).load(deriveData);
+        world.queryHandlers.getHandler('derived').registerRules(definitions);
+        return { world, definitions };
+      };
+
+      it('captures the ground owner on the DerivationRule instead of discarding it', () => {
+        const { definitions } = makeGroundOwnerWorld();
+        assert.strictEqual(definitions[0].conclusionOwnerVar, null);
+        assert.strictEqual(definitions[0].conclusionOwnerEntity, 'alice');
+      });
+
+      it('registers a ground-owner conclusion as private, not world-level', () => {
+        const { world } = makeGroundOwnerWorld();
+        const handler = world.queryHandlers.getHandler('derived');
+        assert.strictEqual(handler.rulesByConclusion.has('trusted'), false);
+        assert.strictEqual(handler.rulesByPrivateConclusion.get('trusted')?.length, 1);
+      });
+
+      it('applies only when querying that exact owner\'s store', () => {
+        const { world } = makeGroundOwnerWorld();
+        world.getPrivateStore('alice').assert(Fact.withValue('friendship', ['bob', 'carol'], 90));
+
+        const pred     = new DerivedFactPredicate('trusted', 'bob', 'carol');
+        const aliceCtx = world.createEvaluationContext().scopedToStore(world.getPrivateStore('alice'));
+        const bobCtx   = world.createEvaluationContext().scopedToStore(world.getPrivateStore('bob'));
+
+        assert.equal(world.queryHandlers.getHandler('derived').evaluate(pred, new Binding(), aliceCtx), true);
+        // Same underlying fact does not exist in bob's own store, and the
+        // rule is scoped to alice specifically — bob's query must not
+        // borrow alice's rule.
+        assert.equal(world.queryHandlers.getHandler('derived').evaluate(pred, new Binding(), bobCtx), false);
+      });
+
+      it('a world query never matches a ground-owner-only conclusion', () => {
+        const { world } = makeGroundOwnerWorld();
+        world.getPrivateStore('alice').assert(Fact.withValue('friendship', ['bob', 'carol'], 90));
+        const pred = new DerivedFactPredicate('trusted', 'bob', 'carol');
+        assert.equal(world.queryHandlers.getHandler('derived').evaluate(pred, new Binding(), world.createEvaluationContext()), false);
+      });
     });
   });
 

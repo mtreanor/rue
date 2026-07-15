@@ -152,3 +152,67 @@ describe('NumericSensor base class', () => {
     assert.throws(() => sensor.getValue([], null), /must implement getValue/);
   });
 });
+
+// Regression coverage for a real bug: an owner prefix on a sensor predicate
+// used to parse fine and then be silently ignored at evaluation time — none
+// of SensorPredicate/SensorNumericTierPredicate/SensorNumericComparisonPredicate's
+// evaluate() methods ever consult the active store, so `?OWNER.distance(...)`
+// read identically regardless of OWNER, with no error to explain why. A
+// sensor reads a single globally-registered handler, not a specific
+// entity's private store — RuleLoader now rejects the prefix at load time
+// instead, the same way it already rejects then[N] temporal chains over
+// private predicates outright.
+describe('owner-prefixed sensor predicates are rejected at load time, not silently ignored', () => {
+  const loaderSchemaData = {
+    predicates: {
+      ...schemaData.predicates,
+      other: { type: 'sensor-numeric', args: ['agent', 'agent'] },
+      alarm: { type: 'numeric', args: ['agent'], minValue: 0, maxValue: 999, default: 0 },
+    },
+  };
+
+  it('rejects a variable-owner prefix on a sensor-numeric tier premise', async () => {
+    const { RuleLoader } = await import('../../src/loader/RuleLoader.js');
+    const { RuleParser } = await import('../../src/loader/RuleParser.js');
+    const schema = new PredicateSchema(loaderSchemaData);
+    const parser = new RuleParser(schema);
+    const dsl = `ruleset "test"\n  rule "R" ?SELF.distance.near(?SELF, ?Y) => alarm(?SELF) += 1`;
+    assert.throws(
+      () => new RuleLoader(schema).load(parser.parse(dsl)),
+      /Sensor predicate "distance" cannot be owner-prefixed/
+    );
+  });
+
+  it('rejects a variable-owner prefix on a sensor-numeric literal comparison premise', async () => {
+    const { RuleLoader } = await import('../../src/loader/RuleLoader.js');
+    const { RuleParser } = await import('../../src/loader/RuleParser.js');
+    const schema = new PredicateSchema(loaderSchemaData);
+    const parser = new RuleParser(schema);
+    const dsl = `ruleset "test"\n  rule "R" ?SELF.distance(?SELF, ?Y) < 5 => alarm(?SELF) += 1`;
+    assert.throws(
+      () => new RuleLoader(schema).load(parser.parse(dsl)),
+      /Sensor predicate "distance" cannot be owner-prefixed/
+    );
+  });
+
+  it('rejects a variable-owner prefix on a sensor-numeric operand of a predicate-vs-predicate comparison', async () => {
+    const { RuleLoader } = await import('../../src/loader/RuleLoader.js');
+    const { RuleParser } = await import('../../src/loader/RuleParser.js');
+    const schema = new PredicateSchema(loaderSchemaData);
+    const parser = new RuleParser(schema);
+    const dsl = `ruleset "test"\n  rule "R" ?SELF.distance(?SELF, ?Y) > other(?SELF, ?Y) => alarm(?SELF) += 1`;
+    assert.throws(
+      () => new RuleLoader(schema).load(parser.parse(dsl)),
+      /Sensor predicate "distance" cannot be owner-prefixed/
+    );
+  });
+
+  it('a plain, unprefixed sensor premise still loads fine', async () => {
+    const { RuleLoader } = await import('../../src/loader/RuleLoader.js');
+    const { RuleParser } = await import('../../src/loader/RuleParser.js');
+    const schema = new PredicateSchema(loaderSchemaData);
+    const parser = new RuleParser(schema);
+    const dsl = `ruleset "test"\n  rule "R" distance.near(?SELF, ?Y) => alarm(?SELF) += 1`;
+    assert.doesNotThrow(() => new RuleLoader(schema).load(parser.parse(dsl)));
+  });
+});

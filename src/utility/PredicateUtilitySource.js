@@ -53,7 +53,7 @@ export class PredicateUtilitySource {
     });
     const ctx = this._resolveContext(binding, evaluationContext);
     const value       = numericHandler.getValue(this.name, resolvedArgs, ctx);
-    const numericRecord = numericHandler.getRecord(this.name, resolvedArgs);
+    const numericRecord = numericHandler.getRecord(this.name, resolvedArgs, ctx);
     const owner = this._resolveOwnerName(binding, evaluationContext);
     return { type: 'predicate', name: this.name, args: resolvedArgs, value, numericRecord, owner, score: value };
   }
