@@ -109,6 +109,20 @@ Predicates never query `FactStore` directly. Each predicate calls `evaluationCon
 
 New sources of truth are added by registering new handlers on `World`.
 
+### Private-store fallback (standing principle)
+
+Every predicate mechanism that can be scoped to a private store — `PrivatePredicate` (`?VAR.pred(...)` on the premise side), `OwnerPredRef` (`?VAR.pred(...)` as a numeric expression operand), `NumericStateQueryHandler.getValue`/`setValue`/`adjustValue`/`wasEverInTier(...)`, and `FactStoreQueryHandler`'s boolean family (`evaluate`, `evaluateExplicitNegation`, `evaluateWeak`, `resolveState`, the historical/during/assertion-tick methods) — treats world fallback as **per-predicate configurable**, via `PredicateSchema`'s `privateFallback` field (`'world-first'` | `'default-first'`, see `docs/schema.md`). This applies uniformly to every reason a private store might have nothing to say:
+
+- no private store exists for the owner at all
+- a private store exists but has no record for this exact predicate+args
+- the owner variable itself is unbound
+
+All three route through the exact same code path: `PrivatePredicate` and `OwnerPredRef` scope to a permanently-empty store (`emptyFactStore.js`) rather than world directly when there's no real store to use, so "no store" and "a store with nothing for this fact" are indistinguishable by the time they reach the query-handler layer — there is exactly one fallback decision, not two. The query handlers gate that one decision on `schema.getPrivateFallback(name)`: `'default-first'` (the default) stops at the active store's own answer — `unknown` for booleans, the schema `default` for numerics — and never reads world; `'world-first'` falls through to world before that. A private store existing for unrelated reasons must never mask the world's real value when `world-first` is set — only the exact predicate+args in question has to be missing for the fallback to trigger.
+
+When adding a new predicate type or query-handler method that can be scoped to a private store, give it this same gated-fallback shape from the start (consult `schema.getPrivateFallback(name)`), rather than hardcoding either "always fall back" or "never fall back."
+
+The one subtlety: for boolean facts under an `allow` contradiction policy, a single store can hold both a positive belief and an explicit disbelief at once. `FactStoreQueryHandler._governingFlags` is the shared primitive — it picks one "governing" store (the active/private store if it has *any* opinion, positive or negated, on the fact; otherwise world, if `privateFallback` allows it) and returns that store's raw `{positive, negated}` flags. `evaluate`, `evaluateExplicitNegation`, `evaluateWeak`, and `resolveState` all derive from this one call so they agree on which store governs and never combine flags read from two different stores — deriving one of these methods from another's already-collapsed result (e.g. computing `evaluateWeak` from `resolveState() !== 'true'`) is a proven source of regressions, since the collapse to a single three-valued result loses the "both coexist" case.
+
 ### Binding
 
 `Binding` maps logical variable names to resolved entity values. `toString()` is for display; `toKey()` produces a stable deduplication key by using each entity's non-enumerable `_eid` (rather than its name) — this distinguishes same-named entities of different types that may appear in the same binding. `ForwardChainer` uses `Binding.toKey()` to detect duplicate rule firings per pass.

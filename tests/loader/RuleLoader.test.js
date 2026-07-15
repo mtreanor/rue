@@ -14,6 +14,7 @@ import { AggregatePredicate } from '../../src/predicates/AggregatePredicate.js';
 import { NumericComparisonPredicate } from '../../src/predicates/NumericComparisonPredicate.js';
 import { Engine } from '../../src/Engine.js';
 import { Fact } from '../../src/Fact.js';
+import { OwnerPredRef } from '../../src/NumericExpression.js';
 
 const loader = new RuleLoader();
 
@@ -164,6 +165,47 @@ describe('RuleLoader', () => {
         predicates: [{ type: 'unknown', name: 'foo', args: [] }],
         effects: [{ type: 'adjust-numeric', name: 'friendship', args: ['?SELF', '?Y'], delta: 1.0 }],
       }])), /Unknown predicate type/);
+    });
+  });
+
+  describe('computed numeric effects — buildExpression', () => {
+    const schema = new PredicateSchema({
+      predicates: {
+        knows:        { type: 'boolean', args: ['agent', 'agent'] },
+        topicStance:  { type: 'numeric', args: ['topic'], minValue: -5, maxValue: 5, default: 0 },
+        socialChangeTopic: { type: 'numeric', args: ['agent', 'topic'], minValue: 0, maxValue: 999, default: 0 },
+      },
+    });
+    const exprLoader = new RuleLoader(schema);
+
+    it('builds an OwnerPredRef from an ownerPred expression node', () => {
+      const { rulesets } = exprLoader.load(rulesetOf([{
+        name: 'R1',
+        predicates: [{ type: 'fact', name: 'knows', args: ['?SELF', '?Y'] }],
+        effects: [{
+          type: 'adjust-numeric', name: 'socialChangeTopic', args: ['?SELF', '?TOPIC'],
+          delta: { xkind: 'ownerPred', ownerVar: '?SELF', name: 'topicStance', args: ['?TOPIC'] },
+        }],
+      }]));
+
+      const { delta } = rulesets['test'][0].effects[0];
+      assert.ok(delta instanceof OwnerPredRef);
+      assert.ok(delta.owner instanceof LogicalVariable);
+      assert.equal(delta.owner.name, 'SELF');
+      assert.equal(delta.name, 'topicStance');
+      assert.ok(delta.args[0] instanceof LogicalVariable);
+      assert.equal(delta.args[0].name, 'TOPIC');
+    });
+
+    it('rejects an ownerPred referencing a non-numeric predicate', () => {
+      assert.throws(() => exprLoader.load(rulesetOf([{
+        name: 'R1',
+        predicates: [{ type: 'fact', name: 'knows', args: ['?SELF', '?Y'] }],
+        effects: [{
+          type: 'adjust-numeric', name: 'socialChangeTopic', args: ['?SELF', '?TOPIC'],
+          delta: { xkind: 'ownerPred', ownerVar: '?SELF', name: 'knows', args: ['?TOPIC'] },
+        }],
+      }])), /not a numeric predicate/);
     });
   });
 

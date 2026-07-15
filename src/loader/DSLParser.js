@@ -884,6 +884,23 @@ export class DSLParser {
       return e;
     }
     if (this.check('NUMBER'))   return { xkind: 'num', value: this.advance().value };
+    // Owner-prefixed numeric predicate reference as an expression operand,
+    // e.g. `?SELF.topicStance(?TOPIC)` — the expression-side counterpart to
+    // premise parsing's parseOwnerPrefix()/parsePredicateBody(). Checked
+    // before the bare-VARIABLE case below, which a lone `?SELF` with nothing
+    // following would otherwise consume; only variable owners are supported
+    // here (not the literal-entity-name prefix premises allow), since a
+    // reflexive/other-agent numeric value always comes from a bound role, not
+    // a hardcoded name.
+    if (this.check('VARIABLE') && this.tokens[this.pos + 1]?.type === 'DOT') {
+      const ownerVar = '?' + this.advance().value;
+      this.expect('DOT');
+      const name = this.expect('IDENT').value;
+      this.expect('LPAREN');
+      const args = this.parseArgs();
+      this.expect('RPAREN');
+      return { xkind: 'ownerPred', ownerVar, name, args };
+    }
     if (this.check('VARIABLE')) return { xkind: 'var', name: '?' + this.advance().value };
     if (this.check('IDENT')) {
       const name = this.peek().value;

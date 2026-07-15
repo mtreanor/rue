@@ -12,6 +12,7 @@ import {
   assertFactForEngine, deleteFactForEngine,
   whyFactForEngine, explainFactForEngine,
 } from './state.js';
+import { registerScenarioJSHooks } from './scenario.js';
 
 // Play mode: a live engine stepped tick by tick through the scenario's own
 // TickLoop (the `play` section of its project-config entry), recording a full
@@ -66,7 +67,7 @@ function loadPlayContent(scenarioName) {
     const name = f.slice(0, -5);
     pipelines[name] = pipelineFromJSON(JSON.parse(readFileSync(`${paths.pipelines}/${f}`, 'utf-8')));
   }
-  return { engine, pipelines, playConfig };
+  return { engine, pipelines, playConfig, paths };
 }
 
 // Role/entity introspection for the plan editor — pipelineRoles (what each
@@ -93,11 +94,12 @@ export function previewPlayInfo(scenarioName) {
 class PlaySession {
   constructor(scenarioName) {
     this.scenarioName = scenarioName;
-    const { engine, pipelines, playConfig } = loadPlayContent(scenarioName);
+    const { engine, pipelines, playConfig, paths } = loadPlayContent(scenarioName);
 
     this.engine     = engine;
     this.pipelines  = pipelines;
     this.playConfig = playConfig;
+    this.paths      = paths;
     this.loop       = new TickLoop(this.engine, pipelines, playConfig);
 
     this.traces     = [];        // serialized TickTraces, index = tick - 1
@@ -337,8 +339,14 @@ class PlaySession {
 
 // ── Module API ────────────────────────────────────────────────────────────────
 
-export function startPlaySession(scenarioName, controlled) {
+// Registering a scenario's JS hooks means actually importing and executing
+// its hooks/*.js files — deliberately deferred to here, not PlaySession's
+// (synchronous) constructor: starting a session is the one explicit,
+// user-initiated action in this module that warrants it (see
+// registerScenarioJSHooks in scenario.js for the full reasoning).
+export async function startPlaySession(scenarioName, controlled) {
   const session = new PlaySession(scenarioName);
+  await registerScenarioJSHooks(session.engine, session.paths.hooks);
   if (controlled) session.setControlled(controlled);
   sessions.set(scenarioName, session);
   return session;

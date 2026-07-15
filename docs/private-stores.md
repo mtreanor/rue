@@ -89,9 +89,14 @@ Under an `allow` contradiction policy, both rules can fire simultaneously for th
 
 ## Owner binding
 
-If the owner variable is **unbound** at evaluation time, the predicate is false. The owner is not auto-enumerated — bind it via a positive predicate earlier in the conjunction, or use a ground entity name.
+The owner is not auto-enumerated — bind it via a positive predicate earlier in the conjunction, or use a ground entity name.
 
-If the named entity has no private store, the predicate is false.
+What happens when the owner variable is **unbound**, or the named entity has **no private store**, or a private store exists but has **nothing asserted for this exact predicate+args**, is governed by the predicate's [`privateFallback`](schema.md#privatefallback) schema setting — all three situations are treated identically, uniformly across every private-store-aware mechanism (premises, numeric expression operands, historical/tick queries):
+
+- **`default-first`** (the default): the fact is `unknown` — a boolean predicate reads as false/absent (though `~pred`/`not pred` still see the absence, per the negation table above), a numeric predicate reads as its schema `default`. World is never consulted.
+- **`world-first`**: falls through to the world store's value before settling on `unknown`/the default.
+
+A private store existing for *unrelated* reasons (some other fact was asserted there) never masks the world's real value when `world-first` is set — only the exact predicate+args in question has to be missing from the private store for the fallback to trigger.
 
 ---
 

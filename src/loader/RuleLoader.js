@@ -15,7 +15,7 @@ import { WhenPredicate } from '../predicates/WhenPredicate.js';
 import { ClosurePredicate } from '../predicates/ClosurePredicate.js';
 import { VariableComparisonPredicate } from '../predicates/VariableComparisonPredicate.js';
 import { ExpressionComparisonPredicate } from '../predicates/ExpressionComparisonPredicate.js';
-import { NumLiteral, VarRef, PredRef, AggRef, FnCall, BinOp, Neg } from '../NumericExpression.js';
+import { NumLiteral, VarRef, PredRef, OwnerPredRef, AggRef, FnCall, BinOp, Neg } from '../NumericExpression.js';
 import { TemporalChainPredicate } from '../predicates/TemporalChainPredicate.js';
 import { NumericComparisonPredicate } from '../predicates/NumericComparisonPredicate.js';
 import { SensorPredicate } from '../predicates/SensorPredicate.js';
@@ -469,6 +469,14 @@ export class RuleLoader {
           throw new Error(`"${node.name}" is not a numeric predicate and cannot appear in a numeric expression`);
         }
         return new PredRef(node.name, this.resolveArgs(node.args));
+      }
+      case 'ownerPred': {
+        const def = this.predicateSchema?.getDefinition(node.name);
+        if (this.predicateSchema && (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric'))) {
+          throw new Error(`"${node.name}" is not a numeric predicate and cannot appear in a numeric expression`);
+        }
+        const owner = this.resolveArgs([node.ownerVar])[0];
+        return new OwnerPredRef(owner, node.name, this.resolveArgs(node.args));
       }
       case 'agg': {
         const { filterPredicates, valuePred, countingVars, countingVarTypes } = this.buildAggregateInner(node.predicates, node.fn);

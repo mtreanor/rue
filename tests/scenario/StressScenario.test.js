@@ -190,10 +190,10 @@ describe('Stress scenario', () => {
       assert.equal(q(engine, '-outsider(una)'), 1);
     });
 
-    it('owner without a private store: positive and ~ are false, NAF is true', () => {
+    it('owner without a private store: falls back to world, where the fact is unknown, so positive is false and both negation forms are true', () => {
       const { engine } = buildWorld();
       assert.equal(q(engine, 'zeke.grudgeAgainst(zeke, mara)'), 0);
-      assert.equal(q(engine, '~zeke.grudgeAgainst(zeke, mara)'), 0);
+      assert.equal(q(engine, '~zeke.grudgeAgainst(zeke, mara)'), 1);
       assert.equal(q(engine, 'not zeke.grudgeAgainst(zeke, mara)'), 1);
     });
 
@@ -449,9 +449,12 @@ describe('Stress scenario', () => {
       //   + J1 4 + J3 2.5 = 23
       assert.equal(numericValue(world, 'goodwill', ['mara', 'talia']), 23);
 
-      // goodwill(zeke, mara) = B1 1 + B3 1 + B4 0.5 + B6 0.5 + B7 0.5 + G5 0.5
-      //   + C2 5 + C3 1 + E3 1 + E9 2 + A7 4 + H7 2 + H11 2 + L8 0.5 = 21.5
-      assert.equal(numericValue(world, 'goodwill', ['zeke', 'mara']), 21.5);
+      // goodwill(zeke, mara) = B1 1 + B3 1 + B4 0.5 + B6 0.5 + B7 0.5 + G4 1 + G5 0.5
+      //   + C2 5 + C3 1 + E3 1 + E9 2 + A7 4 + H7 2 + H11 2 + L8 0.5 = 22.5
+      // (G4 fires here because zeke has no private store: ~zeke.suspects(zeke, mara)
+      // falls back to world, which has no opinion either way, so weak negation of
+      // an unknown fact is true — see FactStoreQueryHandler's private/world fallback.)
+      assert.equal(numericValue(world, 'goodwill', ['zeke', 'mara']), 22.5);
 
       // prosperity(zeke): 10 + A6(-1) + F4(+1) + F8(-1) + I4(+1) + J2(-1) + L3(+1) = 10
       assert.equal(numericValue(world, 'prosperity', ['zeke']), 10);

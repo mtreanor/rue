@@ -76,6 +76,27 @@ An empty key (every argument listed in `singleValued`) makes the predicate hold 
 
 `singleValued` cannot be combined with `symmetric`, and is rejected on non-`boolean` predicates (numeric predicates are already single-valued by construction).
 
+### `privateFallback`
+
+Governs what a private-store-scoped query does when the active store has no opinion on a fact — see [Private stores → Owner binding](private-stores.md#owner-binding) for the full behavior. Two values are accepted:
+
+| Value | Behaviour |
+|-------|-----------|
+| `default-first` | Stop at the active store. If it has nothing, the fact is `unknown` (boolean) or the schema `default` (numeric) — world is never consulted. **Default.** |
+| `world-first` | Fall through to the world store's value before settling on `unknown`/the schema default. |
+
+```json
+"topicStance": {
+  "type": "numeric", "args": ["topic"],
+  "minValue": -5, "maxValue": 5, "default": 0,
+  "privateFallback": "world-first"
+}
+```
+
+This applies uniformly everywhere a predicate can be scoped to a private store: `?VAR.pred(args)` premises, `?VAR.pred(args)` as a numeric expression operand (see [Computed numeric effects](state.md#computed-numeric-effects)), and the historical/tick-enumeration query forms. It has no effect on plain (unprefixed) queries against the world store directly — there is only one store in play there, so the setting is moot.
+
+Any other value throws at schema-load time.
+
 ---
 
 ## Entities

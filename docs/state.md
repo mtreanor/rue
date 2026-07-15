@@ -47,7 +47,7 @@ These operations appear in state files and on the RHS of rules.
 
 ### Computed numeric effects
 
-In **rule** effects (not state files), the value of a numeric `=`/`+=`/`-=` can be a full numeric expression — infix `+ - * /` with precedence and parens, the functions `min`/`max`/`abs`/`clamp`/`pow`, and operands that are literals, bound variables, or numeric predicates:
+In **rule** effects (not state files), the value of a numeric `=`/`+=`/`-=` can be a full numeric expression — infix `+ - * /` with precedence and parens, the functions `min`/`max`/`abs`/`clamp`/`pow`, and operands that are literals, bound variables, numeric predicates, or **owner-prefixed** numeric predicates (`?VAR.pred(args)`, reading from that entity's private store instead of the world):
 
 ```klugh
 rule "trust grows with mutual regard"
@@ -57,9 +57,15 @@ rule "trust grows with mutual regard"
 rule "clamp morale into range after a shock"
   suffered(?X)
   => morale(?X) = clamp(morale(?X) - 20, 0, 100)
+
+rule "raise a topic in proportion to how strongly you feel about it"
+  activeTopic(?G, ?OLD)
+  => wantsToRaise(?SELF, ?TOPIC) += ?SELF.topicStance(?TOPIC)
 ```
 
 The expression is evaluated per firing against the binding, then (for `+=`/`-=`) scaled by the rule's satisfaction score like a literal delta, and the result is clamped to the predicate's range. If any operand is unbound or a division is by zero the expression is `null` and the effect is skipped. A bare literal (`+= 5`) is just a number, unchanged. (Numeric expressions are not yet supported in *action* effects or for actuator predicates.)
+
+An owner-prefixed operand (`?SELF.pred(args)`) resolves the owner variable, looks up that entity's private store, and reads the predicate's value there — the expression-side counterpart to `?VAR.pred(args)` on the premise side (see [Private stores](private-stores.md)). Whether it falls back to the world value when the private store doesn't settle the question (no private store at all, an unbound owner variable, or a private store with nothing asserted for this exact predicate+args) is governed by the predicate's [`privateFallback`](schema.md#privatefallback) schema setting, same as `PrivatePredicate` on the premise side — `default-first` (the schema default) stops at the predicate's own `default`; `world-first` falls through to world before that. Only a bound *variable* owner is supported here (`?SELF.pred(...)`), not the literal-entity-name prefix premises allow (`sabrina.pred(...)`) — a hardcoded name has no natural use as a numeric source.
 
 ### Single-valued assertions
 

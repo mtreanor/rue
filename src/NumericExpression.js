@@ -1,6 +1,7 @@
 import { LogicalVariable } from './LogicalVariable.js';
 import { toFactArg } from './entityValue.js';
 import { applyArithmetic, applyFunction } from './numericOps.js';
+import { EMPTY_FACT_STORE } from './emptyFactStore.js';
 
 // Numeric expression nodes: literals, bound variables, numeric predicate
 // references, aggregates, named functions, and infix arithmetic. Each evaluates
@@ -46,6 +47,32 @@ export class PredRef extends Expr {
   }
   getVariables() { return this.args.filter(a => a instanceof LogicalVariable); }
   toString() { return `${this.name}(${this.args.map(a => a?.toString?.() ?? a).join(', ')})`; }
+}
+
+// Owner-prefixed numeric predicate reference — the expression-side counterpart
+// to PrivatePredicate on the premise side, e.g. `?SELF.topicStance(?TOPIC)`
+// used as a value rather than a boolean check. Resolves the owner variable to
+// an entity name and, if a private store exists for it, evaluates a plain
+// PredRef scoped to that store — same resolution PrivatePredicate.evaluate()
+// does for premises, just for a value instead of a truth check. When the
+// owner is unbound or has no private store at all, scopes to a
+// permanently-empty store (EMPTY_FACT_STORE) instead — same trick
+// PrivatePredicate uses, so "no store" and "a store with nothing for this
+// exact predicate+args" both flow through NumericStateQueryHandler.getValue's
+// ordinary fallback logic, which the predicate's `privateFallback` schema
+// setting governs ('world-first' reads world, 'default-first' — the default
+// — goes straight to the schema default). See src/AGENTS.md.
+export class OwnerPredRef extends Expr {
+  constructor(owner, name, args) { super(); this.owner = owner; this.name = name; this.args = args; }
+  evaluate(binding, ctx) {
+    const ownerVal = binding.resolve(this.owner);
+    const ownerName = ownerVal != null ? toFactArg(ownerVal) : null;
+    const store = ownerName != null ? ctx.privateStores?.get(ownerName) : null;
+    const scopedCtx = ctx.scopedToStore(store ?? EMPTY_FACT_STORE);
+    return new PredRef(this.name, this.args).evaluate(binding, scopedCtx);
+  }
+  getVariables() { return [this.owner, ...this.args.filter(a => a instanceof LogicalVariable)]; }
+  toString() { return `?${this.owner.name}.${this.name}(${this.args.map(a => a?.toString?.() ?? a).join(', ')})`; }
 }
 
 export class AggRef extends Expr {

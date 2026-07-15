@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { loadScenarioContext, listScenarios, schemaForClient, loadRulesets, loadActionsets, findSetFile } from './scenario.js';
+import { loadScenarioContext, listScenarios, schemaForClient, loadRulesets, loadActionsets, loadJSHooks, findSetFile } from './scenario.js';
 import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
@@ -152,8 +152,8 @@ router.get('/play/:scenario/session', h((req, res) => {
 }));
 
 // Start (or restart) a session. Body: { controlled: { agents: [], stages: [] } }.
-router.post('/play/:scenario/start', h((req, res) => {
-  const session = startPlaySession(req.params.scenario, req.body?.controlled);
+router.post('/play/:scenario/start', h(async (req, res) => {
+  const session = await startPlaySession(req.params.scenario, req.body?.controlled);
   res.json(session.info());
 }));
 
@@ -267,6 +267,7 @@ router.get('/scenario/:name', h((req, res) => {
     entityTypeNames: [...ctx.entityTypeNames],
     rulesets: loadRulesets(ctx),
     actionsets: loadActionsets(ctx),
+    jsHooks: loadJSHooks(ctx),
   });
 }));
 

@@ -1,6 +1,6 @@
 import { LogicalVariable } from '../LogicalVariable.js';
 import { StateOperation } from '../stateOperations/StateOperation.js';
-import { NumLiteral, VarRef, PredRef, FnCall, BinOp, Neg } from '../NumericExpression.js';
+import { NumLiteral, VarRef, PredRef, OwnerPredRef, FnCall, BinOp, Neg } from '../NumericExpression.js';
 
 export class StateOperationLoader {
   constructor(predicateSchema = null) {
@@ -115,6 +115,14 @@ export class StateOperationLoader {
           throw new Error(`"${node.name}" is not a numeric predicate and cannot appear in an effect expression`);
         }
         return new PredRef(node.name, this.resolveArgs(node.args));
+      }
+      case 'ownerPred': {
+        const def = this.predicateSchema?.getDefinition(node.name);
+        if (this.predicateSchema && (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric'))) {
+          throw new Error(`"${node.name}" is not a numeric predicate and cannot appear in an effect expression`);
+        }
+        const owner = this.resolveArgs([node.ownerVar])[0];
+        return new OwnerPredRef(owner, node.name, this.resolveArgs(node.args));
       }
       case 'fn':  return new FnCall(node.name, node.args.map(a => this.buildExpression(a)));
       case 'bin': return new BinOp(node.op, this.buildExpression(node.left), this.buildExpression(node.right));

@@ -270,12 +270,38 @@ export class PipelineRunner {
     if (hook.type === 'ruleset-fixpoint' || hook.type === 'ruleset-single') {
       return this._applyRulesetHook(hook, binding, scope, recorder);
     }
+    if (hook.type === 'js') {
+      return this._applyJSHook(hook, binding, scope, recorder);
+    }
     if (hook.type === 'swap-roles') {
       const swapped = this._swapRoles(hook.roles, binding);
       recorder.hookRan(scope, hook, { skipped: false, applications: [], bindingAfter: swapped });
       return swapped;
     }
     throw new Error(`Unknown hook type: "${hook.type}"`);
+  }
+
+  // Runs a JS hook registered via engine.registerJSHook(name, fn) — see that
+  // method's doc comment for the contract. Same `requires`-gated scoping
+  // convention as ruleset hooks: with `requires`, the function only runs
+  // when every named variable is bound this firing, and receives a binding
+  // built from just those names; without it, it receives the full incoming
+  // binding unscoped.
+  _applyJSHook(hook, binding, scope, recorder) {
+    if (hook.requires) {
+      const missing = hook.requires.some(name => !binding.isBound(new LogicalVariable(name)));
+      if (missing) {
+        recorder.hookRan(scope, hook, { skipped: true, applications: [] });
+        return null;
+      }
+      const startingBinding = this.engine.resolveBinding(this._pick(binding, hook.requires));
+      const result = this.engine.runJSHook(hook.name, startingBinding);
+      recorder.hookRan(scope, hook, { skipped: false, applications: [], bindingAfter: result ?? undefined });
+      return result ?? null;
+    }
+    const result = this.engine.runJSHook(hook.name, binding);
+    recorder.hookRan(scope, hook, { skipped: false, applications: [], bindingAfter: result ?? undefined });
+    return result ?? null;
   }
 
   // A hook with `requires` only runs when every named variable is actually

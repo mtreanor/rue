@@ -98,6 +98,7 @@ export function resolveScenarioPaths(scenario) {
     state:       sub('state'),
     definitions: sub('definitions.klugh'),
     pipelines:   sub('pipelines'),
+    hooks:       sub('hooks'),
     play:        sub('play.json'),
   };
 }

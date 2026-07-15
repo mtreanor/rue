@@ -300,6 +300,33 @@ enumerating combinations. Candidates come from one of two sources only:
    (don't silently rewrite tier-1 content) and confirm before editing
    already-approved rules.
 
+### Independent concepts stack — don't skip a rule because another already pushes the same way
+
+A candidate rule captures its own reason for an impulse to move — a
+specific relationship, history, or trait. Another rule pushing the *same*
+target in the *same* direction for the *same* pair is not a reason to skip
+the new one: if both reasons are independently true and independently
+plausible on their own, the resulting weight for that pair really should be
+the sum of both, not one or the other. "This groupmate is a friend" and
+"this groupmate is also a longtime mentor-adjacent figure" are two
+different facts about the relationship; someone who is both should feel
+*more* pulled to socialize than someone who is only one, not the same
+amount. Don't write off a proposal with reasoning like "already covered
+generically by the disposition/metCount rules" — covered isn't the same as
+duplicated.
+
+The real disqualifier is **duplication**, not **overlap**: skip a
+candidate only when it re-expresses a fact *already on the table* under a
+new name with no distinguishing content — e.g. a derived predicate defined
+as nothing but `friendsWith(?A,?B) OR advisorOf(?A,?B)` proposed as a
+filter for a rule when `friendsWith`/`advisorOf` already have their own
+rules covering those exact same pairs; there the new rule doesn't add a
+reason, it just re-fires the existing ones under an alias. If the new
+candidate's premise would be true for some pair *without* the existing
+rule's premise also being true, it's an independent concept and belongs in
+the ruleset even though its effect will sometimes stack with an existing
+one.
+
 ### A named shape: cardinality rules
 
 "How many current groupmates do I feel warmly/resentfully/etc. toward" is

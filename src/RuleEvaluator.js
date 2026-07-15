@@ -176,9 +176,8 @@ export class RuleEvaluator {
       );
       if (argIndex < 0) continue;
 
-      for (const record of store.factHistory) {
+      for (const record of store.recordsForName(predicate.name)) {
         if (!record.isCurrentlyActive()) continue;
-        if (record.fact.name !== predicate.name) continue;
         if (record.fact.args.length !== predicate.args.length) continue;
 
         let matches = true;

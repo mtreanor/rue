@@ -1,7 +1,10 @@
+const PRIVATE_FALLBACKS = new Set(['world-first', 'default-first']);
+
 export class PredicateSchema {
   constructor(data) {
     this.definitions = new Map(Object.entries(data.predicates));
     this._validateSingleValued();
+    this._validatePrivateFallback();
   }
 
   // `singleValued` marks the *value* argument positions of a boolean predicate.
@@ -24,6 +27,15 @@ export class PredicateSchema {
       }
       if (def.symmetric) {
         throw new Error(`Predicate "${name}": singleValued cannot be combined with symmetric`);
+      }
+    }
+  }
+
+  _validatePrivateFallback() {
+    for (const [name, def] of this.definitions) {
+      if (def.privateFallback === undefined) continue;
+      if (!PRIVATE_FALLBACKS.has(def.privateFallback)) {
+        throw new Error(`Predicate "${name}": privateFallback must be "world-first" or "default-first" (got "${def.privateFallback}")`);
       }
     }
   }
@@ -63,6 +75,15 @@ export class PredicateSchema {
 
   isSymmetric(name) {
     return this.definitions.get(name)?.symmetric === true;
+  }
+
+  // 'world-first': when a private/active store has no opinion on a fact, fall
+  // back to the world store's value before settling on the schema default.
+  // 'default-first' (the default when unset): stop at the active store — if
+  // it has nothing to say, go straight to the schema default without
+  // consulting world. See docs/private-stores.md and src/AGENTS.md.
+  getPrivateFallback(name) {
+    return this.definitions.get(name)?.privateFallback ?? 'default-first';
   }
 
   // Returns true if the clamped value falls within the named tier's [a, b) range.

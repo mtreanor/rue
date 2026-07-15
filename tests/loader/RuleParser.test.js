@@ -433,6 +433,72 @@ describe('RuleParser', () => {
     });
   });
 
+  describe('rules — computed numeric effects', () => {
+    it('parses a plain predicate-reference expression as the effect value', () => {
+      const rules = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => trust(?SELF, ?Y) += respect(?SELF, ?Y)
+      `);
+
+      assert.deepEqual(rules[0].effects[0].delta, {
+        xkind: 'pred', name: 'respect', args: ['?SELF', '?Y'],
+      });
+    });
+
+    it('parses arithmetic over two predicate references as the effect value', () => {
+      const rules = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => trust(?SELF, ?Y) += (respect(?SELF, ?Y) + goodwill(?SELF, ?Y)) / 2
+      `);
+
+      const { delta } = rules[0].effects[0];
+      assert.equal(delta.xkind, 'bin');
+      assert.equal(delta.op, '/');
+      assert.deepEqual(delta.right, { xkind: 'num', value: 2 });
+    });
+
+    it('parses an owner-prefixed predicate reference (?SELF.pred(args)) as the effect value', () => {
+      const rules = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => social-change-topic(?SELF, ?TOPIC) += ?SELF.topicStance(?TOPIC)
+      `);
+
+      assert.deepEqual(rules[0].effects[0].delta, {
+        xkind: 'ownerPred', ownerVar: '?SELF', name: 'topicStance', args: ['?TOPIC'],
+      });
+    });
+
+    it('distinguishes an owner-prefixed effect value from a bare variable operand', () => {
+      // A lone ?SELF (no dot following) must still parse as a plain var
+      // reference, not be swallowed by the owner-prefix branch.
+      const rules = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => count(?SELF) += ?SELF
+      `);
+
+      assert.deepEqual(rules[0].effects[0].delta, { xkind: 'var', name: '?SELF' });
+    });
+
+    it('composes an owner-prefixed reference inside arithmetic', () => {
+      const rules = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => social-change-topic(?SELF, ?TOPIC) += ?SELF.topicStance(?TOPIC) + 1
+      `);
+
+      const { delta } = rules[0].effects[0];
+      assert.equal(delta.xkind, 'bin');
+      assert.equal(delta.op, '+');
+      assert.deepEqual(delta.left, {
+        xkind: 'ownerPred', ownerVar: '?SELF', name: 'topicStance', args: ['?TOPIC'],
+      });
+    });
+  });
+
   describe('multiple top-level declarations', () => {
     it('parses multiple rules', () => {
       const rules = parseRules(`

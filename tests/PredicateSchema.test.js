@@ -103,4 +103,37 @@ describe('PredicateSchema', () => {
       assert.ok(schema.matchesTier('friendship', -50, 'hostile'));
     });
   });
+
+  describe('getPrivateFallback', () => {
+    it('defaults to "default-first" when the predicate does not set it', () => {
+      assert.equal(schema.getPrivateFallback('friendship'), 'default-first');
+      assert.equal(schema.getPrivateFallback('knows'), 'default-first');
+    });
+
+    it('returns the declared value when set to "world-first"', () => {
+      const withFallback = new PredicateSchema({
+        predicates: {
+          topicStance: { type: 'numeric', args: ['topic'], minValue: -5, maxValue: 5, default: 0, tiers: {}, privateFallback: 'world-first' },
+        },
+      });
+      assert.equal(withFallback.getPrivateFallback('topicStance'), 'world-first');
+    });
+
+    it('returns the declared value when explicitly set to "default-first"', () => {
+      const explicit = new PredicateSchema({
+        predicates: {
+          mood: { type: 'numeric', args: ['agent'], minValue: 0, maxValue: 100, default: 50, tiers: {}, privateFallback: 'default-first' },
+        },
+      });
+      assert.equal(explicit.getPrivateFallback('mood'), 'default-first');
+    });
+
+    it('rejects an unrecognized privateFallback value at construction time', () => {
+      assert.throws(() => new PredicateSchema({
+        predicates: {
+          mood: { type: 'numeric', args: ['agent'], minValue: 0, maxValue: 100, default: 50, tiers: {}, privateFallback: 'private-only' },
+        },
+      }), /privateFallback must be "world-first" or "default-first"/);
+    });
+  });
 });

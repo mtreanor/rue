@@ -86,13 +86,14 @@ function actionRowCenterY(stage, index) {
   return hookSecH(stage.preHooks) + CENTER_H + hookSecH(stage.postHooks) + HOOK_PAD + index * ACTION_LINE_H + ACTION_LINE_H / 2;
 }
 
-// Human-readable label for one hook entry, emphasising the ruleset name.
+// Human-readable label for one hook entry, emphasising the ruleset/hook name.
 function hookLabel(h) {
   if (!h) return '?';
   if (h.type === 'swap-roles') {
     const [a = '?', b = '?'] = h.roles ?? [];
     return `⇄ ${a} ↔ ${b}`;
   }
+  if (h.type === 'js') return `⚙ ${h.name || '(unnamed)'}`;
   const icon = h.type === 'ruleset-fixpoint' ? '↻' : '→';
   return `${icon} ${h.name || '(unnamed)'}`;
 }
@@ -200,7 +201,7 @@ function RoleSelect({ value, options, onChange }) {
 // Each hook is two stacked rows — type + move/remove controls, then the
 // type-specific fields — so every field gets the panel's full width instead of
 // several controls squeezed onto one line.
-function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true, roleOptions = [] }) {
+function HooksEditor({ label, hooks, onChange, rulesets, jsHooks = [], allowSwapRoles = true, roleOptions = [] }) {
   function add() { onChange([...hooks, { type: 'ruleset-single', name: '' }]); }
 
   function update(i, patch) {
@@ -216,6 +217,13 @@ function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true, 
     const base = { type };
     if (type === 'swap-roles') base.roles = ['', ''];
     else base.name = hooks[i].name ?? '';
+    // A hook switched to 'js' shouldn't silently inherit a stale `requires`
+    // from whatever type it was before — occ specifically is only ever
+    // bound on a branch-routed stage's per-winner postHooks, never on a
+    // collect stage, so a carried-over `requires: ['occ']` would make a js
+    // hook on a collect stage (the common case a js hook exists for at all
+    // — see topic-bid-resolution) silently stop firing, with no error.
+    if (type === 'js') base.requires = undefined;
     update(i, base);
   }
 
@@ -229,6 +237,7 @@ function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true, 
             <select className="hook-type" value={h.type} onChange={e => changeType(i, e.target.value)}>
               <option value="ruleset-single">single</option>
               <option value="ruleset-fixpoint">fixpoint</option>
+              <option value="js">js</option>
               {allowSwapRoles && <option value="swap-roles">swap-roles</option>}
             </select>
             <div className="hook-btns">
@@ -242,6 +251,24 @@ function HooksEditor({ label, hooks, onChange, rulesets, allowSwapRoles = true, 
               <RoleSelect value={h.roles?.[0] ?? ''} options={roleOptions} onChange={v => update(i, { roles: [v, h.roles?.[1] ?? ''] })} />
               <span className="dim hook-swap-arrow">↔</span>
               <RoleSelect value={h.roles?.[1] ?? ''} options={roleOptions} onChange={v => update(i, { roles: [h.roles?.[0] ?? '', v] })} />
+            </div>
+          ) : h.type === 'js' ? (
+            <div className="hook-name-row">
+              <select value={h.name ?? ''} onChange={e => update(i, { name: e.target.value })}>
+                <option value="">— js hook —</option>
+                {h.name && !jsHooks.includes(h.name) && <option value={h.name}>{h.name}</option>}
+                {jsHooks.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              {allowSwapRoles && (
+                <input className="hook-requires" placeholder="requires"
+                  title="Comma-separated vars that must be bound"
+                  value={(h.requires ?? []).join(', ')}
+                  onChange={e => {
+                    const v = e.target.value.trim();
+                    update(i, { requires: v ? v.split(',').map(s => s.trim()).filter(Boolean) : undefined });
+                  }}
+                />
+              )}
             </div>
           ) : (
             <div className="hook-name-row">
@@ -338,7 +365,7 @@ function ActionRoutesPanel({ stageName, stage, pipelineData, onChange, actionset
 }
 
 // ── HooksPanel — right-panel editor for pre or post hooks ─────────────────────
-function HooksPanel({ stageName, label, hooks, onChange, rulesets, roleOptions }) {
+function HooksPanel({ stageName, label, hooks, onChange, rulesets, jsHooks, roleOptions }) {
   return (
     <div className="pipeline-detail">
       <div className="detail-header">
@@ -346,7 +373,7 @@ function HooksPanel({ stageName, label, hooks, onChange, rulesets, roleOptions }
         <span className="dim" style={{ fontSize: 12, marginLeft: 4 }}>{stageName}</span>
       </div>
       <div className="detail-fields">
-        <HooksEditor label={label} hooks={hooks} onChange={onChange} rulesets={rulesets} roleOptions={roleOptions} />
+        <HooksEditor label={label} hooks={hooks} onChange={onChange} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} />
       </div>
     </div>
   );
@@ -358,6 +385,7 @@ function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDele
   useEffect(() => setNameVal(stageName), [stageName]);
 
   const rulesets   = (data?.rulesets   ?? []).map(r => r.name);
+  const jsHooks    = (data?.jsHooks    ?? []).map(h => h.name);
   const actionsets = (data?.actionsets ?? []).map(a => a.name);
   const otherStages = Object.keys(pipelineData.stages ?? {}).filter(n => n !== stageName);
 
@@ -380,7 +408,7 @@ function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDele
       </div>
       <div className="detail-fields">
 
-        <HooksEditor label="Priming rules" hooks={stage.primingRules ?? []} onChange={v => onUpdate({ primingRules: v })} rulesets={rulesets} allowSwapRoles={false} />
+        <HooksEditor label="Priming rules" hooks={stage.primingRules ?? []} onChange={v => onUpdate({ primingRules: v })} rulesets={rulesets} jsHooks={jsHooks} allowSwapRoles={false} />
 
         <div className="detail-field">
           <span>Actionset</span>
@@ -445,6 +473,7 @@ function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDele
 // ── PipelineSettings ──────────────────────────────────────────────────────────
 function PipelineSettings({ pipelineData, onUpdate, onEntryChange, data }) {
   const rulesets    = (data?.rulesets ?? []).map(r => r.name);
+  const jsHooks     = (data?.jsHooks  ?? []).map(h => h.name);
   const roleOptions = collectRoleNames(data?.actionsets ?? []);
   const stages      = Object.keys(pipelineData.stages ?? {});
   return (
@@ -468,8 +497,8 @@ function PipelineSettings({ pipelineData, onUpdate, onEntryChange, data }) {
             <option value="random">random</option>
           </select>
         </div>
-        <HooksEditor label="Pre-hooks"  hooks={pipelineData.preHooks  ?? []} onChange={v => onUpdate({ preHooks:  v })} rulesets={rulesets} roleOptions={roleOptions} />
-        <HooksEditor label="Post-hooks" hooks={pipelineData.postHooks ?? []} onChange={v => onUpdate({ postHooks: v })} rulesets={rulesets} roleOptions={roleOptions} />
+        <HooksEditor label="Pre-hooks"  hooks={pipelineData.preHooks  ?? []} onChange={v => onUpdate({ preHooks:  v })} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} />
+        <HooksEditor label="Post-hooks" hooks={pipelineData.postHooks ?? []} onChange={v => onUpdate({ postHooks: v })} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} />
 
         <div className="detail-field">
           <span>Notes</span>
@@ -848,6 +877,7 @@ export default function PipelinesTab({ scenario, data }) {
   }
 
   const rulesets    = (data?.rulesets ?? []).map(r => r.name);
+  const jsHooks     = (data?.jsHooks  ?? []).map(h => h.name);
   const roleOptions = collectRoleNames(data?.actionsets ?? []);
 
   return (
@@ -905,6 +935,7 @@ export default function PipelinesTab({ scenario, data }) {
                 hooks={localData.stages[selected.name].preHooks ?? []}
                 onChange={v => patchStage(selected.name, { preHooks: v })}
                 rulesets={rulesets}
+                jsHooks={jsHooks}
                 roleOptions={roleOptions}
               />
             )}
@@ -916,6 +947,7 @@ export default function PipelinesTab({ scenario, data }) {
                 hooks={localData.stages[selected.name].postHooks ?? []}
                 onChange={v => patchStage(selected.name, { postHooks: v })}
                 rulesets={rulesets}
+                jsHooks={jsHooks}
                 roleOptions={roleOptions}
               />
             )}

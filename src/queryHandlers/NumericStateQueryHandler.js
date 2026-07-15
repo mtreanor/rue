@@ -29,10 +29,28 @@ export class NumericStateQueryHandler extends QueryHandler {
     return value === predicate.threshold;
   }
 
+  // Private-store-aware: a private store overrides the world value only for
+  // facts actually asserted there. If the active store is a private store
+  // (scoped, and distinct from this handler's own world store) and it has
+  // nothing asserted for this exact name+args, falls back to the world value
+  // before settling on the schema default — but only when this predicate's
+  // `privateFallback` schema setting is `world-first`; the default
+  // (`default-first`) goes straight to the schema default instead, without
+  // ever reading world through a private-store scope. A private store
+  // existing for *other* reasons (some unrelated fact was asserted there)
+  // must not mask the world's real value for facts the owner never
+  // privately overrode, when fallback is enabled at all.
   getValue(name, args, evaluationContext = null) {
-    const factStore = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
-    const value = factStore.getCurrentValue(name, args);
+    const activeStore = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
+    let value = activeStore.getCurrentValue(name, args);
+    if (value === null && activeStore !== this.factStore && this._worldFallbackAllowed(name)) {
+      value = this.factStore.getCurrentValue(name, args);
+    }
     return value !== null ? value : this.schema.getDefault(name);
+  }
+
+  _worldFallbackAllowed(name) {
+    return this.schema.getPrivateFallback(name) === 'world-first';
   }
 
   // Returns true when the stored value actually changed (clamping can absorb the
@@ -83,18 +101,28 @@ export class NumericStateQueryHandler extends QueryHandler {
   }
 
   wasEverInTier(name, args, tier, evaluationContext = null) {
-    const factStore = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
-    return factStore.getRecords(name, args).some(r =>
+    const activeStore = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
+    const inTier = (store) => store.getRecords(name, args).some(r =>
       r.fact.value !== null && this.schema.matchesTier(name, r.fact.value, tier)
     );
+    if (inTier(activeStore)) return true;
+    if (activeStore !== this.factStore && activeStore.getRecords(name, args).length === 0 && this._worldFallbackAllowed(name)) {
+      return inTier(this.factStore);
+    }
+    return false;
   }
 
   wasEverInTierInWindow(name, args, tier, window, currentTick, evaluationContext = null) {
-    const factStore = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
+    const activeStore = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
     const since = currentTick - window;
-    return factStore.getRecords(name, args).some(r =>
+    const inTierInWindow = (store) => store.getRecords(name, args).some(r =>
       r.assertedAt >= since && r.fact.value !== null && this.schema.matchesTier(name, r.fact.value, tier)
     );
+    if (inTierInWindow(activeStore)) return true;
+    if (activeStore !== this.factStore && activeStore.getRecords(name, args).length === 0 && this._worldFallbackAllowed(name)) {
+      return inTierInWindow(this.factStore);
+    }
+    return false;
   }
 
 }

@@ -230,6 +230,7 @@ Hooks run at stage boundaries and the pipeline edges. Each hook is a small tagge
 | Ruleset (single) | `{ type: 'ruleset-single', name: 'priming-rules' }` | Runs a ruleset **single-pass**, scoped to the current binding (`Engine.runRulesetSingle`). The only safe option for rules with `+=`/`-=` effects — a fixpoint pass would keep re-firing a satisfiable accumulating rule every pass, driving the value to its min/max clamp instead of applying once. Does not transform the binding. |
 | Ruleset (fixpoint) | `{ type: 'ruleset-fixpoint', name: 'consequences' }` | Runs a ruleset **to fixpoint**, unscoped (`Engine.runRulesetFixpoint`). Used for world-state settling — e.g. propagating the effects a stage just produced. Safe for idempotent assert/retract effects; not for `+=`/`-=`. Does not transform the binding. |
 | Swap-roles | `{ type: 'swap-roles', roles: ['SELF', 'OTHER'] }` | Atomically swaps two binding variables. Both values are read before either is written, so the swap is simultaneous. Used for turn-alternating exchanges. |
+| JS | `{ type: 'js', name: 'my-hook' }` | Runs a function registered with `Engine.registerJSHook(name, fn)`. The function receives `(engine, binding)` and is free to call `engine.query()`/`engine.assert()` directly; a non-null return value becomes the new binding, same contract as `swap-roles`. See [JS hooks](#js-hooks) below. |
 
 Note the two ways a stage runs rules, both using the same two mechanisms:
 
@@ -258,6 +259,37 @@ new Stage({
 
 Most actions mint no occurrence, so `occ` is unbound and the hook skips cleanly; when an action does record, the hook runs scoped to exactly that `occ`. The `occ` binding is a `branch`-only convenience — a `collect` stage can execute several recording winners at once, so "the" minted occurrence isn't well-defined there and is not provided.
 
+`requires` behaves identically for a `'js'` hook: with it, the hook fires only when every named variable is bound, and the function receives a binding built from *just* those names (`binding.assignments` has exactly those keys — nothing else leaks in); without it, the function receives the full incoming binding unscoped.
+
+### JS hooks
+
+`{ type: 'js', name }` is an escape hatch for logic that's cheaper or clearer written imperatively than as rules — typically because the rule-based version would force `RuleEvaluator`'s Cartesian candidate-binding generation to explore a search space far larger than the actual computation needs (e.g. a self-join comparing every occurrence of some kind against every other one). Register the function once, by name, before running any pipeline:
+
+```javascript
+engine.registerJSHook('resolve-something', (engine, binding) => {
+  for (const b of engine.query('somePending(?x) ^ not resolved(?x)')) {
+    // ... engine.query()/engine.assert() as needed ...
+  }
+});
+```
+
+Then reference it from a pipeline's `preHooks`/`postHooks` exactly like a ruleset hook: `{ type: 'js', name: 'resolve-something' }`.
+
+**If a hook lives in a scenario's `hooks/` directory** (rather than only being registered by a driver script directly, like the snippet above), the action-rule-set-tool's Play mode can run it too — but only if the file exports both a string-literal `hookName` and a function named exactly `handler`:
+
+```javascript
+export const hookName = 'resolve-something';
+export function handler(engine, binding) { /* ... */ }
+```
+
+The tool's passive scenario-browsing endpoints only ever regex-scan `hooks/` for `hookName` (never import or execute the file — see `action-rule-set-tool/server/scenario.js`'s `loadJSHooks`). Starting a Play session is the one point that actually `import()`s each file and registers its `handler` (`registerScenarioJSHooks`, called from `server/play.js`'s `startPlaySession`) — a deliberate, narrower exception to "never execute scenario-authored code," scoped to an explicit user action against a scenario already being run for real. A driver script that never goes through Play mode (a console demo, a test) doesn't need the `handler` export at all — it can keep calling `registerJSHook` directly with whatever function name it likes, exactly as in the snippet above.
+
+The same registered function is also callable directly, outside any pipeline, via `engine.runJSHook(name, binding?)` — the JS-hook equivalent of `Engine.runRulesetFixpoint`/`runRulesetSingle`. This matters because a pipeline hook fires once per `run()` *invocation*, not once per tick — if a driver calls `run()` once per agent, a hook nested in that pipeline fires once per agent too.
+
+Before reaching for direct invocation, check whether the real problem is that the driver is calling `run()` once per agent in the first place. That pattern exists because a role variable (typically `?SELF`) needs to be pre-bound differently each time — often to make a single-key `groupBy` pick one winner per agent. The [compound array form of `groupBy`](#compound-array-form-group-by-a-tuple-of-variables) can often eliminate the per-agent loop entirely: leave `?SELF` unbound, group by `['SELF', ...]`, and a single `run()` call scores and selects across every agent at once — at which point a postHook genuinely fires once per tick, as a real pipeline hook, no direct invocation needed.
+
+Direct invocation remains the right tool when the *loop itself* is load-bearing — e.g. the ACT phase, where agents move sequentially and a later mover must see the groups earlier movers just formed (order genuinely matters, not just selection). Logic that needs to run once per tick *after* such a genuinely-ordered loop, rather than once per pass through it, should be invoked directly via `runJSHook` from the driver's tick loop — still declared and registered through the one named-hook mechanism, just invoked at the right point rather than nested inside the loop.
+
 ---
 
 ## Selection strategies
@@ -279,6 +311,22 @@ new Stage({
 ```
 
 With `?SELF` pre-bound and `?OTHER` free, the stage enumerates a candidate per `?OTHER`. Grouping by `OTHER` yields one winner *for each* `?OTHER` — so `alice` responds to every agent she could respond to, picking her best action toward each.
+
+### Compound array form — group by a tuple of variables
+
+Give `groupBy` an array of variable names to group by the *combination* of their values — one winner per distinct tuple, not per distinct value of a single variable.
+
+```javascript
+new Stage({
+  actionset: 'respond-to-bids',
+  routing: 'branch',
+  selectionStrategy: { type: 'highestUtility', groupBy: ['SELF', 'BID'] },
+});
+```
+
+This is what makes it possible to leave a role variable like `?SELF` **unbound** and still get correct, independent selection per agent, in a single `run()` call — no per-agent loop in the driver. With both `?SELF` and `?BID` free, the stage enumerates a candidate per `(SELF, BID)` pair; a plain string `groupBy: 'BID'` would collapse every agent's vote on the same bid down to one overall winner, losing everyone else's independent decision. `groupBy: ['SELF', 'BID']` instead picks the best action *per agent per bid*, so every eligible agent's own choice for every bid they're eligible to act on survives selection.
+
+This matters beyond convenience: a stage/pipeline hook only fires once per `run()` invocation. Collapsing a per-agent loop into one `run()` call via compound `groupBy` is what lets a postHook genuinely fire once per tick — see [JS hooks](#js-hooks) above.
 
 ### Pattern form — group by a key read from world state
 

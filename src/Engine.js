@@ -87,6 +87,7 @@ export class Engine {
 
     this.rulesets   = new Map();
     this.actionsets = new Map();
+    this.jsHooks    = new Map();
 
     if (paths.klughDir) {
       for (const file of scanKlughFiles(paths.klughDir)) {
@@ -322,6 +323,35 @@ export class Engine {
       minimumSatisfactionScore,
       startingBinding: this.resolveBinding(startingBinding),
     });
+  }
+
+  // Registers a named JS hook — an escape hatch for logic that's cheaper or
+  // clearer written imperatively than as rules (e.g. a comparison that would
+  // force RuleEvaluator's Cartesian candidate generation to explore a much
+  // larger space than the actual computation needs). The function receives
+  // (engine, binding) and is free to call engine.query()/engine.assert()
+  // directly; its return value, if not null/undefined, becomes the new
+  // binding threaded through subsequent hooks — mirrors the ruleset-hook
+  // contract (compare _applyRulesetHook/'swap-roles' in PipelineRunner.js).
+  // Referenced from pipeline JSON as { type: 'js', name, requires? } wherever
+  // a ruleset-fixpoint/ruleset-single hook is valid, and equally callable
+  // directly via runJSHook — the same registered function works both ways,
+  // so logic that must fire once per *tick* rather than once per pipeline
+  // run() invocation (the same constraint act-phase-consequences documents)
+  // can still be declared through this one named-and-registered mechanism,
+  // just invoked directly instead of nested in a per-agent pipeline call.
+  registerJSHook(name, fn) {
+    this.jsHooks.set(name, fn);
+  }
+
+  // Runs a named JS hook directly, outside any pipeline invocation — the
+  // equivalent of runRulesetFixpoint/runRulesetSingle for JS-hook logic that
+  // needs "once per tick" placement in a driver's tick loop rather than
+  // "once per pipeline run()" placement inside a stage's hooks.
+  runJSHook(name, binding = new Binding()) {
+    const fn = this.jsHooks.get(name);
+    if (!fn) throw new Error(`No JS hook named "${name}"`);
+    return fn(this, binding);
   }
 
   // Scores every action in a named actionset against the current world state.

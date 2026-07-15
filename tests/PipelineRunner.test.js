@@ -571,6 +571,117 @@ describe('PipelineRunner — swap-roles hook', () => {
   });
 });
 
+// ── js hook ───────────────────────────────────────────────────────────────────
+
+describe('PipelineRunner — js hook', () => {
+  it('a { type: "js" } postHook invokes the registered function with (engine, binding)', () => {
+    const engine = makeEngine();
+    engine.loadActions(`
+      actionset "moves"
+        action "wait"
+          roles: ?SELF: agent
+          utility 1.0
+    `);
+    let seenSelf = null;
+    engine.registerJSHook('mark-acted', (eng, binding) => {
+      seenSelf = binding.assignments.get('SELF');
+      eng.assert(`acted(${seenSelf.name ?? seenSelf})`);
+    });
+
+    const pipeline = new Pipeline('test', {
+      entry: 'moves-stage',
+      stages: {
+        'moves-stage': new Stage({
+          actionset: 'moves',
+          routing: 'branch',
+          postHooks: [{ type: 'js', name: 'mark-acted' }],
+        }),
+      },
+    });
+
+    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+
+    assert.ok(engine.world.factStore.contains('acted', 'alice'));
+    assert.equal(seenSelf?.name, 'alice');
+  });
+
+  it('a js hook with requires is skipped when the named variable is unbound this firing', () => {
+    const engine = makeEngine();
+    engine.loadActions(`
+      actionset "moves"
+        action "wait"
+          roles: ?SELF: agent
+          utility 1.0
+    `);
+    let calls = 0;
+    engine.registerJSHook('count-calls', () => { calls++; });
+
+    const pipeline = new Pipeline('test', {
+      entry: 'moves-stage',
+      stages: {
+        'moves-stage': new Stage({
+          actionset: 'moves',
+          routing: 'branch',
+          postHooks: [{ type: 'js', name: 'count-calls', requires: ['occ'] }],
+        }),
+      },
+    });
+
+    // "wait" mints no occurrence, so a requires: ['occ'] hook should skip.
+    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+
+    assert.equal(calls, 0);
+  });
+
+  it('a js hook with requires runs, scoped to just the required variables, when they are bound', () => {
+    const engine = makeEngine();
+    engine.loadActions(`
+      actionset "moves"
+        action "speak"
+          roles: ?SELF: agent
+          utility 1.0
+          effects
+            record(?occ)
+    `);
+    let receivedNames = null;
+    engine.registerJSHook('note-occ', (eng, binding) => {
+      receivedNames = [...binding.assignments.keys()];
+    });
+
+    const pipeline = new Pipeline('test', {
+      entry: 'moves-stage',
+      stages: {
+        'moves-stage': new Stage({
+          actionset: 'moves',
+          routing: 'branch',
+          postHooks: [{ type: 'js', name: 'note-occ', requires: ['occ'] }],
+        }),
+      },
+    });
+
+    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+
+    assert.deepEqual(receivedNames, ['occ'],
+      'a requires-scoped js hook should receive only the required variables, not the full incoming binding');
+  });
+
+  it('the same registered function is directly callable via engine.runJSHook, outside any pipeline', () => {
+    const engine = makeEngine();
+    engine.registerJSHook('direct-call', (eng) => {
+      eng.assert('acted(bob)');
+    });
+
+    engine.runJSHook('direct-call');
+
+    assert.ok(engine.world.factStore.contains('acted', 'bob'));
+  });
+
+  it('throws a clear error when no js hook is registered under that name', () => {
+    const engine = makeEngine();
+    assert.throws(() => engine.runJSHook('nonexistent'), /No JS hook named "nonexistent"/);
+  });
+});
+
 // ── salienceFloor filtering ──────────────────────────────────────────────────
 
 describe('PipelineRunner — salienceFloor', () => {
@@ -657,6 +768,105 @@ describe('PipelineRunner — groupBy (string form)', () => {
 
     assert.ok(engine.world.factStore.contains('handoff', 'alice', 'bob'));
     assert.ok(engine.world.factStore.contains('handoff', 'alice', 'carol'));
+  });
+});
+
+describe('PipelineRunner — groupBy (compound array form)', () => {
+  // Scenario: several agents each respond to several pending bids. A single
+  // string groupBy ('BID') would collapse every agent's vote on the same bid
+  // down to one overall winner, losing everyone else's independent decision.
+  // groupBy: ['SELF', 'BID'] should instead pick one winner per (agent, bid)
+  // pair, in a single run() with ?SELF left unbound — no per-agent loop
+  // needed in the driver.
+  function makeVotingEngine() {
+    return new Engine({
+      predicates: {
+        predicates: {
+          witnessed: { type: 'boolean', args: ['occurrence', 'agent'] },
+          voted:     { type: 'boolean', args: ['occurrence', 'agent'] },
+        },
+      },
+      entities: {
+        agent:      { alice: {}, bob: {} },
+        occurrence: { bid1: {}, bid2: {} },
+      },
+    });
+  }
+
+  it('selects one winner per (SELF, groupVar) pair, not one overall winner per groupVar', () => {
+    const engine = makeVotingEngine();
+    engine.world.assert(new Fact('witnessed', 'bid1', 'alice'));
+    engine.world.assert(new Fact('witnessed', 'bid1', 'bob'));
+    engine.world.assert(new Fact('witnessed', 'bid2', 'alice'));
+
+    engine.loadActions(`
+      actionset "votes"
+        action "vote"
+          roles: ?SELF: agent, ?BID: occurrence
+          preconditions
+            witnessed(?BID, ?SELF)
+          utility 1.0
+          effects voted(?BID, ?SELF)
+    `);
+
+    const pipeline = new Pipeline('test', {
+      entry: 'vote-stage',
+      stages: {
+        'vote-stage': new Stage({
+          actionset: 'votes',
+          routing: 'branch',
+          selectionStrategy: { type: 'highestUtility', groupBy: ['SELF', 'BID'] },
+        }),
+      },
+    });
+
+    // No SELF pre-bound — a single run() call should still produce every
+    // eligible (agent, bid) vote, not just one agent's or one bid's.
+    new PipelineRunner(engine).run(pipeline, {});
+
+    assert.ok(engine.world.factStore.contains('voted', 'bid1', 'alice'));
+    assert.ok(engine.world.factStore.contains('voted', 'bid1', 'bob'));
+    assert.ok(engine.world.factStore.contains('voted', 'bid2', 'alice'));
+    assert.ok(!engine.world.factStore.contains('voted', 'bid2', 'bob'),
+      'bob never witnessed bid2, so should have no candidate for it at all');
+  });
+
+  it('within one (SELF, groupVar) pair, still picks the single highest-scoring action', () => {
+    const engine = makeVotingEngine();
+    engine.world.assert(new Fact('witnessed', 'bid1', 'alice'));
+
+    engine.loadActions(`
+      actionset "votes"
+        action "vote-low"
+          roles: ?SELF: agent, ?BID: occurrence
+          preconditions
+            witnessed(?BID, ?SELF)
+          utility 0.2
+          effects voted(?BID, ?SELF)
+        action "vote-high"
+          roles: ?SELF: agent, ?BID: occurrence
+          preconditions
+            witnessed(?BID, ?SELF)
+          utility 0.9
+    `);
+
+    const pipeline = new Pipeline('test', {
+      entry: 'vote-stage',
+      stages: {
+        'vote-stage': new Stage({
+          actionset: 'votes',
+          routing: 'branch',
+          selectionStrategy: { type: 'highestUtility', groupBy: ['SELF', 'BID'] },
+        }),
+      },
+    });
+
+    new PipelineRunner(engine).run(pipeline, {});
+
+    // vote-high wins (no effects), so voted(bid1, alice) must NOT be set —
+    // if it were, vote-low (the loser) would have wrongly executed too.
+    assert.ok(!engine.world.factStore.contains('voted', 'bid1', 'alice'),
+      'only the higher-scoring action for this (SELF, BID) pair should execute');
   });
 });
 

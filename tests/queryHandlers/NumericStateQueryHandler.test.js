@@ -172,4 +172,41 @@ describe('NumericStateQueryHandler', () => {
       assert.ok(!handler.wasEverInTierInWindow('friendship', ['alice', 'bob'], 'strong', 3, 10));
     });
   });
+
+  describe('privateFallback gating', () => {
+    // carol's private store has no record for topicStance(pets) at all — only
+    // the world store does. Whether getValue reads world's value or the
+    // schema default depends on the predicate's privateFallback setting.
+    function buildScopedContext(privateFallback) {
+      const localSchema = new PredicateSchema({
+        predicates: {
+          topicStance: {
+            type: 'numeric', args: ['topic'], minValue: -5, maxValue: 5, default: 0, tiers: {},
+            ...(privateFallback ? { privateFallback } : {}),
+          },
+        },
+      });
+      const worldStore = new FactStore();
+      worldStore.assert(Fact.withValue('topicStance', ['pets'], -3));
+      const handler = new NumericStateQueryHandler(worldStore, localSchema);
+
+      const queryHandlers = new QueryHandlers();
+      queryHandlers.register('numeric', handler);
+
+      const carolStore = new FactStore();
+      const privateStores = new Map([['carol', carolStore]]);
+      const ctx = new EvaluationContext(queryHandlers, { privateStores }).scopedToStore(carolStore);
+      return { handler, ctx };
+    }
+
+    it('default-first (privateFallback unset): a private store with no record does not fall back to world', () => {
+      const { handler, ctx } = buildScopedContext(undefined);
+      assert.equal(handler.getValue('topicStance', ['pets'], ctx), 0); // schema default, not world's -3
+    });
+
+    it('world-first: a private store with no record falls back to world', () => {
+      const { handler, ctx } = buildScopedContext('world-first');
+      assert.equal(handler.getValue('topicStance', ['pets'], ctx), -3);
+    });
+  });
 });

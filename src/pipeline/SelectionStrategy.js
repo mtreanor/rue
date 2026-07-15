@@ -13,18 +13,29 @@ export function selectCandidates(candidates, strategy, engine = null) {
 
 function selectGrouped(candidates, groupBy, engine) {
   if (typeof groupBy === 'string') {
+    return selectGroupedByVar(candidates, [groupBy]);
+  }
+  if (Array.isArray(groupBy)) {
     return selectGroupedByVar(candidates, groupBy);
   }
   if (!engine) throw new Error('groupBy pattern form requires engine access — pass engine as the third argument to selectCandidates');
   return selectGroupedByPattern(candidates, groupBy, engine);
 }
 
-// Groups candidates by a direct role variable — no world-state query needed.
-function selectGroupedByVar(candidates, varName) {
+// Groups candidates by one or more direct role variables — no world-state
+// query needed. A single name behaves exactly as before (one winner per
+// distinct value); an array of names groups by the *combination* — one
+// winner per distinct tuple of values, e.g. ['SELF', 'TOPICBID'] picks one
+// winning action per (agent, bid) pair rather than collapsing every agent's
+// vote on the same bid down to a single overall winner. JSON.stringify over
+// the resolved values gives an unambiguous composite key regardless of what
+// characters happen to appear in any one entity's name.
+function selectGroupedByVar(candidates, varNames) {
   const best = new Map();
   for (const candidate of candidates) {
-    const key = resolveKey(candidate.binding, varName);
-    if (key === null) continue;
+    const keys = varNames.map(name => resolveKey(candidate.binding, name));
+    if (keys.some(k => k === null)) continue;
+    const key = JSON.stringify(keys);
     if (!best.has(key) || candidate.score > best.get(key).score) {
       best.set(key, candidate);
     }
