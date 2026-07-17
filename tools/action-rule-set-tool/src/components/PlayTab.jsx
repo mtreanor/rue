@@ -51,6 +51,24 @@ export default function PlayTab({ scenario, highlighter }) {
   // submit time between "replace activePlan[editingIndex]" and "append".
   const [editingIndex, setEditingIndex] = useState(null);
 
+  // Re-fetches session/plan-editor info (entityType, availableActionGraphs,
+  // actionGraphRoles, ...) without a full page reload. Needed because this
+  // only otherwise runs once per scenario mount (the effect below) — if the
+  // server's actionGraphs/rulesets changed on disk after that (a file added,
+  // a rename settled) while this tab stayed open, the dropdowns below would
+  // keep showing the stale snapshot until something re-triggers this fetch.
+  function refreshSession() {
+    return api.playSession(scenario).then(info => {
+      setSession(info);
+      if (info.exists) {
+        setCtlAgents(info.controlled.agents);
+        setCtlStages(info.controlled.stages);
+        if (info.pending) armChoice(info.pending);
+        if (info.traceCount > 0) focusOnTick(scenario, info.traceCount);
+      }
+    }).catch(e => setError(e.message));
+  }
+
   useEffect(() => {
     setTraces({}); setFocusTick(null); setPending(null); setError(null); setHasPlayConfig(null);
     setPrePlan(null);
@@ -60,21 +78,12 @@ export default function PlayTab({ scenario, highlighter }) {
         setPrePlan(r.content.phases ?? []);
       }
     }).catch(() => setHasPlayConfig(false));
-    api.playSession(scenario).then(info => {
-      setSession(info);
-      if (info.exists) {
-        setCtlAgents(info.controlled.agents);
-        setCtlStages(info.controlled.stages);
-        if (info.pending) armChoice(info.pending);
-        // The trace log is server state; the component's own tick-trace
-        // cache is not. Tab-switching away and back (or a page reload)
-        // unmounts this component — without this, the timeline would show
-        // no ticks at all even though the session (and every recorded trace)
-        // is still there. Resume on whatever was most recently recorded,
-        // independent of whether a choice is also pending right now.
-        if (info.traceCount > 0) focusOnTick(scenario, info.traceCount);
-      }
-    }).catch(e => setError(e.message));
+    // The trace log is server state; the component's own tick-trace cache is
+    // not. Tab-switching away and back (or a page reload) unmounts this
+    // component — without refreshSession() resuming on whatever was most
+    // recently recorded, the timeline would show no ticks at all even though
+    // the session (and every recorded trace) is still there.
+    refreshSession();
     // Predicate schema (for tier badges in the embedded state browser) and
     // rulesets (for HookFirings/RulesetPhaseView to look up rule bodies by
     // name) — the same data every other tab already fetches via
@@ -187,6 +196,7 @@ export default function PlayTab({ scenario, highlighter }) {
   const activePlan = session?.exists ? (session.activePlan ?? []) : (prePlan ?? []);
   const availActionGraphs = session?.availableActionGraphs ?? [];
   const availRulesets  = session?.availableRulesets  ?? [];
+  const newPhaseOptions = newPhaseKind === 'actionGraph' ? availActionGraphs : availRulesets;
 
   // When a session is live, route edits through the server (which validates
   // and normalizes). Pre-session, edit prePlan locally and save to tick-plan.json.
@@ -533,10 +543,16 @@ export default function PlayTab({ scenario, highlighter }) {
                 onChange={e => newPhaseKind === 'actionGraph' ? pickActionGraphForNewPhase(e.target.value) : setNewPhaseName(e.target.value)}
               >
                 <option value="">choose…</option>
-                {(newPhaseKind === 'actionGraph' ? availActionGraphs : availRulesets).map(n => (
+                {newPhaseOptions.map(n => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
+              {newPhaseOptions.length === 0 && (
+                <span className="dim tiny-note">
+                  no {newPhaseKind === 'actionGraph' ? 'actionGraphs' : 'rulesets'} found —
+                  {' '}<button className="btn tiny ghost" disabled={busy} onClick={refreshSession}>refresh</button>
+                </span>
+              )}
               {newPhaseKind === 'ruleset' && (
                 <select value={newPhaseMode} onChange={e => setNewPhaseMode(e.target.value)}>
                   <option value="fixpoint">fixpoint</option>
@@ -915,17 +931,39 @@ function winnerChain(evaluation, out = []) {
   return out;
 }
 
+// A collapsed-by-default disclosure, like native <details>/<summary> but
+// backed by real React state instead: native <details> only hides its body
+// visually (display:none) while still mounting every child — for the deeply
+// recursive, high-fan-out trees in this file (a candidate list can run to
+// hundreds of entries, each with its own recursive utility-breakdown tree),
+// that meant a fully collapsed trace still built its entire DOM subtree, up
+// to millions of nodes for one tick. Gating `children` on `open` state means
+// a closed section mounts nothing; opening it re-renders from the same
+// already-fetched trace data (no server round-trip), and closing it again
+// unmounts — "regenerate on demand" rather than "keep everything forever."
+function Collapsible({ summary, className, summaryClassName, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className={className} open={open} onToggle={e => setOpen(e.currentTarget.open)}>
+      <summary className={summaryClassName}>{summary}</summary>
+      {open && children}
+    </details>
+  );
+}
+
 function AgentRunView({ run, onExplain, highlighter, rulesets, histories }) {
   const chain = run.trace?.root ? winnerChain(run.trace.root) : [];
   return (
-    <details className="play-run">
-      <summary>
+    <Collapsible
+      className="play-run"
+      summary={<>
         <strong>{run.label}</strong>
         <span className="play-chain">{chain.length ? chain.join('  →  ') : '(nothing cleared the floor)'}</span>
-      </summary>
+      </>}
+    >
       {run.trace?.preHooks?.length > 0 && <HookFirings label="actionGraph preHooks" firings={run.trace.preHooks} highlighter={highlighter} onExplain={onExplain} rulesets={rulesets} />}
       {run.trace?.root && <EvaluationView evaluation={run.trace.root} onExplain={onExplain} highlighter={highlighter} rulesets={rulesets} histories={histories} />}
-    </details>
+    </Collapsible>
   );
 }
 
@@ -963,8 +1001,7 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0, ruleset
           />
         ))}
         {others.length > 0 && (
-          <details className="play-other-candidates">
-            <summary>Other candidates <span className="dim">({others.length})</span></summary>
+          <Collapsible className="play-other-candidates" summary={<>Other candidates <span className="dim">({others.length})</span></>}>
             {others.map(({ c, i }) => (
               <CandidateRow
                 key={i} candidate={c}
@@ -972,7 +1009,7 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0, ruleset
                 onExplain={onExplain} highlighter={highlighter} histories={histories}
               />
             ))}
-          </details>
+          </Collapsible>
         )}
         {evaluation.candidates.length === 0 && <div className="dim" style={{padding:'2px 6px'}}>no candidates</div>}
       </div>
@@ -1003,8 +1040,9 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0, ruleset
 function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSelect, showStage, onExplain, highlighter, histories }) {
   const hasAction = candidate.preconditions?.length > 0 || candidate.effects?.length > 0 || candidate.breakdown?.length > 0;
   return (
-    <details className={'play-cand' + (winner ? ' winner' : '') + (candidate.belowFloor ? ' below-floor' : '')}>
-      <summary>
+    <Collapsible
+      className={'play-cand' + (winner ? ' winner' : '') + (candidate.belowFloor ? ' below-floor' : '')}
+      summary={<>
         {mode === 'choice' ? (
           <input
             type="checkbox" className="cand-select"
@@ -1021,7 +1059,8 @@ function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSe
         {candidate.isDefault && <span className="badge">engine pick</span>}
         {candidate.belowFloor && <span className="badge err">below floor</span>}
         <span className="score">{round(candidate.score)}</span>
-      </summary>
+      </>}
+    >
       <div className="play-cand-body">
         {hasAction && (
           <>
@@ -1055,7 +1094,7 @@ function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSe
           </>
         )}
       </div>
-    </details>
+    </Collapsible>
   );
 }
 
@@ -1098,30 +1137,28 @@ function BreakdownNode({ node, onExplain, highlighter, depth = 0, histories }) {
       const adjustments = history.filter(e => e.type === 'adjusted');
       return (
         <div className="bd-node" style={pad}>
-          <details>
-            <summary>
-              <PredicateView
-                name={node.name} args={node.args} value={node.value} owner={node.owner}
-                highlighter={highlighter} onExplain={onExplain}
-              />
-              {adjustments.length > 0 && <span className="dim"> · {adjustments.length} adjustment{adjustments.length === 1 ? '' : 's'}</span>}
-            </summary>
+          <Collapsible summary={<>
+            <PredicateView
+              name={node.name} args={node.args} value={node.value} owner={node.owner}
+              highlighter={highlighter} onExplain={onExplain}
+            />
+            {adjustments.length > 0 && <span className="dim"> · {adjustments.length} adjustment{adjustments.length === 1 ? '' : 's'}</span>}
+          </>}>
             <div className="bd-history">
               {history.map((e, i) => <HistoryEvent key={i} event={e} />)}
             </div>
-          </details>
+          </Collapsible>
         </div>
       );
     }
     case 'rule':
       return (
         <div className="bd-node" style={pad}>
-          <details>
-            <summary>
-              <span className="dim">rule</span> <code>{node.name}</code>
-              <span className="dim"> ×{node.matches.length} @ {node.weight}</span>
-              <span className="score">{round(node.score)}</span>
-            </summary>
+          <Collapsible summary={<>
+            <span className="dim">rule</span> <code>{node.name}</code>
+            <span className="dim"> ×{node.matches.length} @ {node.weight}</span>
+            <span className="score">{round(node.score)}</span>
+          </>}>
             <div className="bd-rule-matches">
               {node.matches.map((m, i) => (
                 <div key={i} className="bd-rule-match">
@@ -1134,7 +1171,7 @@ function BreakdownNode({ node, onExplain, highlighter, depth = 0, histories }) {
                 </div>
               ))}
             </div>
-          </details>
+          </Collapsible>
         </div>
       );
     case 'aggregate':
@@ -1216,11 +1253,15 @@ function HookFirings({ label, firings, highlighter, onExplain, rulesets }) {
           return <span key={i} className="hook-chip">{hookLabel(f.hook)}</span>;
         }
         return (
-          <details key={i} className={'hook-firing' + (f.skipped ? ' skipped' : '')}>
-            <summary className="hook-chip">
+          <Collapsible
+            key={i}
+            className={'hook-firing' + (f.skipped ? ' skipped' : '')}
+            summaryClassName="hook-chip"
+            summary={<>
               {hookLabel(f.hook)}
               {f.skipped ? ' (skipped)' : ` · ${f.applications.length} firing${f.applications.length === 1 ? '' : 's'}`}
-            </summary>
+            </>}
+          >
             <RulesetExecutionView
               ruleset={ruleset}
               applications={f.applications}
@@ -1228,7 +1269,7 @@ function HookFirings({ label, firings, highlighter, onExplain, rulesets }) {
               highlighter={highlighter}
               onExplain={onExplain}
             />
-          </details>
+          </Collapsible>
         );
       })}
     </div>
@@ -1251,8 +1292,11 @@ function RulesetExecutionView({ ruleset, applications = [], skipped = false, hig
         const ruleApps = skipped ? [] : applications.filter(app => app.rule === rule.name);
         const fired = ruleApps.length > 0;
         return (
-          <details key={rule.id} className={'play-rule-exec-card' + (fired ? ' fired' : ' not-fired dim')}>
-            <summary className="play-rule-exec-summary">
+          <Collapsible
+            key={rule.id}
+            className={'play-rule-exec-card' + (fired ? ' fired' : ' not-fired dim')}
+            summaryClassName="play-rule-exec-summary"
+            summary={<>
               <span>
                 <code className="rule-ref">{rule.name}</code>
                 {rule.comment && <span className="dim tiny-comment" title={rule.comment}> (?)</span>}
@@ -1262,7 +1306,8 @@ function RulesetExecutionView({ ruleset, applications = [], skipped = false, hig
               ) : (
                 <span className="dim tiny-note">{skipped ? 'skipped' : 'did not fire'}</span>
               )}
-            </summary>
+            </>}
+          >
             <div className="play-rule-exec-body">
               {fired ? (
                 <div className="play-rule-firings">
@@ -1287,7 +1332,7 @@ function RulesetExecutionView({ ruleset, applications = [], skipped = false, hig
                 <pre className="play-rule-code"><code>{rule.bodyText}</code></pre>
               )}
             </div>
-          </details>
+          </Collapsible>
         );
       })}
     </div>
@@ -1323,13 +1368,15 @@ function RulesetPhaseView({ phase, highlighter, onExplain, rulesets }) {
   const ruleset = rulesets?.find(r => r.name === phase.ruleset);
   return (
     <div className="play-phase">
-      <details>
-        <summary className="play-phase-head">
+      <Collapsible
+        summaryClassName="play-phase-head"
+        summary={<>
           <span className="badge">ruleset</span> <strong>{phase.ruleset}</strong>
           <span className="dim">{phase.mode} · {phase.applications.length} firing{phase.applications.length === 1 ? '' : 's'}</span>
-        </summary>
+        </>}
+      >
         <RulesetExecutionView ruleset={ruleset} applications={phase.applications} highlighter={highlighter} onExplain={onExplain} />
-      </details>
+      </Collapsible>
     </div>
   );
 }

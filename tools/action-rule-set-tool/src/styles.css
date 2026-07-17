@@ -300,6 +300,8 @@ input.dsl-input-highlighted {
 .state-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .state-table code { font-family: var(--mono); color: var(--text); }
 .state-table tbody tr:hover td { background: var(--panel); }
+.state-load-more { padding: 10px; text-align: center; font-size: 12px; cursor: pointer; }
+.state-load-more:hover { color: var(--text); }
 /* Provenance expansion */
 .fact-clickable { cursor: pointer; }
 .prov-caret { display: inline-block; width: 12px; color: var(--dim); font-size: 9px; transition: transform 0.1s; }

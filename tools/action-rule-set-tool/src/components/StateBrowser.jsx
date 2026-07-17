@@ -224,15 +224,45 @@ function tierLabel(predDef, value) {
   return null;
 }
 
+// How many rows to mount at once. A scenario's fact list is append-only and
+// grows every tick (see FactStore.js's occurrence-scoped predicates), so this
+// table can reach thousands of rows — each a FactRow with its own state
+// (open/why/explain/busy). Mounting them all up front is the cost; rendering
+// only a page's worth, and growing it as the sentinel below scrolls into
+// view, keeps mount count proportional to what's actually been scrolled to.
+const PAGE_SIZE = 200;
+
 function FactList({ facts, total, highlighter, onDelete, source, predsByName }) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef(null);
+
+  // `facts` is a fresh array only when the filter/sort/owner/reload actually
+  // changes the result set (it's useMemo'd upstream) — reset pagination then,
+  // so a narrower filter doesn't leave visibleCount stuck past the new total.
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [facts]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setVisibleCount(c => Math.min(c + PAGE_SIZE, facts.length));
+    }, { rootMargin: '600px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [facts, visibleCount]);
+
   if (facts.length === 0) return <div className="dim">No matching facts <span className="dim">({total} total)</span>.</div>;
+
+  const visible = facts.slice(0, visibleCount);
+  const hasMore = visibleCount < facts.length;
+
   return (
     <>
-      <div className="state-count dim">{facts.length} of {total} facts · click a row for provenance</div>
+      <div className="state-count dim">{visible.length} of {facts.length} facts ({total} total) · click a row for provenance</div>
       <table className="state-table">
         <thead><tr><th>store</th><th>fact</th><th>value</th><th>tick</th><th></th></tr></thead>
         <tbody>
-          {facts.map((f, i) => (
+          {visible.map((f, i) => (
             <FactRow
               key={`${f.owner}:${f.name}:${f.args.join(',')}:${i}`}
               fact={f} highlighter={highlighter} onDelete={onDelete} source={source}
@@ -241,6 +271,15 @@ function FactList({ facts, total, highlighter, onDelete, source, predsByName }) 
           ))}
         </tbody>
       </table>
+      {hasMore && (
+        <div
+          ref={sentinelRef}
+          className="state-load-more dim"
+          onClick={() => setVisibleCount(c => Math.min(c + PAGE_SIZE, facts.length))}
+        >
+          {facts.length - visibleCount} more — scroll or click to load
+        </div>
+      )}
     </>
   );
 }
