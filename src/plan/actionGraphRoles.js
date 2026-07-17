@@ -1,4 +1,4 @@
-// Derives which variables a pipeline's entry stage expects, and their entity
+// Derives which variables a actionGraph's entry stage expects, and their entity
 // types — the union of every entry-stage action's own declared `roles`
 // (`action.roleTypes`, already a Map<name, type> per action; klugh's schema
 // already knows these types authoritatively, so this is read-only
@@ -6,11 +6,11 @@
 //
 // Only the entry stage is covered: a downstream stage's roles are free
 // variables that stage enumerates fresh when it scores (exactly as any
-// pipeline invocation already works), not something a caller needs to
-// supply up front. "What do I need to invoke this pipeline" is honestly
+// actionGraph invocation already works), not something a caller needs to
+// supply up front. "What do I need to invoke this actionGraph" is honestly
 // just "what does its entry stage use."
-export function entryStageRoles(engine, pipeline) {
-  const entryStage = pipeline.stages[pipeline.entry];
+export function entryStageRoles(engine, actionGraph) {
+  const entryStage = actionGraph.stages[actionGraph.entry];
   const actions = engine.actionsets.get(entryStage?.actionset) ?? [];
   const roles = new Map();
   for (const action of actions) {
@@ -23,6 +23,6 @@ export function entryStageRoles(engine, pipeline) {
 
 // Same, serialized to a plain object — the shape play.js's info() exposes to
 // the client (a Map doesn't survive JSON).
-export function entryStageRolesPlain(engine, pipeline) {
-  return Object.fromEntries(entryStageRoles(engine, pipeline));
+export function entryStageRolesPlain(engine, actionGraph) {
+  return Object.fromEntries(entryStageRoles(engine, actionGraph));
 }

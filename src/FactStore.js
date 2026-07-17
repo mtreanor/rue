@@ -15,6 +15,98 @@ export class FactStore {
   // add a record is the path that also indexes it.
   #byName = new Map();
 
+  // Tertiary index: (name, argIndex, value) -> array of records sharing that
+  // value at that position, in insertion order. #byName narrows a scan to
+  // one predicate name but its bucket still grows with every record ever
+  // asserted for that name — for a permanent, never-retracted anchor
+  // predicate (role, actionType, topicOf) that's every occurrence ever
+  // created, not a bounded set. This index lets a caller that already knows
+  // one argument's value (a literal in the query, or an already-bound
+  // sibling variable) fetch only the matching records instead. Same
+  // append-only-friendly maintenance as #byName: populated at insertion in
+  // _getOrCreateCanonicalRecord, pruned in remove() (the one hard-delete
+  // path) to keep it in sync.
+  #byNameArgValue = new Map();
+
+  // Records at one (name, argIndex, value) triple, or an empty array if none.
+  // The returned array is live; do not mutate it.
+  recordsForNameArgValue(name, argIndex, value) {
+    return this.#byNameArgValue.get(this.#valueIndexKey(name, argIndex, value)) ?? EMPTY_RECORDS;
+  }
+
+  #valueIndexKey(name, argIndex, value) {
+    return `${name} ${argIndex} ${value}`;
+  }
+
+  // Candidate records for a name+args lookup, before activity/polarity
+  // filtering. When at least one arg is grounded (non-null), narrows via
+  // #byNameArgValue on whichever bound position has the smallest bucket,
+  // instead of #byName's full per-name bucket — which for a permanent,
+  // occurrence-scoped predicate (role, witnessed, judged, ...) holds every
+  // occurrence ever, not just the one this call cares about. Grounding on
+  // one position doesn't guarantee a full match (other args may still
+  // differ, and unbound positions aren't checked here), so callers must
+  // still run factMatches over the result; this only shrinks what they scan.
+  #candidateRecords(name, args) {
+    let smallest = null;
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === null) continue;
+      const bucket = this.recordsForNameArgValue(name, i, args[i]);
+      if (smallest === null || bucket.length < smallest.length) smallest = bucket;
+    }
+    return smallest ?? this.recordsForName(name);
+  }
+
+  // Quaternary index: predicate name -> Map<assertion tick, records with an
+  // 'asserted' event at that tick>. A record can appear under more than one
+  // tick if it was asserted, retracted, and re-asserted. Lets
+  // [asserted-during: N] candidate narrowing (RuleEvaluator) fetch only
+  // records with a recent assertion event instead of scanning every record
+  // ever asserted for a permanent, never-retracted anchor predicate (role,
+  // actionType, topicOf) -- recordsForName's bucket for one of those is
+  // O(all occurrences ever), regardless of how narrow the window is.
+  // Populated wherever an 'asserted' event is recorded (assert, assertAt);
+  // pruned in remove() to stay in sync, same as #byNameArgValue.
+  #assertedAtTick = new Map();
+
+  // Records with an 'asserted' event at any tick in [sinceTick, throughTick]
+  // for this name. A record with multiple qualifying events across the range
+  // is returned once per such event -- callers that need distinct records
+  // dedupe on whatever they extract (RuleEvaluator's
+  // distinctArgValuesForVariable already dedupes bound values via its own
+  // `seen` set).
+  recordsForNameAssertedInRange(name, sinceTick, throughTick) {
+    const byTick = this.#assertedAtTick.get(name);
+    if (!byTick) return EMPTY_RECORDS;
+    const result = [];
+    for (let tick = sinceTick; tick <= throughTick; tick++) {
+      const bucket = byTick.get(tick);
+      if (bucket) result.push(...bucket);
+    }
+    return result;
+  }
+
+  #indexAssertedTick(name, tick, record) {
+    let byTick = this.#assertedAtTick.get(name);
+    if (!byTick) { byTick = new Map(); this.#assertedAtTick.set(name, byTick); }
+    let bucket = byTick.get(tick);
+    if (!bucket) { bucket = []; byTick.set(tick, bucket); }
+    bucket.push(record);
+  }
+
+  #removeFromTickIndex(record) {
+    const byTick = this.#assertedAtTick.get(record.fact.name);
+    if (!byTick) return;
+    for (const event of record.events) {
+      if (event.type !== 'asserted') continue;
+      const bucket = byTick.get(event.tick);
+      if (!bucket) continue;
+      const idx = bucket.indexOf(record);
+      if (idx >= 0) bucket.splice(idx, 1);
+      if (bucket.length === 0) byTick.delete(event.tick);
+    }
+  }
+
   constructor({ contradictionPolicy = 'lastWins', schema = null } = {}) {
     this._canonicalRecords   = new Map();
     this._provenanceHook     = null;
@@ -66,11 +158,21 @@ export class FactStore {
       strength,
       provenance: this._resolveProvenance(fact, provenance),
     });
+    this.#indexAssertedTick(fact.name, this.currentTick, record);
   }
 
   findOpposingRecords(fact) {
     const symmetric = this.schema?.isSymmetric(fact.name) && fact.args.length === 2;
-    return this.recordsForName(fact.name).filter(r => {
+    // A symmetric opposing record may be indexed under the reversed arg
+    // order, so candidates must cover both orderings — narrowing on only
+    // fact.args's own order would miss it. Duplicates across the two
+    // candidate sets are harmless: the sole caller (assert) wraps this in a
+    // Set.
+    const candidates = symmetric
+      ? this.#candidateRecords(fact.name, fact.args).concat(
+          this.#candidateRecords(fact.name, [fact.args[1], fact.args[0]]))
+      : this.#candidateRecords(fact.name, fact.args);
+    return candidates.filter(r => {
       if (!r.isCurrentlyActive()) return false;
       if (r.fact.negated === fact.negated) return false;
       if (r.fact.args.length !== fact.args.length) return false;
@@ -88,7 +190,10 @@ export class FactStore {
     if (fact.negated) return [];
     const keyPos = this.schema?.keyPositions(fact.name);
     if (!keyPos) return [];
-    return this.recordsForName(fact.name).filter(r => {
+    // Only the key positions must match (other args are free), so narrow
+    // using just those — a partial-args probe with nulls elsewhere.
+    const keyArgs = fact.args.map((a, i) => keyPos.includes(i) ? a : null);
+    return this.#candidateRecords(fact.name, keyArgs).filter(r => {
       if (!r.isCurrentlyActive()) return false;
       if (r.fact.args.length !== fact.args.length) return false;
       if (!keyPos.every(i => r.fact.args[i] === fact.args[i])) return false;
@@ -103,6 +208,7 @@ export class FactStore {
   assertAt(fact, tick, retractedAt = null, strength = 1.0) {
     const record = this._getOrCreateCanonicalRecord(fact);
     record.addEvent({ type: 'asserted', tick, strength, provenance: new GivenProvenance() });
+    this.#indexAssertedTick(fact.name, tick, record);
     if (retractedAt !== null) {
       record.addEvent({ type: 'retracted', tick: retractedAt, provenance: new GivenProvenance() });
     }
@@ -112,7 +218,7 @@ export class FactStore {
     const negated  = fact.negated ?? false;
     const provObj  = this._resolveProvenance(fact, provenance);
 
-    for (const record of this.recordsForName(fact.name)) {
+    for (const record of this.#candidateRecords(fact.name, fact.args)) {
       if (!record.isCurrentlyActive()) continue;
       if (record.fact.negated !== negated)       continue;
       if (record.fact.args.length !== fact.args.length) continue;
@@ -124,7 +230,7 @@ export class FactStore {
 
     if (this.schema?.isSymmetric(fact.name) && fact.args.length === 2) {
       const rev = [fact.args[1], fact.args[0]];
-      for (const record of this.recordsForName(fact.name)) {
+      for (const record of this.#candidateRecords(fact.name, rev)) {
         if (!record.isCurrentlyActive()) continue;
         if (record.fact.negated !== negated)       continue;
         if (record.fact.args.length !== rev.length) continue;
@@ -137,23 +243,23 @@ export class FactStore {
 
   // null in any arg position acts as a wildcard
   query(name, ...args) {
-    return this.recordsForName(name)
+    return this.#candidateRecords(name, args)
       .filter(r => r.isCurrentlyActive() && this.factMatches(r.fact, name, args))
       .map(r => r.fact);
   }
 
   queryAt(tick, name, ...args) {
-    return this.recordsForName(name)
+    return this.#candidateRecords(name, args)
       .filter(r => r.isActiveAt(tick) && this.factMatches(r.fact, name, args))
       .map(r => r.fact);
   }
 
   wasEverTrue(name, ...args) {
-    return this.recordsForName(name).some(r => this.factMatches(r.fact, name, args));
+    return this.#candidateRecords(name, args).some(r => this.factMatches(r.fact, name, args));
   }
 
   wasEverTrueAtOrBefore(name, args, currentTick) {
-    return this.recordsForName(name).some(r =>
+    return this.#candidateRecords(name, args).some(r =>
       this.factMatches(r.fact, name, args) &&
       r.events.some(e => e.type === 'asserted' && e.tick <= currentTick)
     );
@@ -161,7 +267,7 @@ export class FactStore {
 
   wasEverTrueInWindow(name, args, window, currentTick) {
     const since = currentTick - window;
-    return this.recordsForName(name).some(r =>
+    return this.#candidateRecords(name, args).some(r =>
       this.factMatches(r.fact, name, args) &&
       r.events.some(e => e.type === 'asserted' && e.tick >= since && e.tick <= currentTick)
     );
@@ -175,7 +281,7 @@ export class FactStore {
   // window and never retracted still satisfies this: it was continuously true.
   wasActiveInWindow(name, args, window, currentTick) {
     const since = currentTick - window;
-    return this.recordsForName(name).some(r => {
+    return this.#candidateRecords(name, args).some(r => {
       if (!this.factMatches(r.fact, name, args)) return false;
       if (r.isActiveAt(since)) return true;
       return r.events.some(e => e.type === 'asserted' && e.tick >= since && e.tick <= currentTick);
@@ -184,7 +290,7 @@ export class FactStore {
 
   // All ticks at which the fact was asserted across its full event log.
   getAssertionTicks(name, args) {
-    return this.recordsForName(name)
+    return this.#candidateRecords(name, args)
       .filter(r => this.factMatches(r.fact, name, args))
       .flatMap(r => r.events.filter(e => e.type === 'asserted').map(e => e.tick));
   }
@@ -199,10 +305,11 @@ export class FactStore {
 
   // Hard-remove every canonical record matching a fact's name, args (symmetric
   // arg order included) and polarity — from both the canonical map and the
-  // by-name index — erasing the record and its history entirely. Unlike
-  // retract(), which appends a `retracted` event and keeps the record, this
-  // leaves no trace. Intended for state-editing tools; the engine's own write
-  // paths stay append-only. Returns true if anything was removed.
+  // by-name and by-name-arg-value indexes — erasing the record and its
+  // history entirely. Unlike retract(), which appends a `retracted` event and
+  // keeps the record, this leaves no trace. Intended for state-editing tools;
+  // the engine's own write paths stay append-only. Returns true if anything
+  // was removed.
   remove(fact) {
     const bucket = this.#byName.get(fact.name);
     if (!bucket) return false;
@@ -214,7 +321,12 @@ export class FactStore {
     const kept = [];
     let removed = false;
     for (const r of bucket) {
-      if (matches(r)) { this._canonicalRecords.delete(this._canonicalKey(r.fact)); removed = true; }
+      if (matches(r)) {
+        this._canonicalRecords.delete(this._canonicalKey(r.fact));
+        this.#removeFromValueIndex(r);
+        this.#removeFromTickIndex(r);
+        removed = true;
+      }
       else kept.push(r);
     }
     if (kept.length) this.#byName.set(fact.name, kept);
@@ -222,8 +334,19 @@ export class FactStore {
     return removed;
   }
 
+  #removeFromValueIndex(record) {
+    record.fact.args.forEach((arg, i) => {
+      const vKey    = this.#valueIndexKey(record.fact.name, i, arg);
+      const vBucket = this.#byNameArgValue.get(vKey);
+      if (!vBucket) return;
+      const idx = vBucket.indexOf(record);
+      if (idx >= 0) vBucket.splice(idx, 1);
+      if (vBucket.length === 0) this.#byNameArgValue.delete(vKey);
+    });
+  }
+
   getCurrentValue(name, args) {
-    const record = this.recordsForName(name).findLast(r =>
+    const record = this.#candidateRecords(name, args).findLast(r =>
       r.isCurrentlyActive() && this.factMatches(r.fact, name, args)
     );
     return record ? record.fact.value : null;
@@ -231,7 +354,7 @@ export class FactStore {
 
   // Returns all canonical records whose fact matches name and args.
   getRecords(name, args) {
-    return this.recordsForName(name).filter(r => this.factMatches(r.fact, name, args));
+    return this.#candidateRecords(name, args).filter(r => this.factMatches(r.fact, name, args));
   }
 
   contains(name, ...args) {
@@ -239,20 +362,20 @@ export class FactStore {
   }
 
   containsNegated(name, ...args) {
-    return this.recordsForName(name).some(r =>
+    return this.#candidateRecords(name, args).some(r =>
       r.isCurrentlyActive() && this.factMatches(r.fact, name, args, true)
     );
   }
 
   getStrength(name, args, negated = false) {
-    const record = this.recordsForName(name).findLast(r =>
+    const record = this.#candidateRecords(name, args).findLast(r =>
       r.isCurrentlyActive() && this.factMatches(r.fact, name, args, negated)
     );
     return record ? record.strength : 0.0;
   }
 
   setStrength(name, args, newStrength, negated = false) {
-    const record = this.recordsForName(name).findLast(r =>
+    const record = this.#candidateRecords(name, args).findLast(r =>
       r.isCurrentlyActive() && this.factMatches(r.fact, name, args, negated)
     );
     if (record) record.strength = newStrength;
@@ -263,7 +386,7 @@ export class FactStore {
   }
 
   containsNegatedAt(tick, name, ...args) {
-    return this.recordsForName(name).some(r =>
+    return this.#candidateRecords(name, args).some(r =>
       r.isActiveAt(tick) && this.factMatches(r.fact, name, args, true)
     );
   }
@@ -281,6 +404,12 @@ export class FactStore {
       let bucket = this.#byName.get(fact.name);
       if (!bucket) { bucket = []; this.#byName.set(fact.name, bucket); }
       bucket.push(record);
+      fact.args.forEach((arg, i) => {
+        const vKey = this.#valueIndexKey(fact.name, i, arg);
+        let vBucket = this.#byNameArgValue.get(vKey);
+        if (!vBucket) { vBucket = []; this.#byNameArgValue.set(vKey, vBucket); }
+        vBucket.push(record);
+      });
     }
     return this._canonicalRecords.get(key);
   }

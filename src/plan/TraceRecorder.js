@@ -1,4 +1,4 @@
-// A recorder retains the decision process a pipeline run otherwise discards:
+// A recorder retains the decision process a actionGraph run otherwise discards:
 // which candidates each stage considered (including losers and below-floor
 // entries), what every candidate scored and why (the utility breakdown), which
 // rules fired during hooks and priming passes, how winners routed, and what a
@@ -6,7 +6,7 @@
 // recorder — the fact store is append-only — but the decision process leaves
 // no trace in any store, so this is the only place it survives the run.
 //
-// PipelineRunner calls the recorder at fixed points in its control flow and
+// ActionGraphRunner calls the recorder at fixed points in its control flow and
 // passes objects it already has in hand (candidates with breakdowns,
 // RuleApplications, ActionRecords). The recorder only retains references and
 // arranges them into a tree; it never recomputes anything. NULL_RECORDER is
@@ -14,8 +14,8 @@
 // costs nothing when absent.
 
 export const NULL_RECORDER = {
-  pipelineStarted() {},
-  pipelineFinished() {},
+  actionGraphStarted() {},
+  actionGraphFinished() {},
   evaluationStarted() {},
   evaluationFinished() {},
   stageEvaluationStarted() {},
@@ -31,7 +31,7 @@ export const NULL_RECORDER = {
 // The trace is a tree of plain objects (see serializeTrace.js for the wire
 // shape). Its spine mirrors the runner's own recursion:
 //
-//   PipelineTrace
+//   ActionGraphTrace
 //     preHooks: HookFiring[]
 //     root: Evaluation
 //
@@ -41,12 +41,12 @@ export const NULL_RECORDER = {
 //     candidates[]       the pooled list, losers and below-floor included
 //     selection          { strategy, source: 'engine'|'player', winnerIndexes }
 //     winners[]          Winner, in execution order
-//     collectPostHooks / collectRoute / pipelinePostHooks   (collect stages)
+//     collectPostHooks / collectRoute / actionGraphPostHooks   (collect stages)
 //
 //   Winner — one executed candidate
 //     candidateIndex     into the owning Evaluation's candidates
 //     occId              occurrence minted by a record() effect, or null
-//     postHooks / route / pipelinePostHooks
+//     postHooks / route / actionGraphPostHooks
 //     next               the child Evaluation this winner routed into (branch)
 export class TraceRecorder {
   constructor() {
@@ -55,17 +55,17 @@ export class TraceRecorder {
     this._winners     = [];
   }
 
-  pipelineStarted(pipelineName, binding) {
+  actionGraphStarted(actionGraphName, binding) {
     this.trace = {
-      kind:           'pipeline',
-      pipeline:       pipelineName,
+      kind:           'actionGraph',
+      actionGraph:       actionGraphName,
       initialBinding: binding,
       preHooks:       [],
       root:           null,
     };
   }
 
-  pipelineFinished() {}
+  actionGraphFinished() {}
 
   evaluationStarted(stageNames, binding, pooled) {
     const evaluation = {
@@ -79,7 +79,7 @@ export class TraceRecorder {
       winners:          [],
       collectPostHooks: [],
       collectRoute:     null,
-      pipelinePostHooks: [],
+      actionGraphPostHooks: [],
     };
     const winner = this._winners.at(-1);
     const parent = this._evaluations.at(-1);
@@ -136,7 +136,7 @@ export class TraceRecorder {
       postHooks:         [],
       route:             null,
       next:              null,
-      pipelinePostHooks: [],
+      actionGraphPostHooks: [],
     };
     evaluation.winners.push(winner);
     this._winners.push(winner);
@@ -156,11 +156,11 @@ export class TraceRecorder {
 
   // scope names the boundary the hook fired at; the entry lands on the node
   // that boundary belongs to. In collect routing there is no open winner when
-  // stage/pipeline post hooks fire, so those fall to the evaluation itself.
+  // stage/actiongraph post hooks fire, so those fall to the evaluation itself.
   hookRan(scope, hook, outcome) {
     const entry = { hook, ...outcome };
     switch (scope) {
-      case 'pipeline-pre':
+      case 'actionGraph-pre':
         this.trace.preHooks.push(entry);
         break;
       case 'stage-pre':
@@ -175,10 +175,10 @@ export class TraceRecorder {
         else this._evaluations.at(-1).collectPostHooks.push(entry);
         break;
       }
-      case 'pipeline-post': {
+      case 'actionGraph-post': {
         const winner = this._winners.at(-1);
-        if (winner) winner.pipelinePostHooks.push(entry);
-        else this._evaluations.at(-1).pipelinePostHooks.push(entry);
+        if (winner) winner.actionGraphPostHooks.push(entry);
+        else this._evaluations.at(-1).actionGraphPostHooks.push(entry);
         break;
       }
       default:

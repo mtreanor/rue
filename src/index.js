@@ -31,12 +31,12 @@ export { ActionLoader } from './loader/ActionLoader.js';
 export { RuleParser } from './loader/RuleParser.js';
 export { RuleLoader } from './loader/RuleLoader.js';
 
-// Pipeline
-export { Pipeline } from './pipeline/Pipeline.js';
-export { Stage } from './pipeline/Stage.js';
-export { PipelineRunner, TERMINAL } from './pipeline/PipelineRunner.js';
-export { selectCandidates } from './pipeline/SelectionStrategy.js';
-export { TraceRecorder, NULL_RECORDER } from './pipeline/TraceRecorder.js';
-export { TickLoop } from './pipeline/TickLoop.js';
-export { serializeTickTrace, serializePipelineTrace } from './pipeline/serializeTrace.js';
-export { entryStageRoles, entryStageRolesPlain } from './pipeline/pipelineRoles.js';
+// Plan
+export { ActionGraph } from './plan/ActionGraph.js';
+export { Stage } from './plan/Stage.js';
+export { ActionGraphRunner, TERMINAL } from './plan/ActionGraphRunner.js';
+export { selectCandidates } from './plan/SelectionStrategy.js';
+export { TraceRecorder, NULL_RECORDER } from './plan/TraceRecorder.js';
+export { TickPlan } from './plan/TickPlan.js';
+export { serializeTickTrace, serializeActionGraphTrace } from './plan/serializeTrace.js';
+export { entryStageRoles, entryStageRolesPlain } from './plan/actionGraphRoles.js';

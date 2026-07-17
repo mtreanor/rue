@@ -5,7 +5,7 @@ import { NULL_RECORDER } from './TraceRecorder.js';
 
 // The reserved terminal route. Used as a stage's `routesTo` (or, under
 // perActionRouting, an action's own entry) to opt out of the default route
-// and end that branch (firing the pipeline's postHooks). It is not a stage
+// and end that branch (firing the actionGraph's postHooks). It is not a stage
 // name — no stage may be called "end".
 export const TERMINAL = 'end';
 
@@ -26,7 +26,7 @@ export const TERMINAL = 'end';
 // A SelectionRequest:
 //   {
 //     kind: 'selection',
-//     pipeline:       pipeline name,
+//     actionGraph:       actionGraph name,
 //     stageNames:     the stage(s) whose candidates pooled (several = fan-out),
 //     binding:        the Binding the stages scored against,
 //     candidates:     every scored candidate — belowFloor entries included,
@@ -38,21 +38,21 @@ export const TERMINAL = 'end';
 // The authored selectionStrategy is never overwritten by interactive play —
 // it still computes defaultWinners; a decide callback substitutes the outcome
 // for one firing only.
-export class PipelineRunner {
+export class ActionGraphRunner {
   constructor(engine) {
     this.engine = engine;
   }
 
-  run(pipeline, initialBinding = {}, { recorder = NULL_RECORDER } = {}) {
-    const generator = this._runGenerator(pipeline, initialBinding, recorder);
+  run(actionGraph, initialBinding = {}, { recorder = NULL_RECORDER } = {}) {
+    const generator = this._runGenerator(actionGraph, initialBinding, recorder);
     let step = generator.next();
     while (!step.done) {
       step = generator.next({ winners: step.value.defaultWinners, source: 'engine' });
     }
   }
 
-  async runInteractive(pipeline, initialBinding = {}, { recorder = NULL_RECORDER, decide = null } = {}) {
-    const generator = this._runGenerator(pipeline, initialBinding, recorder);
+  async runInteractive(actionGraph, initialBinding = {}, { recorder = NULL_RECORDER, decide = null } = {}) {
+    const generator = this._runGenerator(actionGraph, initialBinding, recorder);
     let step = generator.next();
     while (!step.done) {
       const request = step.value;
@@ -63,30 +63,30 @@ export class PipelineRunner {
     }
   }
 
-  *_runGenerator(pipeline, initialBinding, recorder) {
-    if (pipeline.stages[TERMINAL]) {
-      throw new Error(`Pipeline "${pipeline.name}": "${TERMINAL}" is a reserved terminal route and cannot be a stage name`);
+  *_runGenerator(actionGraph, initialBinding, recorder) {
+    if (actionGraph.stages[TERMINAL]) {
+      throw new Error(`ActionGraph "${actionGraph.name}": "${TERMINAL}" is a reserved terminal route and cannot be a stage name`);
     }
     const binding = this.engine.resolveBinding(initialBinding);
-    recorder.pipelineStarted(pipeline.name, binding);
-    this._runHooks(pipeline.preHooks, binding, 'pipeline-pre', recorder);
-    yield* this._runStage(pipeline, pipeline.entry, binding, recorder);
-    recorder.pipelineFinished();
+    recorder.actionGraphStarted(actionGraph.name, binding);
+    this._runHooks(actionGraph.preHooks, binding, 'actionGraph-pre', recorder);
+    yield* this._runStage(actionGraph, actionGraph.entry, binding, recorder);
+    recorder.actionGraphFinished();
   }
 
   // Runs one stage from scratch: preHooks → priming rules → score → select → route.
   // Routing depends on the stage's discipline:
   //   'branch'  — each winner executes and follows the stage's routeFor().
   //   'collect' — the whole winning group executes, then the stage routes once.
-  *_runStage(pipeline, stageName, binding, recorder) {
-    const stage = pipeline.stages[stageName];
-    if (!stage) throw new Error(`Pipeline "${pipeline.name}": stage "${stageName}" not found`);
+  *_runStage(actionGraph, stageName, binding, recorder) {
+    const stage = actionGraph.stages[stageName];
+    if (!stage) throw new Error(`ActionGraph "${actionGraph.name}": stage "${stageName}" not found`);
 
     recorder.evaluationStarted([stageName], binding, false);
-    const { stageBinding, eligible } = this._evaluateStage(pipeline, stage, stageName, binding, recorder);
+    const { stageBinding, eligible } = this._evaluateStage(actionGraph, stage, stageName, binding, recorder);
 
-    const strategy = stage.selectionStrategy ?? pipeline.selectionStrategy ?? 'highestUtility';
-    const winners  = yield* this._select(eligible, strategy, { pipeline, stageNames: [stageName], binding: stageBinding }, recorder);
+    const strategy = stage.selectionStrategy ?? actionGraph.selectionStrategy ?? 'highestUtility';
+    const winners  = yield* this._select(eligible, strategy, { actionGraph, stageNames: [stageName], binding: stageBinding }, recorder);
 
     if (stage.routing === 'collect') {
       // Execute the whole group, settle once, then advance the stage once. The
@@ -105,21 +105,21 @@ export class PipelineRunner {
       recorder.collectRouted(stageName, route ? [].concat(route) : []);
       if (route) {
         for (const childName of [].concat(route)) {
-          yield* this._runStage(pipeline, childName, outBinding, recorder);
+          yield* this._runStage(actionGraph, childName, outBinding, recorder);
         }
       } else {
-        this._runHooks(pipeline.postHooks, outBinding, 'pipeline-post', recorder); // terminal group
+        this._runHooks(actionGraph.postHooks, outBinding, 'actionGraph-post', recorder); // terminal group
       }
     } else {
       for (const winner of winners) {
-        yield* this._commitAndRoute(pipeline, winner._stageName ?? stageName, winner, recorder);
+        yield* this._commitAndRoute(actionGraph, winner._stageName ?? stageName, winner, recorder);
       }
     }
     recorder.evaluationFinished();
   }
 
   // Executes a selected candidate, fires postHooks, then either routes to child
-  // stages (pooling their candidates and selecting one) or fires pipeline postHooks
+  // stages (pooling their candidates and selecting one) or fires actionGraph postHooks
   // when terminal. The route is resolved by the stage's routeFor(): the
   // action's own actionRoutes entry when perActionRouting is enabled and set,
   // else the stage's routesTo default; an entry of `end` is an explicit
@@ -131,8 +131,8 @@ export class PipelineRunner {
   // winner per call) — the 'collect' path in _runStage can execute several
   // winners at once, so "the" occurrence minted isn't well-defined there and
   // is deliberately not attempted.
-  *_commitAndRoute(pipeline, stageName, candidate, recorder) {
-    const stage = pipeline.stages[stageName];
+  *_commitAndRoute(actionGraph, stageName, candidate, recorder) {
+    const stage = actionGraph.stages[stageName];
 
     const seqBefore    = this.engine.world.occurrenceSeq ?? 0;
     const actionRecord = this.engine.execute(candidate);
@@ -160,9 +160,9 @@ export class PipelineRunner {
 
       const pool = [];
       for (const childStageName of childStageNames) {
-        const childStage = pipeline.stages[childStageName];
-        if (!childStage) throw new Error(`Pipeline "${pipeline.name}": stage "${childStageName}" not found (routed from "${candidate.action.name}")`);
-        const { eligible } = this._evaluateStage(pipeline, childStage, childStageName, outBinding, recorder);
+        const childStage = actionGraph.stages[childStageName];
+        if (!childStage) throw new Error(`ActionGraph "${actionGraph.name}": stage "${childStageName}" not found (routed from "${candidate.action.name}")`);
+        const { eligible } = this._evaluateStage(actionGraph, childStage, childStageName, outBinding, recorder);
         pool.push(...eligible);
       }
 
@@ -174,19 +174,19 @@ export class PipelineRunner {
       // stage happened to be pushed first.
       pool.sort((a, b) => b.score - a.score);
 
-      // When multiple stages are pooled, use the pipeline-level strategy; with
+      // When multiple stages are pooled, use the actionGraph-level strategy; with
       // a single route, the child stage's own strategy applies.
       const childStrategy = childStageNames.length === 1
-        ? (pipeline.stages[childStageNames[0]].selectionStrategy ?? pipeline.selectionStrategy ?? 'highestUtility')
-        : (pipeline.selectionStrategy ?? 'highestUtility');
+        ? (actionGraph.stages[childStageNames[0]].selectionStrategy ?? actionGraph.selectionStrategy ?? 'highestUtility')
+        : (actionGraph.selectionStrategy ?? 'highestUtility');
 
-      const childWinners = yield* this._select(pool, childStrategy, { pipeline, stageNames: childStageNames, binding: outBinding }, recorder);
+      const childWinners = yield* this._select(pool, childStrategy, { actionGraph, stageNames: childStageNames, binding: outBinding }, recorder);
       for (const childWinner of childWinners) {
-        yield* this._commitAndRoute(pipeline, childWinner._stageName, childWinner, recorder);
+        yield* this._commitAndRoute(actionGraph, childWinner._stageName, childWinner, recorder);
       }
       recorder.evaluationFinished();
     } else {
-      this._runHooks(pipeline.postHooks, outBinding, 'pipeline-post', recorder);
+      this._runHooks(actionGraph.postHooks, outBinding, 'actionGraph-post', recorder);
     }
     recorder.winnerFinished();
   }
@@ -195,7 +195,7 @@ export class PipelineRunner {
   // score. Returns every candidate — the eligible ones (score ≥ salienceFloor,
   // tagged with their stage for pooled selection) plus below-floor ones, which
   // are recorded for inspection but can never win.
-  _evaluateStage(pipeline, stage, stageName, binding, recorder) {
+  _evaluateStage(actionGraph, stage, stageName, binding, recorder) {
     recorder.stageEvaluationStarted(stageName, binding);
     const stageBinding = this._runHooks(stage.preHooks, binding, 'stage-pre', recorder);
     // A previous stage may have mutated the world; drop stale derived-fact caches
@@ -214,14 +214,14 @@ export class PipelineRunner {
   // Yields the SelectionRequest and applies the driver's answer. An empty pool
   // never yields — there is nothing to decide — but the (empty) selection is
   // still recorded so the trace shows the stage came up dry.
-  *_select(pool, strategy, { pipeline, stageNames, binding }, recorder) {
+  *_select(pool, strategy, { actionGraph, stageNames, binding }, recorder) {
     const defaultWinners = selectCandidates(pool, strategy, this.engine);
     let winners = defaultWinners;
     let source  = 'engine';
     if (pool.length > 0) {
       const outcome = yield {
         kind:       'selection',
-        pipeline:   pipeline.name,
+        actionGraph:   actionGraph.name,
         stageNames,
         binding,
         candidates: pool,
@@ -236,7 +236,7 @@ export class PipelineRunner {
   }
 
   // Invalidate derived-fact caches. The derived query handler caches per tick on
-  // the assumption that facts are stable within a tick — but a pipeline mutates
+  // the assumption that facts are stable within a tick — but a actionGraph mutates
   // the world between stages within one tick, so we drop the cache whenever a
   // stage is about to score against a world a prior stage may have changed.
   _freshDerivations() {
@@ -315,7 +315,7 @@ export class PipelineRunner {
   // silently constrain any same-typed free variable in the ruleset to be
   // distinct from whatever's already bound, breaking rules meant to apply
   // globally); 'ruleset-single' uses the whole incoming binding (e.g. the
-  // self-state-rules preHook, scoped to ?SELF via the pipeline's own binding).
+  // self-state-rules preHook, scoped to ?SELF via the actionGraph's own binding).
   _applyRulesetHook(hook, binding, scope, recorder) {
     if (hook.requires) {
       const missing = hook.requires.some(name => !binding.isBound(new LogicalVariable(name)));

@@ -8,7 +8,7 @@ import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
 import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines, stateTick, stateDegree, stateRulesets, stateRules, stateActionsets, stateActions, stateRun, stateScore, stateSelect } from './state.js';
 import { startPlaySession, getPlaySession, peekPlaySession, resetPlaySession, previewPlayInfo } from './play.js';
-import { listPipelines, savePipeline, deletePipeline } from './pipelines.js';
+import { listActionGraphs, saveActionGraph, deleteActionGraph } from './actiongraphs.js';
 import {
   listEntityTypes, addEntityType, editEntityType, deleteEntityType,
   addEntityInstance, renameEntityInstance, deleteEntityInstance,
@@ -68,14 +68,14 @@ router.post('/scenarios', h((req, res) => {
   res.json(createScenario(req.body.name));
 }));
 
-// Create a new ruleset/actionset/pipeline. Body: { kind: 'ruleset'|'actionset'|'pipeline', name }.
+// Create a new ruleset/actionset/actiongraph. Body: { kind: 'ruleset'|'actionset'|'actionGraph', name }.
 router.post('/scenario/:name/set', h((req, res) => {
   res.json(createSet(req.params.name, req.body.kind, req.body.name));
 }));
 
-// ── play.json ────────────────────────────────────────────────────────────────
+// ── tick-plan.json ────────────────────────────────────────────────────────────────
 
-// Read the scenario's play.json (null when absent).
+// Read the scenario's tick-plan.json (null when absent).
 router.get('/scenario/:name/play-config', h((req, res) => {
   const cfg = loadProjectConfig();
   const s   = cfg.scenarios[req.params.name];
@@ -85,7 +85,7 @@ router.get('/scenario/:name/play-config', h((req, res) => {
   res.json({ exists: !!content, content });
 }));
 
-// Write (create or overwrite) the scenario's play.json.
+// Write (create or overwrite) the scenario's tick-plan.json.
 router.put('/scenario/:name/play-config', h((req, res) => {
   const cfg = loadProjectConfig();
   const s   = cfg.scenarios[req.params.name];
@@ -95,7 +95,7 @@ router.put('/scenario/:name/play-config', h((req, res) => {
   res.json({ ok: true });
 }));
 
-// Bootstrap a minimal play.json + pipeline when neither exists yet.
+// Bootstrap a minimal tick-plan.json + actionGraph when neither exists yet.
 router.post('/scenario/:name/play-config/bootstrap', h((req, res) => {
   const cfg = loadProjectConfig();
   const s   = cfg.scenarios[req.params.name];
@@ -111,43 +111,43 @@ router.post('/scenario/:name/play-config/bootstrap', h((req, res) => {
     if (first) entityType = first;
   } catch { /* entities missing or empty — keep default */ }
 
-  // Minimal pipeline.
-  const pipelineName = 'main';
-  mkdirSync(paths.pipelines, { recursive: true });
-  const pipelinePath = join(paths.pipelines, `${pipelineName}.json`);
-  if (!existsSync(pipelinePath)) {
-    writeFileSync(pipelinePath, JSON.stringify({
-      name: pipelineName,
+  // Minimal actionGraph.
+  const actionGraphName = 'main';
+  mkdirSync(paths.actionGraphs, { recursive: true });
+  const actionGraphPath = join(paths.actionGraphs, `${actionGraphName}.json`);
+  if (!existsSync(actionGraphPath)) {
+    writeFileSync(actionGraphPath, JSON.stringify({
+      name: actionGraphName,
       entry: 'main',
       selectionStrategy: 'highestUtility',
       stages: { main: { actionset: '', routing: 'branch' } },
     }, null, 2) + '\n');
   }
 
-  // Minimal play.json.
+  // Minimal tick-plan.json.
   writeFileSync(paths.play, JSON.stringify({
     entityType,
-    phases: [{ pipeline: pipelineName, loop: ['SELF'] }],
+    phases: [{ actionGraph: actionGraphName, loop: ['SELF'] }],
   }, null, 2) + '\n');
 
-  res.json({ ok: true, created: true, entityType, pipeline: pipelineName });
+  res.json({ ok: true, created: true, entityType, actionGraph: actionGraphName });
 }));
 
 // ── Play ─────────────────────────────────────────────────────────────────────
-// A live TickLoop session per scenario: step ticks, inspect the decision
+// A live TickPlan session per scenario: step ticks, inspect the decision
 // trace, take over selections. See play.js.
 
 // Session status (exists: false when none is running yet — still carries
-// pipelineRoles/entitiesByType/entityType so the plan editor's free/fixed/loop
+// actionGraphRoles/entitiesByType/entityType so the plan editor's free/fixed/loop
 // role picker works before Start Session, not just after). Scenarios with no
-// play.json yet have nothing to preview — the client's own play-config check
+// tick-plan.json yet have nothing to preview — the client's own play-config check
 // already drives the "bootstrap" prompt for that case, so this just omits
 // the preview fields rather than erroring.
 router.get('/play/:scenario/session', h((req, res) => {
   const session = peekPlaySession(req.params.scenario);
   if (session) { res.json({ exists: true, ...session.info() }); return; }
   let preview = {};
-  try { preview = previewPlayInfo(req.params.scenario); } catch { /* no play.json yet */ }
+  try { preview = previewPlayInfo(req.params.scenario); } catch { /* no tick-plan.json yet */ }
   res.json({ exists: false, ...preview });
 }));
 
@@ -177,8 +177,8 @@ router.post('/play/:scenario/config', h((req, res) => {
   res.json(session.info());
 }));
 
-// Replace which pipelines/rulesets the next Step tick runs, and in what
-// order. Body: { plan: [{ pipeline, role? } | { ruleset, mode? }, ...] } —
+// Replace which actionGraphs/rulesets the next Step tick runs, and in what
+// order. Body: { plan: [{ actionGraph, role? } | { ruleset, mode? }, ...] } —
 // or { plan: null } (or an absent body) to reset to the scenario's
 // configured default. Each entry is validated against what the engine has
 // actually loaded.
@@ -219,7 +219,7 @@ router.get('/play/:scenario/entities', h((req, res) => {
 router.post('/play/:scenario/query', h((req, res) => {
   res.json(getPlaySession(req.params.scenario).runQuery(req.body.text, req.body.scopedTo ?? null));
 }));
-// The scenario's declared play.json `views`, re-run against the session's
+// The scenario's declared tick-plan.json `views`, re-run against the session's
 // current state — GET, not POST, since it takes no input beyond the running
 // session itself; called after Start and after every Step/Choose.
 router.get('/play/:scenario/views', h((req, res) => {
@@ -240,25 +240,25 @@ router.post('/play/:scenario/delete', h((req, res) => {
   res.json({ facts: getPlaySession(req.params.scenario).deleteFact(req.body) });
 }));
 
-// ── Pipelines ────────────────────────────────────────────────────────────────
+// ── ActionGraphs ────────────────────────────────────────────────────────────────
 
-// All pipelines for a scenario (full JSON data for each).
-router.get('/state/:scenario/pipelines', h((req, res) => {
-  res.json({ pipelines: listPipelines(req.params.scenario) });
+// All actionGraphs for a scenario (full JSON data for each).
+router.get('/state/:scenario/actiongraphs', h((req, res) => {
+  res.json({ actionGraphs: listActionGraphs(req.params.scenario) });
 }));
 
-// Save (replace) a pipeline's JSON. Body: the full pipeline data object.
-router.put('/state/:scenario/pipeline', h((req, res) => {
+// Save (replace) a actionGraph's JSON. Body: the full actionGraph data object.
+router.put('/state/:scenario/actiongraph', h((req, res) => {
   const { name, ...rest } = req.body;
-  if (!name) throw new Error('Pipeline name is required');
-  res.json({ pipelines: savePipeline(req.params.scenario, name, { name, ...rest }) });
+  if (!name) throw new Error('ActionGraph name is required');
+  res.json({ actionGraphs: saveActionGraph(req.params.scenario, name, { name, ...rest }) });
 }));
 
-// Delete a pipeline. Body: { name }.
-router.delete('/state/:scenario/pipeline', h((req, res) => {
+// Delete a actionGraph. Body: { name }.
+router.delete('/state/:scenario/actiongraph', h((req, res) => {
   const { name } = req.body;
-  if (!name) throw new Error('Pipeline name is required');
-  res.json({ pipelines: deletePipeline(req.params.scenario, name) });
+  if (!name) throw new Error('ActionGraph name is required');
+  res.json({ actionGraphs: deleteActionGraph(req.params.scenario, name) });
 }));
 
 router.get('/scenario/:name', h((req, res) => {

@@ -1,14 +1,22 @@
 import { toFactArg } from '../entityValue.js';
 
-// Turns the live trace tree (TraceRecorder / TickLoop output) into plain
+// Turns the live trace tree (TraceRecorder / TickPlan output) into plain
 // JSON-safe data for storage or the wire. Everything the UI needs to answer
 // "why did that happen instead of something else" is resolved here, at
 // serialization time, from objects the trace holds references to:
 //
-//   - candidates keep their full utility breakdown, with each numeric
-//     predicate leaf expanded into the NumericRecord's event history (every
-//     adjustment: tick, delta, resulting value, and the rule/action that made
-//     it, with that firing's premise justifications);
+//   - candidates keep their full utility breakdown; each numeric predicate
+//     leaf carries a historyKey rather than its NumericRecord's event history
+//     inline (every adjustment: tick, delta, resulting value, and the rule/
+//     action that made it, with that firing's premise justifications) — the
+//     history itself is serialized once per unique predicate into a shared
+//     `histories` map (keyed the same way) at the top of whichever call
+//     created the dedup registry (serializeTickTrace for a whole tick,
+//     serializeActionGraphTrace/serializeCandidate for a standalone call).
+//     Look a leaf's history up via `histories[leaf.historyKey]`. Without this
+//     a shared predicate (a group's topicMomentum, say) gets its full,
+//     ever-growing history duplicated inline in every candidate that
+//     references it — confirmed to blow a single tick's trace out to 100+MB;
 //   - rule firings (hooks, priming, ruleset phases) render their premises and
 //     effects against the firing's own binding;
 //   - winners render their executed effects.
@@ -18,41 +26,63 @@ import { toFactArg } from '../entityValue.js';
 // NumericRecord references the trace holds survive the wipe, eager
 // serialization keeps the rule "a stored trace is self-contained" simple.
 
+// historyRegistry dedupes numeric event histories across an entire
+// serialization call: the same predicate (e.g. topicMomentum(group_faculty,
+// academia)) commonly appears in the utility breakdown of dozens of
+// candidates within a single tick — a group's shared topic momentum feeds
+// every group member's every candidate action that references it. Embedding
+// the full history (which itself grows every tick, unbounded) inline at each
+// occurrence multiplies an already-growing number by "how many candidates
+// reference it," which is what actually blew up a tick's trace to 100+MB.
+// Serializing the history once per unique predicate and having every
+// breakdown leaf reference it by key removes that multiplication; the
+// histories map itself still grows with tick count, same as any full-history
+// view would, just without the redundant duplication.
 export function serializeTickTrace(tickTrace) {
+  const historyRegistry = new Map();
+  const phases = tickTrace.phases.map(phase => phase.kind === 'actionGraph'
+    ? {
+        kind:     'actionGraph',
+        actionGraph: phase.actionGraph,
+        loop:     phase.loop,
+        runs:     phase.runs.map(run => ({
+          binding: run.binding,
+          label:   run.label,
+          trace:   run.trace ? serializeActionGraphTrace(run.trace, historyRegistry) : null,
+        })),
+      }
+    : {
+        kind:         'ruleset',
+        ruleset:      phase.ruleset,
+        mode:         phase.mode,
+        applications: serializeApplications(phase.applications),
+      });
   return {
     kind:   'tick',
     tick:   tickTrace.tick,
-    phases: tickTrace.phases.map(phase => phase.kind === 'pipeline'
-      ? {
-          kind:     'pipeline',
-          pipeline: phase.pipeline,
-          loop:     phase.loop,
-          runs:     phase.runs.map(run => ({
-            binding: run.binding,
-            label:   run.label,
-            trace:   run.trace ? serializePipelineTrace(run.trace) : null,
-          })),
-        }
-      : {
-          kind:         'ruleset',
-          ruleset:      phase.ruleset,
-          mode:         phase.mode,
-          applications: serializeApplications(phase.applications),
-        }),
+    phases,
+    histories: Object.fromEntries(historyRegistry),
   };
 }
 
-export function serializePipelineTrace(trace) {
-  return {
-    kind:           'pipeline',
-    pipeline:       trace.pipeline,
+// historyRegistry is threaded in by serializeTickTrace so a whole tick shares
+// one dedup table; called standalone (e.g. directly in a test), it makes its
+// own and attaches the resulting histories map to its own output instead —
+// the caller shouldn't have to know whether it owns the registry or not.
+export function serializeActionGraphTrace(trace, historyRegistry = null) {
+  const registry = historyRegistry ?? new Map();
+  const result = {
+    kind:           'actionGraph',
+    actionGraph:       trace.actionGraph,
     initialBinding: serializeBinding(trace.initialBinding),
     preHooks:       trace.preHooks.map(serializeHookFiring),
-    root:           trace.root ? serializeEvaluation(trace.root) : null,
+    root:           trace.root ? serializeEvaluation(trace.root, registry) : null,
   };
+  if (historyRegistry === null) result.histories = Object.fromEntries(registry);
+  return result;
 }
 
-function serializeEvaluation(evaluation) {
+function serializeEvaluation(evaluation, historyRegistry) {
   return {
     kind:       'evaluation',
     stageNames: evaluation.stageNames,
@@ -65,19 +95,19 @@ function serializeEvaluation(evaluation) {
       preHooks:      stage.preHooks.map(serializeHookFiring),
       priming:       stage.priming.map(serializeHookFiring),
     })),
-    candidates: evaluation.candidates.map(serializeCandidate),
+    candidates: evaluation.candidates.map(c => serializeCandidate(c, historyRegistry)),
     selection:  evaluation.selection && {
       strategy:      evaluation.selection.strategy,
       source:        evaluation.selection.source,
       winnerIndexes: evaluation.selection.winnerIndexes,
     },
-    winners:           evaluation.winners.map(serializeWinner),
+    winners:           evaluation.winners.map(w => serializeWinner(w, historyRegistry)),
     collectPostHooks:  evaluation.collectPostHooks.map(serializeHookFiring),
     collectRoute:      evaluation.collectRoute && {
       targets: evaluation.collectRoute.targets,
-      next:    evaluation.collectRoute.next.map(serializeEvaluation),
+      next:    evaluation.collectRoute.next.map(e => serializeEvaluation(e, historyRegistry)),
     },
-    pipelinePostHooks: evaluation.pipelinePostHooks.map(serializeHookFiring),
+    actionGraphPostHooks: evaluation.actionGraphPostHooks.map(serializeHookFiring),
   };
 }
 
@@ -93,8 +123,14 @@ function serializeEvaluation(evaluation) {
 // (record()'s ?occ, new entity()'s auto-generated ?var) won't resolve here;
 // structuredEffectInfo/safeDescribe already degrade to a plain description
 // for that rather than throwing.
-export function serializeCandidate(candidate) {
-  return {
+// historyRegistry: same pattern as serializeActionGraphTrace — threaded in by
+// serializeEvaluation to share a whole tick's dedup table; called standalone
+// (a pending SelectionRequest, play.js's _serializeRequest calls this once
+// per candidate and wants the whole request's candidates sharing one table,
+// so it passes its own) it makes and attaches its own.
+export function serializeCandidate(candidate, historyRegistry = null) {
+  const registry = historyRegistry ?? new Map();
+  const result = {
     stageName:     candidate._stageName,
     actionName:    candidate.action.name,
     label:         candidate.label,
@@ -103,11 +139,13 @@ export function serializeCandidate(candidate) {
     binding:       serializeBinding(candidate.binding),
     preconditions: candidate.action.preconditions.map(({ predicate }) => serializePremise(predicate, candidate.binding)),
     effects:       candidate.action.effects.map(effect => serializeEffect(effect, candidate.binding)),
-    breakdown:     (candidate.breakdown ?? []).map(serializeBreakdown),
+    breakdown:     (candidate.breakdown ?? []).map(b => serializeBreakdown(b, registry)),
   };
+  if (historyRegistry === null) result.histories = Object.fromEntries(registry);
+  return result;
 }
 
-function serializeWinner(winner) {
+function serializeWinner(winner, historyRegistry) {
   const record = winner.actionRecord ?? null;
   return {
     kind:           'winner',
@@ -119,8 +157,8 @@ function serializeWinner(winner) {
       : [],
     postHooks:         winner.postHooks.map(serializeHookFiring),
     route:             winner.route,
-    next:              winner.next ? serializeEvaluation(winner.next) : null,
-    pipelinePostHooks: winner.pipelinePostHooks.map(serializeHookFiring),
+    next:              winner.next ? serializeEvaluation(winner.next, historyRegistry) : null,
+    actionGraphPostHooks: winner.actionGraphPostHooks.map(serializeHookFiring),
   };
 }
 
@@ -212,7 +250,7 @@ function structuredPredicateInfo(predicate, binding) {
 // Mirrors the scoreWithBreakdown shapes each UtilitySource produces. The
 // 'predicate' case is the interesting one: it carries the NumericRecord, whose
 // event history is the full provenance of the number the utility read.
-function serializeBreakdown(node) {
+function serializeBreakdown(node, historyRegistry) {
   switch (node.type) {
     case 'rule':
       return {
@@ -225,7 +263,15 @@ function serializeBreakdown(node) {
           premises: (node.predicateEntries ?? []).map(entry => serializePremise(entry.predicate, b)),
         })),
       };
-    case 'predicate':
+    case 'predicate': {
+      // historyKey identifies the predicate value the way the FactStore
+      // itself does (name + resolved args [+ owner for a private one]) — the
+      // same key always means the same NumericRecord, so registering it once
+      // and referencing it by key from every occurrence is safe.
+      const historyKey = `${node.owner ?? ''}::${node.name}(${(node.args ?? []).join(',')})`;
+      if (!historyRegistry.has(historyKey)) {
+        historyRegistry.set(historyKey, serializeNumericHistory(node.numericRecord));
+      }
       return {
         type:    'predicate',
         name:    node.name,
@@ -233,18 +279,19 @@ function serializeBreakdown(node) {
         owner:   node.owner ?? null,
         value:   node.value,
         score:   node.score,
-        history: serializeNumericHistory(node.numericRecord),
+        historyKey,
       };
+    }
     case 'aggregate':
-      return { type: 'aggregate', aggregator: node.aggregator, score: node.score, sources: node.sources.map(serializeBreakdown) };
+      return { type: 'aggregate', aggregator: node.aggregator, score: node.score, sources: node.sources.map(s => serializeBreakdown(s, historyRegistry)) };
     case 'arithmetic':
-      return { type: 'arithmetic', op: node.op, score: node.score, left: serializeBreakdown(node.left), right: serializeBreakdown(node.right) };
+      return { type: 'arithmetic', op: node.op, score: node.score, left: serializeBreakdown(node.left, historyRegistry), right: serializeBreakdown(node.right, historyRegistry) };
     case 'product':
-      return { type: 'product', score: node.score, left: serializeBreakdown(node.left), right: serializeBreakdown(node.right) };
+      return { type: 'product', score: node.score, left: serializeBreakdown(node.left, historyRegistry), right: serializeBreakdown(node.right, historyRegistry) };
     case 'negate':
-      return { type: 'negate', score: node.score, operand: serializeBreakdown(node.operand) };
+      return { type: 'negate', score: node.score, operand: serializeBreakdown(node.operand, historyRegistry) };
     case 'function':
-      return { type: 'function', name: node.name, score: node.score, args: node.args.map(serializeBreakdown) };
+      return { type: 'function', name: node.name, score: node.score, args: node.args.map(a => serializeBreakdown(a, historyRegistry)) };
     case 'constant':
       return { type: 'constant', value: node.value, score: node.score };
     case 'random':

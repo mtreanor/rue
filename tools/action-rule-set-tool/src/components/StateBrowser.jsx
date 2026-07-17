@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInsert } from '../InsertContext.js';
 import ProofTreeView from './ProofTree.jsx';
+import ExplainButton from './ExplainButton.jsx';
 import PredicateView from './PredicateView.jsx';
 
 // Insert text at the input's caret (replacing any selection).
@@ -277,7 +278,7 @@ function FactRow({ fact, highlighter, onDelete, source, predDef }) {
 
   return (
     <>
-      <tr className={(fact.active ? '' : 'inactive') + ' fact-clickable'} onClick={toggle}>
+      <tr className="fact-clickable" onClick={toggle}>
         <td className="dim">{fact.owner ?? 'world'}</td>
         <td>
           <span className={'prov-caret' + (open ? ' open' : '')}>▸</span>
@@ -289,7 +290,6 @@ function FactRow({ fact, highlighter, onDelete, source, predDef }) {
         </td>
         <td className="num">{fact.tick ?? ''}</td>
         <td className="fact-actions" onClick={e => e.stopPropagation()}>
-          {fact.active ? '' : <span className="dim">retracted</span>}
           <button className="row-x" onClick={() => onDelete(fact)} title="Delete this fact completely">×</button>
         </td>
       </tr>
@@ -303,7 +303,7 @@ function FactRow({ fact, highlighter, onDelete, source, predDef }) {
                 <>
                   <div className="prov-head">
                     <span>Provenance</span>
-                    {!explain && <button className="btn tiny" onClick={runExplain} disabled={busy} title="Full recursive justification">Explain ⇣</button>}
+                    {!explain && <ExplainButton onClick={runExplain} disabled={busy} title="Full recursive justification" />}
                     {explain && <span className="dim">— full justification</span>}
                   </div>
                   <ProofTreeView node={data.proof} />

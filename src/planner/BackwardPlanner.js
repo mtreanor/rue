@@ -122,7 +122,11 @@ export class BackwardPlanner {
           initialSnapshot.entityRegistry,
           new Binding(),
           evalCtx,
-          action.preconditions
+          action.preconditions,
+          // A precondition that's currently false is exactly what becomes a
+          // subgoal for an earlier step — the fact-store narrowing in
+          // generateAllBindings would wrongly prune those candidates.
+          { narrowByFacts: false }
         );
 
         for (const binding of bindings) {
@@ -191,7 +195,11 @@ export class BackwardPlanner {
           initialSnapshot.entityRegistry,
           new Binding(),
           evalCtx,
-          action.preconditions
+          action.preconditions,
+          // A precondition that's currently false is exactly what becomes a
+          // subgoal for an earlier step — the fact-store narrowing in
+          // generateAllBindings would wrongly prune those candidates.
+          { narrowByFacts: false }
         );
 
         for (const binding of bindings) {

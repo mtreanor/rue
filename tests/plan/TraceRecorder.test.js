@@ -2,11 +2,11 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../../src/Engine.js';
 import { Fact } from '../../src/Fact.js';
-import { Pipeline } from '../../src/pipeline/Pipeline.js';
-import { Stage } from '../../src/pipeline/Stage.js';
-import { PipelineRunner } from '../../src/pipeline/PipelineRunner.js';
-import { TraceRecorder } from '../../src/pipeline/TraceRecorder.js';
-import { serializePipelineTrace } from '../../src/pipeline/serializeTrace.js';
+import { ActionGraph } from '../../src/plan/ActionGraph.js';
+import { Stage } from '../../src/plan/Stage.js';
+import { ActionGraphRunner } from '../../src/plan/ActionGraphRunner.js';
+import { TraceRecorder } from '../../src/plan/TraceRecorder.js';
+import { serializeActionGraphTrace } from '../../src/plan/serializeTrace.js';
 
 // A scenario rich enough to exercise every recorder surface: a two-leap route
 // (modes → tactics → gestures), per-action routing with an explicit terminal,
@@ -86,7 +86,7 @@ function loadTwoLeapContent(engine) {
         => noticed(?occ)
   `);
 
-  return new Pipeline('two-leap', {
+  return new ActionGraph('two-leap', {
     entry: 'mode-stage',
     stages: {
       'mode-stage': new Stage({
@@ -112,17 +112,17 @@ function loadTwoLeapContent(engine) {
   });
 }
 
-describe('TraceRecorder — two-leap branch pipeline', () => {
+describe('TraceRecorder — two-leap branch actionGraph', () => {
   it('records the full evaluation tree: candidates, losers, winners, routes, hooks', () => {
     const engine = makeEngine();
     engine.world.assert(new Fact('bold', 'alice'));
-    const pipeline = loadTwoLeapContent(engine);
+    const actionGraph = loadTwoLeapContent(engine);
     const recorder = new TraceRecorder();
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' }, { recorder });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' }, { recorder });
 
     const trace = recorder.trace;
-    assert.equal(trace.pipeline, 'two-leap');
+    assert.equal(trace.actionGraph, 'two-leap');
 
     // Tier 1: both candidates recorded, venture (urge 3) beats stay (1.0).
     const root = trace.root;
@@ -164,13 +164,13 @@ describe('TraceRecorder — two-leap branch pipeline', () => {
     assert.ok(engine.world.factStore.contains('noticed', 'occ1'));
   });
 
-  it('records an explicit-terminal winner with an empty route and pipeline postHooks on the winner', () => {
+  it('records an explicit-terminal winner with an empty route and actionGraph postHooks on the winner', () => {
     const engine = makeEngine();
     // No bold(alice): urge stays 0, so "stay" (1.0) wins and terminates via its 'end' route.
-    const pipeline = loadTwoLeapContent(engine);
+    const actionGraph = loadTwoLeapContent(engine);
     const recorder = new TraceRecorder();
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' }, { recorder });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' }, { recorder });
 
     const root   = recorder.trace.root;
     const winner = root.winners[0];
@@ -182,12 +182,12 @@ describe('TraceRecorder — two-leap branch pipeline', () => {
   it('flags below-floor candidates and never selects them', () => {
     const engine = makeEngine();
     engine.world.assert(new Fact('bold', 'alice'));
-    const pipeline = loadTwoLeapContent(engine);
+    const actionGraph = loadTwoLeapContent(engine);
     // Raise the gesture floor above wave's score (nerve = 2).
-    pipeline.stages['gesture-stage'].salienceFloor = 5.0;
+    actionGraph.stages['gesture-stage'].salienceFloor = 5.0;
     const recorder = new TraceRecorder();
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' }, { recorder });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' }, { recorder });
 
     const tier3 = recorder.trace.root.winners[0].next.winners[0].next;
     assert.ok(tier3.candidates.length > 0);
@@ -220,7 +220,7 @@ describe('TraceRecorder — pooled fan-out routing', () => {
           effects schemed(?SELF)
     `);
 
-    return new Pipeline('fan-out', {
+    return new ActionGraph('fan-out', {
       entry: 'mode-stage',
       stages: {
         'mode-stage':    new Stage({ actionset: 'modes', routing: 'branch', routesTo: ['confront-stage', 'scheme-stage'] }),
@@ -232,10 +232,10 @@ describe('TraceRecorder — pooled fan-out routing', () => {
 
   it('records both pooled stages\' candidates in one evaluation, losers included', () => {
     const engine = makeEngine();
-    const pipeline = makeFanOut(engine);
+    const actionGraph = makeFanOut(engine);
     const recorder = new TraceRecorder();
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' }, { recorder });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' }, { recorder });
 
     const pooled = recorder.trace.root.winners[0].next;
     assert.equal(pooled.pooled, true);
@@ -271,7 +271,7 @@ describe('TraceRecorder — collect routing', () => {
           effects schemed(?SELF)
     `);
 
-    const pipeline = new Pipeline('collect-test', {
+    const actionGraph = new ActionGraph('collect-test', {
       entry: 'mark-stage',
       stages: {
         'mark-stage': new Stage({
@@ -287,7 +287,7 @@ describe('TraceRecorder — collect routing', () => {
 
     // No initial binding: ?X enumerates freely (binding ?SELF would exclude
     // that agent from ?X — agents are distinct by default).
-    new PipelineRunner(engine).run(pipeline, {}, { recorder });
+    new ActionGraphRunner(engine).run(actionGraph, {}, { recorder });
 
     const root = recorder.trace.root;
     // groupBy X: one winner per agent — the whole group executed.
@@ -302,36 +302,39 @@ describe('TraceRecorder — collect routing', () => {
   });
 });
 
-describe('serializePipelineTrace', () => {
+describe('serializeActionGraphTrace', () => {
   it('produces JSON-safe output carrying scores, breakdowns, numeric history, and rule firings', () => {
     const engine = makeEngine();
     engine.world.assert(new Fact('bold', 'alice'));
-    const pipeline = loadTwoLeapContent(engine);
+    const actionGraph = loadTwoLeapContent(engine);
     const recorder = new TraceRecorder();
     engine.advanceTick();
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' }, { recorder });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' }, { recorder });
 
-    const json = serializePipelineTrace(recorder.trace);
+    const json = serializeActionGraphTrace(recorder.trace);
     // Round-trippable.
     const parsed = JSON.parse(JSON.stringify(json));
 
-    assert.equal(parsed.pipeline, 'two-leap');
+    assert.equal(parsed.actionGraph, 'two-leap');
     assert.deepEqual(parsed.initialBinding, { SELF: 'alice' });
 
     const venture = parsed.root.candidates.find(c => c.actionName === 'venture');
     assert.equal(venture.score, 3);
-    // The utility breakdown's predicate leaf carries the numeric's history:
-    // one += 3 adjustment made by the priming rule, premises included.
+    // The utility breakdown's predicate leaf carries a historyKey pointing
+    // into the top-level histories map, not the numeric's history inline
+    // (dedup — see serializeTrace.js) — one += 3 adjustment made by the
+    // priming rule, premises included.
     const urgeLeaf = venture.breakdown.find(b => b.type === 'predicate' && b.name === 'urge');
     assert.equal(urgeLeaf.value, 3);
+    const urgeHistory = parsed.histories[urgeLeaf.historyKey];
     // Two events: the initial given (default 0), then the priming adjustment.
-    assert.equal(urgeLeaf.history.length, 2);
-    assert.equal(urgeLeaf.history[0].type, 'given');
-    assert.equal(urgeLeaf.history[1].delta, 3);
-    assert.equal(urgeLeaf.history[1].via.kind, 'rule');
-    assert.equal(urgeLeaf.history[1].via.name, 'bold agents feel the urge');
-    assert.equal(urgeLeaf.history[1].via.premises[0].description, 'bold(alice)');
+    assert.equal(urgeHistory.length, 2);
+    assert.equal(urgeHistory[0].type, 'given');
+    assert.equal(urgeHistory[1].delta, 3);
+    assert.equal(urgeHistory[1].via.kind, 'rule');
+    assert.equal(urgeHistory[1].via.name, 'bold agents feel the urge');
+    assert.equal(urgeHistory[1].via.premises[0].description, 'bold(alice)');
 
     // Priming firings serialize with premises and effects rendered, both as a
     // description string and (where the predicate/effect resolves to a plain
@@ -390,12 +393,12 @@ describe('serializeTrace — premise/effect polarity is never misrepresented', (
     `);
     engine.world.assert(new Fact('knows', 'alice', 'bob'));
 
-    // No pipeline needed — run the ruleset directly and inspect via the same
-    // serializer path a pipeline hook/priming firing uses.
+    // No actionGraph needed — run the ruleset directly and inspect via the same
+    // serializer path a actionGraph hook/priming firing uses.
     const applications = engine.runRulesetSingle('polarity-rules', { startingBinding: { SELF: 'alice' } });
     assert.equal(applications.length, 4);
 
-    const { serializeTickTrace } = await import('../../src/pipeline/serializeTrace.js');
+    const { serializeTickTrace } = await import('../../src/plan/serializeTrace.js');
     const serialized = serializeTickTrace({
       kind: 'tick', tick: 1,
       phases: [{ kind: 'ruleset', ruleset: 'polarity-rules', mode: 'single', applications }],

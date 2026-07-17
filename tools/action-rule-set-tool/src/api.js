@@ -53,7 +53,7 @@ export const api = {
   playStart: (name, controlled) => req('POST', `/api/play/${encodeURIComponent(name)}/start`, { controlled }).then(r => r.data),
   playStep: (name) => req('POST', `/api/play/${encodeURIComponent(name)}/step`).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
   playChoose: (name, indexes) => req('POST', `/api/play/${encodeURIComponent(name)}/choose`, { indexes }).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
-  playConfig: (name, controlled) => req('POST', `/api/play/${encodeURIComponent(name)}/config`, { controlled }).then(r => r.data),
+  tickPlanConfig: (name, controlled) => req('POST', `/api/play/${encodeURIComponent(name)}/config`, { controlled }).then(r => r.data),
   playPlan: (name, plan) => req('POST', `/api/play/${encodeURIComponent(name)}/plan`, { plan }).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
   playTrace: (name, tick) => req('GET', `/api/play/${encodeURIComponent(name)}/trace/${tick}`).then(r => r.data),
   playReset: (name) => req('POST', `/api/play/${encodeURIComponent(name)}/reset`).then(r => r.data),
@@ -99,8 +99,8 @@ export const api = {
   editPredicate: (name, body) => req('PUT', `/api/state/${encodeURIComponent(name)}/predicate`, body).then(r => r.data),
   deletePredicate: (name, body) => req('DELETE', `/api/state/${encodeURIComponent(name)}/predicate`, body).then(r => r.data),
 
-  pipelines: (scenario) => req('GET', `/api/state/${encodeURIComponent(scenario)}/pipelines`).then(r => r.data.pipelines ?? []),
-  savePipeline: (scenario, data) => req('PUT', `/api/state/${encodeURIComponent(scenario)}/pipeline`, data).then(r => r.data.pipelines ?? []),
-  deletePipeline: (scenario, name) => req('DELETE', `/api/state/${encodeURIComponent(scenario)}/pipeline`, { name }).then(r => r.data.pipelines ?? []),
-  createPipeline: (scenario, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/set`, { kind: 'pipeline', name }).then(r => r.data),
+  actionGraphs: (scenario) => req('GET', `/api/state/${encodeURIComponent(scenario)}/actiongraphs`).then(r => r.data.actionGraphs ?? []),
+  saveActionGraph: (scenario, data) => req('PUT', `/api/state/${encodeURIComponent(scenario)}/actiongraph`, data).then(r => r.data.actionGraphs ?? []),
+  deleteActionGraph: (scenario, name) => req('DELETE', `/api/state/${encodeURIComponent(scenario)}/actiongraph`, { name }).then(r => r.data.actionGraphs ?? []),
+  createActionGraph: (scenario, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/set`, { kind: 'actionGraph', name }).then(r => r.data),
 };

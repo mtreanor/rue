@@ -2,7 +2,7 @@
 
 A logic engine built for authorship. Describe relationships, beliefs, and history as rules; define scoreable actions against them; the engine evaluates an evolving world and tells you what follows.
 
-klugh is a rule-based utility pipeline where priming rules shape action scores, selected actions mutate state, later scoring adapts to those mutations, and every step is provenance-traceable.
+klugh is a rule-based utility actionGraph where priming rules shape action scores, selected actions mutate state, later scoring adapts to those mutations, and every step is provenance-traceable.
 
 **Rules** turn conditions into numeric scores:
 

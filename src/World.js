@@ -120,6 +120,15 @@ export class World {
     const evaluationContext = this.createEvaluationContext();
     const fired = [];
 
+    // requireFullSatisfaction: 1.0 means only a fully-satisfied application
+    // will ever be accepted below, so candidate generation is free to use
+    // whichever single clause on a variable is most selective instead of
+    // unioning every clause — anything that would fail even one clause gets
+    // discarded by the threshold check regardless of how it was generated.
+    // See RuleEvaluator.distinctArgValuesForVariable for why this can't be
+    // the default: a caller wanting partial-satisfaction results (degree-of-
+    // truth queries) needs the union, or a candidate that fails one clause
+    // but satisfies another would never surface.
     new ForwardChainer().run(rules, evaluationContext, startingBinding, (app) => {
       if (app.satisfactionScore < minimumSatisfactionScore) return false;
       const provenance = new RuleEffectProvenance(
@@ -135,7 +144,7 @@ export class World {
       });
       if (changed) fired.push(app);
       return changed;
-    });
+    }, { requireFullSatisfaction: minimumSatisfactionScore >= 1 });
 
     return fired;
   }
@@ -169,7 +178,7 @@ export class World {
       });
       if (changed) fired.push(app);
       return changed;
-    });
+    }, { requireFullSatisfaction: minimumSatisfactionScore >= 1 });
 
     return fired;
   }

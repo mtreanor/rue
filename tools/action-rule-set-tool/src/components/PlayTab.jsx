@@ -4,7 +4,7 @@ import ProofTreeView from './ProofTree.jsx';
 import PredicateView from './PredicateView.jsx';
 import StateBrowser from './StateBrowser.jsx';
 
-// Play mode: step the scenario's TickLoop tick by tick against a live engine
+// Play mode: step the scenario's TickPlan tick by tick against a live engine
 // and inspect the full decision trace — every candidate a stage considered
 // (losers and below-floor entries included), each candidate's utility
 // breakdown down to the numeric event history that produced each number, the
@@ -20,7 +20,7 @@ export default function PlayTab({ scenario, highlighter }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [hasPlayConfig, setHasPlayConfig] = useState(null); // null=loading, true/false
-  const [prePlan, setPrePlan] = useState(null);     // phases from play.json before session starts
+  const [prePlan, setPrePlan] = useState(null);     // phases from tick-plan.json before session starts
   const [traces, setTraces] = useState({});         // tick -> serialized TickTrace
   const [focusTick, setFocusTick] = useState(null);
   const [pending, setPending] = useState(null);     // serialized SelectionRequest
@@ -29,19 +29,20 @@ export default function PlayTab({ scenario, highlighter }) {
   const [ctlAgents, setCtlAgents] = useState([]);
   const [ctlStages, setCtlStages] = useState([]);
   const [showState, setShowState] = useState(false);
-  const [views, setViews] = useState([]);            // this scenario's play.json `views`, re-run each tick
+  const [views, setViews] = useState([]);            // this scenario's tick-plan.json `views`, re-run each tick
   const [stateSource, setStateSource] = useState('play'); // 'authored' | 'play'
   const [predsByName, setPredsByName] = useState(new Map());
-  const [newPhaseKind, setNewPhaseKind] = useState('pipeline'); // 'pipeline' | 'ruleset'
+  const [rulesets, setRulesets] = useState([]);      // this scenario's rulesets (name/path/folder/rules), for HookFirings/RulesetPhaseView rule lookups
+  const [newPhaseKind, setNewPhaseKind] = useState('actionGraph'); // 'actionGraph' | 'ruleset'
   const [newPhaseName, setNewPhaseName] = useState('');
   const [newPhaseMode, setNewPhaseMode] = useState('fixpoint');
-  // Per role of the currently-picked pipeline: 'loop' | 'fixed' | 'free', plus
-  // the chosen entity when 'fixed'. Reset whenever the picked pipeline changes.
+  // Per role of the currently-picked actionGraph: 'loop' | 'fixed' | 'free', plus
+  // the chosen entity when 'fixed'. Reset whenever the picked actionGraph changes.
   const [newPhaseRoleConfig, setNewPhaseRoleConfig] = useState({});
-  // Only used when the picked pipeline's entry stage has no actions loaded
+  // Only used when the picked actionGraph's entry stage has no actions loaded
   // yet (a stub still being authored, e.g. reception's judge/claim-judge) —
   // there's nothing to introspect, so the role name is free text instead of
-  // a picker, looping over this scenario's entityType (see TickLoop's own
+  // a picker, looping over this scenario's entityType (see TickPlan's own
   // fallback for the same reason).
   const [newPhaseStubRole, setNewPhaseStubRole] = useState('SELF');
   // Index into activePlan currently being edited, or null when the form below
@@ -74,15 +75,17 @@ export default function PlayTab({ scenario, highlighter }) {
         if (info.traceCount > 0) focusOnTick(scenario, info.traceCount);
       }
     }).catch(e => setError(e.message));
-    // Predicate schema (for tier badges in the embedded state browser) — the
-    // same data.predicates every other tab already fetches via api.scenario;
-    // Play only needed it once this state panel existed.
+    // Predicate schema (for tier badges in the embedded state browser) and
+    // rulesets (for HookFirings/RulesetPhaseView to look up rule bodies by
+    // name) — the same data every other tab already fetches via
+    // api.scenario; Play only needed it once this state panel existed.
     api.scenario(scenario).then(data => {
       setPredsByName(new Map((data?.predicates ?? []).map(p => [p.name, p])));
+      setRulesets(data?.rulesets ?? []);
     }).catch(() => {});
   }, [scenario]);
 
-  // The scenario's declared views (play.json), re-run every time the live
+  // The scenario's declared views (tick-plan.json), re-run every time the live
   // session's tick advances — same "always current" convention as the
   // embedded state browser's stateSourceKey below. No views declared is a
   // silent no-op, not an error (a scenario opts in by adding the field).
@@ -169,7 +172,7 @@ export default function PlayTab({ scenario, highlighter }) {
     if (kind === 'agents') setCtlAgents(next); else setCtlStages(next);
     if (session?.exists) {
       const controlled = kind === 'agents' ? { agents: next, stages: ctlStages } : { agents: ctlAgents, stages: next };
-      api.playConfig(scenario, controlled).catch(e => setError(e.message));
+      api.tickPlanConfig(scenario, controlled).catch(e => setError(e.message));
     }
   }
 
@@ -178,15 +181,15 @@ export default function PlayTab({ scenario, highlighter }) {
   }
 
   // activePlan: live session's plan when running, else local prePlan state.
-  // pipelineRoles/entitiesByType/availablePipelines/availableRulesets come
+  // actionGraphRoles/entitiesByType/availableActionGraphs/availableRulesets come
   // from `session` either way — the server computes them from a throwaway
   // engine pre-session, and from the live one once a session exists.
   const activePlan = session?.exists ? (session.activePlan ?? []) : (prePlan ?? []);
-  const availPipelines = session?.availablePipelines ?? [];
+  const availActionGraphs = session?.availableActionGraphs ?? [];
   const availRulesets  = session?.availableRulesets  ?? [];
 
   // When a session is live, route edits through the server (which validates
-  // and normalizes). Pre-session, edit prePlan locally and save to play.json.
+  // and normalizes). Pre-session, edit prePlan locally and save to tick-plan.json.
   const applyPlan = (plan) => run(async () => {
     if (session?.exists) {
       const info = await api.playPlan(scenario, plan);
@@ -211,22 +214,22 @@ export default function PlayTab({ scenario, highlighter }) {
     applyPlan(activePlan.filter((_, idx) => idx !== i));
   }
 
-  // Picking a pipeline seeds one role-config entry per entry-stage role
-  // (name -> type, from session.pipelineRoles) — the first defaults to
+  // Picking a actionGraph seeds one role-config entry per entry-stage role
+  // (name -> type, from session.actionGraphRoles) — the first defaults to
   // 'loop' (the common case: "everyone gets a turn"), the rest to 'free'
   // (left for the entry stage's own enumerate-and-select scoring, exactly as
-  // an ordinary pipeline invocation already works — no special handling).
-  function pickPipelineForNewPhase(name) {
+  // an ordinary actionGraph invocation already works — no special handling).
+  function pickActionGraphForNewPhase(name) {
     setNewPhaseName(name);
-    const roles = Object.keys(session?.pipelineRoles?.[name] ?? {});
+    const roles = Object.keys(session?.actionGraphRoles?.[name] ?? {});
     const config = {};
     roles.forEach((role, i) => { config[role] = { mode: i === 0 ? 'loop' : 'free', value: '' }; });
     setNewPhaseRoleConfig(config);
     setNewPhaseStubRole('SELF');
   }
 
-  function isStubPipeline(name) {
-    return Object.keys(session?.pipelineRoles?.[name] ?? {}).length === 0;
+  function isStubActionGraph(name) {
+    return Object.keys(session?.actionGraphRoles?.[name] ?? {}).length === 0;
   }
 
   // Who "You play" can offer control over: every entity a 'loop' role ranges
@@ -235,8 +238,8 @@ export default function PlayTab({ scenario, highlighter }) {
   // will actually invoke this tick. A 'free' role isn't included: the stage
   // decides that binding internally via its own scoring, so no fixed roster
   // can be pinned down for it. Ruleset phases don't select actions, so they
-  // don't contribute. A stub pipeline's one role always loops the full
-  // entityType roster by construction (see TickLoop's own fallback), same as
+  // don't contribute. A stub actionGraph's one role always loops the full
+  // entityType roster by construction (see TickPlan's own fallback), same as
   // an ordinary loop role.
   function controllableAgents() {
     const type = session?.entityType;
@@ -244,12 +247,12 @@ export default function PlayTab({ scenario, highlighter }) {
     const all = session?.entitiesByType?.[type] ?? [];
     const result = new Set();
     for (const entry of activePlan) {
-      if (!entry.pipeline) continue;
-      if (isStubPipeline(entry.pipeline)) {
+      if (!entry.actionGraph) continue;
+      if (isStubActionGraph(entry.actionGraph)) {
         if (entry.loop?.length) all.forEach(n => result.add(n));
         continue;
       }
-      const roles = session?.pipelineRoles?.[entry.pipeline] ?? {};
+      const roles = session?.actionGraphRoles?.[entry.actionGraph] ?? {};
       for (const [role, roleType] of Object.entries(roles)) {
         if (roleType !== type) continue;
         if (entry.loop?.includes(role)) all.forEach(n => result.add(n));
@@ -267,16 +270,16 @@ export default function PlayTab({ scenario, highlighter }) {
     setNewPhaseRoleConfig(prev => ({ ...prev, [role]: { ...prev[role], value } }));
   }
 
-  // How many separate invocations a pipeline would produce this phase —
+  // How many separate invocations a actionGraph would produce this phase —
   // the product of every 'loop' role's own entity-type count. No loop roles
-  // at all means exactly one invocation ("runs once"). A stub pipeline (no
+  // at all means exactly one invocation ("runs once"). A stub actionGraph (no
   // introspectable roles) always loops exactly one role, of this scenario's
-  // entityType — the same fallback TickLoop itself applies at run time.
-  function invocationCount(pipelineName, roleConfig) {
-    if (isStubPipeline(pipelineName)) {
+  // entityType — the same fallback TickPlan itself applies at run time.
+  function invocationCount(actionGraphName, roleConfig) {
+    if (isStubActionGraph(actionGraphName)) {
       return session?.entitiesByType?.[session.entityType]?.length ?? 0;
     }
-    const roles = session?.pipelineRoles?.[pipelineName] ?? {};
+    const roles = session?.actionGraphRoles?.[actionGraphName] ?? {};
     let count = 1;
     for (const [role, { mode }] of Object.entries(roleConfig)) {
       if (mode !== 'loop') continue;
@@ -293,8 +296,8 @@ export default function PlayTab({ scenario, highlighter }) {
     let entry;
     if (newPhaseKind === 'ruleset') {
       entry = { ruleset: newPhaseName, mode: newPhaseMode };
-    } else if (isStubPipeline(newPhaseName)) {
-      entry = { pipeline: newPhaseName, loop: [newPhaseStubRole.trim() || 'SELF'], bindings: {} };
+    } else if (isStubActionGraph(newPhaseName)) {
+      entry = { actionGraph: newPhaseName, loop: [newPhaseStubRole.trim() || 'SELF'], bindings: {} };
     } else {
       const loop = [];
       const bindings = {};
@@ -302,7 +305,7 @@ export default function PlayTab({ scenario, highlighter }) {
         if (mode === 'loop') loop.push(role);
         else if (mode === 'fixed' && value) bindings[role] = value;
       }
-      entry = { pipeline: newPhaseName, loop, bindings };
+      entry = { actionGraph: newPhaseName, loop, bindings };
     }
     if (editingIndex !== null) {
       const next = [...activePlan];
@@ -327,13 +330,13 @@ export default function PlayTab({ scenario, highlighter }) {
       setNewPhaseMode(entry.mode ?? 'fixpoint');
       return;
     }
-    setNewPhaseKind('pipeline');
-    setNewPhaseName(entry.pipeline);
-    if (isStubPipeline(entry.pipeline)) {
+    setNewPhaseKind('actionGraph');
+    setNewPhaseName(entry.actionGraph);
+    if (isStubActionGraph(entry.actionGraph)) {
       setNewPhaseStubRole(entry.loop?.[0] ?? 'SELF');
       return;
     }
-    const roles = Object.keys(session?.pipelineRoles?.[entry.pipeline] ?? {});
+    const roles = Object.keys(session?.actionGraphRoles?.[entry.actionGraph] ?? {});
     const config = {};
     roles.forEach(role => {
       if (entry.loop?.includes(role)) config[role] = { mode: 'loop', value: '' };
@@ -345,7 +348,7 @@ export default function PlayTab({ scenario, highlighter }) {
 
   function cancelEditPhase() {
     setEditingIndex(null);
-    setNewPhaseKind('pipeline');
+    setNewPhaseKind('actionGraph');
     setNewPhaseName('');
     setNewPhaseRoleConfig({});
     setNewPhaseStubRole('SELF');
@@ -400,7 +403,7 @@ export default function PlayTab({ scenario, highlighter }) {
         {!session?.exists ? (
           hasPlayConfig === false ? (
             <>
-              <span className="dim">No play.json found.</span>
+              <span className="dim">No tick-plan.json found.</span>
               <button className="btn" onClick={bootstrap} disabled={busy}>Create default</button>
             </>
           ) : (
@@ -412,13 +415,13 @@ export default function PlayTab({ scenario, highlighter }) {
             <button className="btn" onClick={() => runTicks(5)} disabled={busy || !!pending}>Run 5</button>
             <span className="dim">tick {session.tick}</span>
             <span className="spacer" />
-            <button className={'btn tiny' + (showState ? ' primary' : ' ghost')} onClick={() => setShowState(s => !s)}>
-              {showState ? 'Hide state' : 'Show state'}
-            </button>
             <button className="btn tiny ghost" onClick={reset} disabled={busy}>Reset session</button>
           </>
         )}
       </div>
+
+      <div className="layout">
+        <div className="content">
 
       {session?.exists && session.stale && (
         <div className="banner warn">
@@ -437,10 +440,9 @@ export default function PlayTab({ scenario, highlighter }) {
 
       {session?.exists && views.length > 0 && (
         <div className="play-views">
-          {views.map(view => view.kind === 'judgements'
-            ? <JudgementsPanel key={view.label} view={view} scenario={scenario} onExplain={showExplain} highlighter={highlighter} />
-            : <PinnedView key={view.label} view={view} onExplain={showExplain} highlighter={highlighter} />
-          )}
+          {views.map(view => (
+            <PinnedView key={view.label} view={view} scenario={scenario} onExplain={showExplain} highlighter={highlighter} />
+          ))}
         </div>
       )}
 
@@ -469,7 +471,7 @@ export default function PlayTab({ scenario, highlighter }) {
       {hasPlayConfig === true && !session?.exists && (
         <div className="play-plan-panel">
           <div className="play-plan-head">
-            <span className="filter-label" title="Which pipelines/rulesets the next Step tick runs, and in what order">Pipeline plan:</span>
+            <span className="filter-label" title="Which actionGraphs/rulesets the next Step tick runs, and in what order">Tick Plan:</span>
             {session?.exists && (
               <button className="btn tiny ghost" onClick={() => applyPlan(null)} disabled={busy}>Reset to configured</button>
             )}
@@ -477,11 +479,11 @@ export default function PlayTab({ scenario, highlighter }) {
               <button
                 className="btn tiny primary"
                 disabled={busy}
-                title="Save the current plan to play.json (staged — press Save to File to flush)"
+                title="Save the current plan to tick-plan.json (staged — press Save to File to flush)"
                 onClick={() => run(async () => {
                   const phases = activePlan.map(entry => {
-                    if (entry.pipeline) {
-                      const phase = { pipeline: entry.pipeline, loop: [...(entry.loop ?? [])] };
+                    if (entry.actionGraph) {
+                      const phase = { actionGraph: entry.actionGraph, loop: [...(entry.loop ?? [])] };
                       if (Object.keys(entry.bindings ?? {}).length > 0) phase.bindings = { ...entry.bindings };
                       return phase;
                     }
@@ -496,15 +498,15 @@ export default function PlayTab({ scenario, highlighter }) {
             {activePlan.map((entry, i) => (
               <div key={i} className={'play-plan-row' + (editingIndex === i ? ' editing' : '')}>
                 <span className="dim plan-index">{i + 1}</span>
-                <span className="badge">{entry.pipeline ? 'pipeline' : 'ruleset'}</span>
-                <code>{entry.pipeline ?? entry.ruleset}</code>
-                {entry.pipeline && (
+                <span className="badge">{entry.actionGraph ? 'actionGraph' : 'ruleset'}</span>
+                <code>{entry.actionGraph ?? entry.ruleset}</code>
+                {entry.actionGraph && (
                   <span className="dim">
                     {entry.loop?.length ? `loop: ${entry.loop.join(' × ')}` : 'runs once'}
                     {Object.keys(entry.bindings ?? {}).length > 0 && (
                       <> · fixed: {Object.entries(entry.bindings).map(([k, v]) => `?${k}=${v}`).join(', ')}</>
                     )}
-                    {' · '}{invocationCount(entry.pipeline, Object.fromEntries((entry.loop ?? []).map(r => [r, { mode: 'loop' }])))} invocation{invocationCount(entry.pipeline, Object.fromEntries((entry.loop ?? []).map(r => [r, { mode: 'loop' }]))) === 1 ? '' : 's'}
+                    {' · '}{invocationCount(entry.actionGraph, Object.fromEntries((entry.loop ?? []).map(r => [r, { mode: 'loop' }])))} invocation{invocationCount(entry.actionGraph, Object.fromEntries((entry.loop ?? []).map(r => [r, { mode: 'loop' }]))) === 1 ? '' : 's'}
                   </span>
                 )}
                 {entry.ruleset && <span className="dim">{entry.mode}</span>}
@@ -523,15 +525,15 @@ export default function PlayTab({ scenario, highlighter }) {
             )}
             <div className="play-plan-add-row">
               <select value={newPhaseKind} onChange={e => { setNewPhaseKind(e.target.value); setNewPhaseName(''); setNewPhaseRoleConfig({}); }}>
-                <option value="pipeline">pipeline</option>
+                <option value="actionGraph">actionGraph</option>
                 <option value="ruleset">ruleset</option>
               </select>
               <select
                 value={newPhaseName}
-                onChange={e => newPhaseKind === 'pipeline' ? pickPipelineForNewPhase(e.target.value) : setNewPhaseName(e.target.value)}
+                onChange={e => newPhaseKind === 'actionGraph' ? pickActionGraphForNewPhase(e.target.value) : setNewPhaseName(e.target.value)}
               >
                 <option value="">choose…</option>
-                {(newPhaseKind === 'pipeline' ? availPipelines : availRulesets).map(n => (
+                {(newPhaseKind === 'actionGraph' ? availActionGraphs : availRulesets).map(n => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
@@ -548,7 +550,7 @@ export default function PlayTab({ scenario, highlighter }) {
                 <button className="btn tiny ghost" disabled={busy} onClick={cancelEditPhase}>Cancel</button>
               )}
             </div>
-            {newPhaseKind === 'pipeline' && newPhaseName && isStubPipeline(newPhaseName) && (
+            {newPhaseKind === 'actionGraph' && newPhaseName && isStubActionGraph(newPhaseName) && (
               <div className="play-plan-roles">
                 <div className="dim">
                   "{newPhaseName}"'s entry stage has no actions authored yet — nothing to introspect.
@@ -565,9 +567,9 @@ export default function PlayTab({ scenario, highlighter }) {
                 </div>
               </div>
             )}
-            {newPhaseKind === 'pipeline' && newPhaseName && !isStubPipeline(newPhaseName) && (
+            {newPhaseKind === 'actionGraph' && newPhaseName && !isStubActionGraph(newPhaseName) && (
               <div className="play-plan-roles">
-                {Object.entries(session.pipelineRoles?.[newPhaseName] ?? {}).map(([role, type]) => {
+                {Object.entries(session.actionGraphRoles?.[newPhaseName] ?? {}).map(([role, type]) => {
                   const cfg = newPhaseRoleConfig[role] ?? { mode: 'free', value: '' };
                   return (
                     <div key={role} className="play-plan-role-row">
@@ -595,25 +597,6 @@ export default function PlayTab({ scenario, highlighter }) {
         </div>
       )}
 
-      {session?.exists && showState && (
-        <div className="play-state-panel">
-          <div className="play-state-head">
-            <span className="filter-label">Viewing:</span>
-            <button className={'chip' + (stateSource === 'authored' ? ' on' : '')} onClick={() => setStateSource('authored')}>
-              authored (never ticked)
-            </button>
-            <button className={'chip' + (stateSource === 'play' ? ' on' : '')} onClick={() => setStateSource('play')}>
-              play — now (tick {session.tick})
-            </button>
-          </div>
-          <StateBrowser
-            source={stateSources[stateSource]} sourceKey={stateSourceKey}
-            highlighter={highlighter} predsByName={predsByName}
-            emptyHint="No facts yet."
-          />
-        </div>
-      )}
-
       {pending && (
         <ChoicePanel
           request={pending} picked={picked} setPicked={setPicked}
@@ -634,7 +617,7 @@ export default function PlayTab({ scenario, highlighter }) {
           )}
 
           {focusTick != null && !focusTrace && <div className="dim">Loading tick {focusTick}…</div>}
-          {focusTrace && <TickView trace={focusTrace} onExplain={showExplain} highlighter={highlighter} />}
+          {focusTrace && <TickView trace={focusTrace} onExplain={showExplain} highlighter={highlighter} rulesets={rulesets} />}
         </div>
       )}
 
@@ -647,6 +630,39 @@ export default function PlayTab({ scenario, highlighter }) {
           Pick agents/stages above the trace afterwards to take over their decisions.
         </div>
       )}
+        </div>
+
+        {session?.exists && (
+          !showState ? (
+            <aside className="sidebar closed play-state-sidebar">
+              <button className="sidebar-toggle" onClick={() => setShowState(true)} title="Show state visualizer">
+                <span className="vlabel">◂ State</span>
+              </button>
+            </aside>
+          ) : (
+            <aside className="sidebar open play-state-sidebar">
+              <div className="sidebar-head">
+                <span className="sidebar-title">State Visualizer</span>
+                <div className="sidebar-head-actions">
+                  <button className="btn tiny ghost" onClick={() => setShowState(false)} title="Collapse">▶</button>
+                </div>
+              </div>
+              <div className="play-state-head" style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0, marginBottom: 0 }}>
+                <span className="filter-label">Viewing:</span>
+                <button className={'chip' + (stateSource === 'authored' ? ' on' : '')} onClick={() => setStateSource('authored')}>authored</button>
+                <button className={'chip' + (stateSource === 'play' ? ' on' : '')} onClick={() => setStateSource('play')}>play (tick {session.tick})</button>
+              </div>
+              <div className="sidebar-list" style={{ flex: 1, padding: '12px 8px' }}>
+                <StateBrowser
+                  source={stateSources[stateSource]} sourceKey={stateSourceKey}
+                  highlighter={highlighter} predsByName={predsByName}
+                  emptyHint="No facts yet."
+                />
+              </div>
+            </aside>
+          )
+        )}
+      </div>
 
       {explain && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setExplain(null); }}>
@@ -663,7 +679,7 @@ export default function PlayTab({ scenario, highlighter }) {
 
 // ── Pinned views ──────────────────────────────────────────────────────────────
 //
-// A scenario's play.json `views` are just named queries — nothing here knows
+// A scenario's tick-plan.json `views` are just named queries — nothing here knows
 // what "groups" or "topics" mean, only how to run a query and render a row.
 // The predicate name isn't part of the view's row data (runQueryForEngine
 // returns plain { var: value } bindings, not a reconstructed fact), so it's
@@ -674,11 +690,38 @@ export default function PlayTab({ scenario, highlighter }) {
 // this needs to handle.
 
 function queryPredicateName(query) {
-  return query.match(/^\s*([\w-]+)\(/)?.[1] ?? query;
+  return query.match(/^\s*(?:[?\w-]+\.)?([\w-]+)\(/)?.[1] ?? query;
 }
 
-function PinnedView({ view, onExplain, highlighter }) {
-  const name = queryPredicateName(view.query);
+function queryPrimaryVars(query) {
+  const match = query.match(/^\s*(?:[?\w-]+\.)?[\w-]+\(([^)]+)\)/);
+  if (!match) return [];
+  return match[1].split(',').map(s => s.trim().replace(/^\?/, ''));
+}
+
+function queryOwnerVar(query) {
+  const match = query.match(/^\s*\?([\w-]+)\./);
+  return match ? match[1] : null;
+}
+
+function PinnedView({ view, scenario, onExplain, highlighter }) {
+  const [expanded, setExpanded] = useState(new Set());
+  
+  const atoms = view.query.split('^').map(s => s.trim());
+  const parsedAtoms = atoms.map(atom => ({
+    raw: atom,
+    name: queryPredicateName(atom),
+    primaryVars: queryPrimaryVars(atom),
+    ownerVar: queryOwnerVar(atom)
+  }));
+
+  const toggle = (i) => setExpanded(prev => {
+    const next = new Set(prev);
+    if (next.has(i)) next.delete(i);
+    else next.add(i);
+    return next;
+  });
+
   return (
     <div className="play-view">
       <div className="play-view-label">{view.label} <span className="dim tiny-note">({view.count})</span></div>
@@ -687,10 +730,49 @@ function PinnedView({ view, onExplain, highlighter }) {
         : (
           <div className="play-view-rows">
             {view.rows.map((row, i) => (
-              <PredicateView
-                key={i} name={name} args={view.vars.map(v => row[v])}
-                highlighter={highlighter} onExplain={onExplain}
-              />
+              <div key={i} className="play-view-row-container">
+                <div 
+                  className={`play-view-row ${view.details ? 'expandable' : ''}`} 
+                  onClick={() => view.details && toggle(i)}
+                  style={{ cursor: view.details ? 'pointer' : 'default', display: 'flex', alignItems: 'flex-start', paddingBottom: 4, paddingTop: 4 }}
+                >
+                  {view.details && (
+                    <span className="caret dim" style={{ display: 'inline-block', width: '1em', textAlign: 'center', marginTop: 4 }}>
+                      {expanded.has(i) ? '▾' : '▸'}
+                    </span>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {parsedAtoms.map((atom, ai) => {
+                      let text = atom.raw;
+                      for (const [key, val] of Object.entries(row)) {
+                        text = text.replace(new RegExp(`\\?${key}\\b`, 'g'), val);
+                      }
+                      return (
+                        <div key={ai} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                          {ai > 0 && <span className="dim">^</span>}
+                          <PredicateView
+                            name={atom.name} 
+                            args={atom.primaryVars.map(v => row[v])}
+                            owner={atom.ownerVar ? row[atom.ownerVar] : null}
+                            text={text}
+                            highlighter={highlighter} onExplain={onExplain}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {expanded.has(i) && view.details && (
+                  <div className="play-row-details" style={{ marginLeft: 24, marginTop: 4, marginBottom: 8, paddingLeft: 8, borderLeft: '1px solid var(--border)' }}>
+                    {view.details.map((detail, di) => (
+                      <RowDetailQuery 
+                        key={di} detail={detail} row={row} 
+                        scenario={scenario} highlighter={highlighter} onExplain={onExplain} 
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -698,77 +780,54 @@ function PinnedView({ view, onExplain, highlighter }) {
   );
 }
 
-// The one pinned-view shape that isn't a flat row list: "who judged what as
-// what" is inherently one occurrence with several judges, each reading it
-// from their own private store — a flat table of (judge, occurrence) rows
-// would bury that structure. Built on the same view (kind: 'judgements',
-// giving the this-tick (judge, occurrence) pairs via judged(?J,?O)) plus two
-// follow-up query patterns already established elsewhere in this codebase:
-// role(occ, SELF, actor) for who acted (act-step-consequences.klugh's own
-// anchor), and a bound-owner judgement(judge, occ, ?reading) scoped query per
-// (judge, occurrence) pair — the same pattern ConsoleSocialReporter.
-// attribution() uses, which sidesteps owner-free-variable enumeration
-// entirely by binding the owner before asking, rather than relying on it
-// being auto-enumerated (which private-store predicates never are — see
-// docs/private-stores.md's "Owner binding" section).
-function JudgementsPanel({ view, scenario, onExplain, highlighter }) {
-  const [readings, setReadings] = useState({}); // "judge\0occ" -> reading | null (loading)
-  const [actors, setActors] = useState({});     // occ -> actor name | undefined (loading)
-
-  // Named, not positional: `vars`' order reflects binding-assignment order,
-  // not query-text order — a `tickBound` variable (pre-bound via
-  // partialBinding) lands first regardless of where it appears in the query
-  // text, so index [0]/[1] would silently grab the wrong columns. The view's
-  // query is authored as `judged(?J, ?O) [when: ?t]` — J/O are known names,
-  // not inferred from position.
-  const pairs = view.rows.map(row => ({ judge: row.J, occ: row.O }));
-  const pairKey = pairs.map(p => `${p.judge}\0${p.occ}`).join('|');
-  const occs = [...new Set(pairs.map(p => p.occ))];
+function RowDetailQuery({ detail, row, scenario, highlighter, onExplain }) {
+  const [results, setResults] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    for (const occ of occs) {
-      api.playQuery(scenario, `role(${occ}, SELF, ?A)`).then(({ rows }) => {
-        if (!cancelled) setActors(prev => ({ ...prev, [occ]: rows[0]?.A ?? null }));
-      }).catch(() => {});
+    let query = detail.query;
+    let owner = detail.owner;
+    for (const [key, val] of Object.entries(row)) {
+      query = query.replace(new RegExp(`\\?${key}\\b`, 'g'), val);
+      if (owner) owner = owner.replace(new RegExp(`\\?${key}\\b`, 'g'), val);
     }
-    for (const { judge, occ } of pairs) {
-      api.playQuery(scenario, `judgement(${judge}, ${occ}, ?R)`, judge).then(({ rows }) => {
-        if (!cancelled) setReadings(prev => ({ ...prev, [`${judge}\0${occ}`]: rows[0]?.R ?? null }));
-      }).catch(() => {});
-    }
+    
+    api.playQuery(scenario, query, owner).then(({ rows, vars }) => {
+      if (!cancelled) setResults({ rows, vars });
+    }).catch(() => {});
+    
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scenario, pairKey]);
+  }, [scenario, detail, row]);
+
+  if (!results) return <div className="dim tiny-note" style={{ marginBottom: 4 }}>{detail.label}: …</div>;
+  if (results.rows.length === 0) return <div className="dim tiny-note" style={{ marginBottom: 4 }}>{detail.label}: (none)</div>;
+
+  const name = queryPredicateName(detail.query);
+  const primaryVars = queryPrimaryVars(detail.query);
+  const ownerVar = queryOwnerVar(detail.query);
 
   return (
-    <div className="play-view">
-      <div className="play-view-label">{view.label} <span className="dim tiny-note">({occs.length})</span></div>
-      {occs.length === 0
-        ? <div className="dim tiny-note">none</div>
-        : occs.map(occ => (
-          <details key={occ} className="play-judgement-occurrence">
-            <summary>
-              {actors[occ] === undefined ? '…' : (actors[occ] ?? '?')} — {occ}
-            </summary>
-            <div className="play-view-rows">
-              {pairs.filter(p => p.occ === occ).map(({ judge }) => {
-                const reading = readings[`${judge}\0${occ}`];
-                return (
-                  <div key={judge}>
-                    {judge} read it as{' '}
-                    {reading === undefined
-                      ? '…'
-                      : <PredicateView
-                          name="judgement" args={[judge, occ, reading]} owner={judge}
-                          text={reading ?? '(no reading)'} highlighter={highlighter} onExplain={onExplain}
-                        />}
-                  </div>
-                );
-              })}
-            </div>
-          </details>
-        ))}
+    <div className="play-detail-item" style={{ marginBottom: 4, display: 'flex' }}>
+      <span className="dim" style={{ marginRight: 8, whiteSpace: 'nowrap' }}>{detail.label}:</span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        {results.rows.map((r, i) => {
+          let text = detail.query;
+          const allVars = { ...row, ...r };
+          for (const [key, val] of Object.entries(allVars)) {
+            text = text.replace(new RegExp(`\\?${key}\\b`, 'g'), val);
+          }
+          return (
+            <span key={i}>
+              <PredicateView
+                name={name} args={primaryVars.map(v => r[v] ?? row[v])}
+                owner={ownerVar ? (r[ownerVar] ?? row[ownerVar]) : null}
+                text={text}
+                highlighter={highlighter} onExplain={onExplain}
+              />
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -796,7 +855,7 @@ function ChoicePanel({ request, picked, setPicked, onChoose, onDefault, busy, on
             key={c.index} candidate={c} mode="choice"
             selected={picked.has(c.index)} onToggleSelect={toggle}
             showStage={request.stageNames.length > 1}
-            onExplain={onExplain} highlighter={highlighter}
+            onExplain={onExplain} highlighter={highlighter} histories={request.histories}
           />
         ))}
       </div>
@@ -812,24 +871,28 @@ function ChoicePanel({ request, picked, setPicked, onChoose, onDefault, busy, on
 
 // ── Tick trace ────────────────────────────────────────────────────────────────
 
-function TickView({ trace, onExplain, highlighter }) {
+function TickView({ trace, onExplain, highlighter, rulesets }) {
+  // histories: the tick-wide numeric-history dedup table (serializeTrace.js)
+  // — every breakdown leaf below carries a historyKey into this map rather
+  // than its own copy of the (potentially large, ever-growing) event history.
+  const histories = trace.histories ?? {};
   return (
     <div className="play-tick">
-      {trace.phases.map((phase, i) => phase.kind === 'pipeline'
-        ? <PipelinePhaseView key={i} phase={phase} onExplain={onExplain} highlighter={highlighter} />
-        : <RulesetPhaseView key={i} phase={phase} onExplain={onExplain} highlighter={highlighter} />)}
+      {trace.phases.map((phase, i) => phase.kind === 'actionGraph'
+        ? <ActionGraphPhaseView key={i} phase={phase} onExplain={onExplain} highlighter={highlighter} rulesets={rulesets} histories={histories} />
+        : <RulesetPhaseView key={i} phase={phase} onExplain={onExplain} highlighter={highlighter} rulesets={rulesets} />)}
     </div>
   );
 }
 
-function PipelinePhaseView({ phase, onExplain, highlighter }) {
+function ActionGraphPhaseView({ phase, onExplain, highlighter, rulesets, histories }) {
   return (
     <div className="play-phase">
       <div className="play-phase-head">
-        <span className="badge">pipeline</span> <strong>{phase.pipeline}</strong>
+        <span className="badge">actionGraph</span> <strong>{phase.actionGraph}</strong>
         <span className="dim">{phase.loop?.length ? `loop: ${phase.loop.join(' × ')}` : 'runs once'} · {phase.runs.length} invocation{phase.runs.length === 1 ? '' : 's'}</span>
       </div>
-      {phase.runs.map((run, i) => <AgentRunView key={i} run={run} onExplain={onExplain} highlighter={highlighter} />)}
+      {phase.runs.map((run, i) => <AgentRunView key={i} run={run} onExplain={onExplain} highlighter={highlighter} rulesets={rulesets} histories={histories} />)}
     </div>
   );
 }
@@ -852,7 +915,7 @@ function winnerChain(evaluation, out = []) {
   return out;
 }
 
-function AgentRunView({ run, onExplain, highlighter }) {
+function AgentRunView({ run, onExplain, highlighter, rulesets, histories }) {
   const chain = run.trace?.root ? winnerChain(run.trace.root) : [];
   return (
     <details className="play-run">
@@ -860,15 +923,15 @@ function AgentRunView({ run, onExplain, highlighter }) {
         <strong>{run.label}</strong>
         <span className="play-chain">{chain.length ? chain.join('  →  ') : '(nothing cleared the floor)'}</span>
       </summary>
-      {run.trace?.preHooks?.length > 0 && <HookFirings label="pipeline preHooks" firings={run.trace.preHooks} highlighter={highlighter} onExplain={onExplain} />}
-      {run.trace?.root && <EvaluationView evaluation={run.trace.root} onExplain={onExplain} highlighter={highlighter} />}
+      {run.trace?.preHooks?.length > 0 && <HookFirings label="actionGraph preHooks" firings={run.trace.preHooks} highlighter={highlighter} onExplain={onExplain} rulesets={rulesets} />}
+      {run.trace?.root && <EvaluationView evaluation={run.trace.root} onExplain={onExplain} highlighter={highlighter} rulesets={rulesets} histories={histories} />}
     </details>
   );
 }
 
 // One selection event: the stage(s) that scored, their hook/priming firings,
 // the pooled candidate list, and each winner's execution + continuation.
-function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
+function EvaluationView({ evaluation, onExplain, highlighter, depth = 0, rulesets, histories }) {
   const selection = evaluation.selection;
   const indexed   = evaluation.candidates.map((c, i) => ({ c, i }));
   const chosen    = indexed.filter(({ i }) => selection?.winnerIndexes?.includes(i));
@@ -884,8 +947,8 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
 
       {evaluation.stages.map(stage => (
         <div key={stage.stageName} className="play-stage-detail">
-          {stage.preHooks.length > 0 && <HookFirings label={`${stage.stageName} preHooks`} firings={stage.preHooks} highlighter={highlighter} onExplain={onExplain} />}
-          {stage.priming.length > 0 && <HookFirings label={`${stage.stageName} priming`} firings={stage.priming} highlighter={highlighter} onExplain={onExplain} />}
+          {stage.preHooks.length > 0 && <HookFirings label={`${stage.stageName} preHooks`} firings={stage.preHooks} highlighter={highlighter} onExplain={onExplain} rulesets={rulesets} />}
+          {stage.priming.length > 0 && <HookFirings label={`${stage.stageName} priming`} firings={stage.priming} highlighter={highlighter} onExplain={onExplain} rulesets={rulesets} />}
           {stage.salienceFloor > 0 && <span className="dim tiny-note">salience floor {stage.salienceFloor}</span>}
         </div>
       ))}
@@ -896,7 +959,7 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
           <CandidateRow
             key={i} candidate={c} winner
             showStage={evaluation.pooled}
-            onExplain={onExplain} highlighter={highlighter}
+            onExplain={onExplain} highlighter={highlighter} histories={histories}
           />
         ))}
         {others.length > 0 && (
@@ -906,7 +969,7 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
               <CandidateRow
                 key={i} candidate={c}
                 showStage={evaluation.pooled}
-                onExplain={onExplain} highlighter={highlighter}
+                onExplain={onExplain} highlighter={highlighter} histories={histories}
               />
             ))}
           </details>
@@ -914,16 +977,16 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
         {evaluation.candidates.length === 0 && <div className="dim" style={{padding:'2px 6px'}}>no candidates</div>}
       </div>
 
-      {evaluation.winners.map((w, i) => <WinnerView key={i} winner={w} evaluation={evaluation} onExplain={onExplain} highlighter={highlighter} />)}
+      {evaluation.winners.map((w, i) => <WinnerView key={i} winner={w} evaluation={evaluation} onExplain={onExplain} highlighter={highlighter} rulesets={rulesets} histories={histories} />)}
 
-      {evaluation.collectPostHooks.length > 0 && <HookFirings label="stage postHooks (collect)" firings={evaluation.collectPostHooks} highlighter={highlighter} onExplain={onExplain} />}
+      {evaluation.collectPostHooks.length > 0 && <HookFirings label="stage postHooks (collect)" firings={evaluation.collectPostHooks} highlighter={highlighter} onExplain={onExplain} rulesets={rulesets} />}
       {evaluation.collectRoute && (
         <div className="play-route">
           <span className="route-arrow">⇒ {evaluation.collectRoute.targets.length ? evaluation.collectRoute.targets.join(', ') : 'end'}</span>
-          {evaluation.collectRoute.next.map((ev, i) => <EvaluationView key={i} evaluation={ev} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} />)}
+          {evaluation.collectRoute.next.map((ev, i) => <EvaluationView key={i} evaluation={ev} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} rulesets={rulesets} histories={histories} />)}
         </div>
       )}
-      {evaluation.pipelinePostHooks.length > 0 && <HookFirings label="pipeline postHooks" firings={evaluation.pipelinePostHooks} highlighter={highlighter} onExplain={onExplain} />}
+      {evaluation.actionGraphPostHooks.length > 0 && <HookFirings label="actionGraph postHooks" firings={evaluation.actionGraphPostHooks} highlighter={highlighter} onExplain={onExplain} rulesets={rulesets} />}
     </div>
   );
 }
@@ -937,7 +1000,7 @@ function EvaluationView({ evaluation, onExplain, highlighter, depth = 0 }) {
 // checkbox to pick it). Uniform depth in both places is the point: the
 // exploration available after an action happened is exactly what's available
 // while deciding it.
-function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSelect, showStage, onExplain, highlighter }) {
+function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSelect, showStage, onExplain, highlighter, histories }) {
   const hasAction = candidate.preconditions?.length > 0 || candidate.effects?.length > 0 || candidate.breakdown?.length > 0;
   return (
     <details className={'play-cand' + (winner ? ' winner' : '') + (candidate.belowFloor ? ' below-floor' : '')}>
@@ -984,7 +1047,7 @@ function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSe
                 <>
                   <div className="play-section-label">utility</div>
                   <div className="play-cand-group">
-                    {candidate.breakdown.map((b, i) => <BreakdownNode key={i} node={b} onExplain={onExplain} highlighter={highlighter} />)}
+                    {candidate.breakdown.map((b, i) => <BreakdownNode key={i} node={b} onExplain={onExplain} highlighter={highlighter} histories={histories} />)}
                   </div>
                 </>
               )}
@@ -996,7 +1059,7 @@ function CandidateRow({ candidate, mode = 'winner', winner, selected, onToggleSe
   );
 }
 
-function WinnerView({ winner, evaluation, onExplain, highlighter }) {
+function WinnerView({ winner, evaluation, onExplain, highlighter, rulesets, histories }) {
   const candidate = evaluation.candidates[winner.candidateIndex];
   return (
     <div className="play-winner">
@@ -1014,20 +1077,25 @@ function WinnerView({ winner, evaluation, onExplain, highlighter }) {
           {winner.effects.map((e, i) => <PremiseOrEffect key={i} entry={e} onExplain={onExplain} highlighter={highlighter} chip />)}
         </div>
       )}
-      {winner.postHooks.length > 0 && <HookFirings label="stage postHooks" firings={winner.postHooks} highlighter={highlighter} onExplain={onExplain} />}
-      {winner.next && <EvaluationView evaluation={winner.next} onExplain={onExplain} highlighter={highlighter} depth={1} />}
-      {winner.pipelinePostHooks.length > 0 && <HookFirings label="pipeline postHooks" firings={winner.pipelinePostHooks} highlighter={highlighter} onExplain={onExplain} />}
+      {winner.postHooks.length > 0 && <HookFirings label="stage postHooks" firings={winner.postHooks} highlighter={highlighter} onExplain={onExplain} rulesets={rulesets} />}
+      {winner.next && <EvaluationView evaluation={winner.next} onExplain={onExplain} highlighter={highlighter} depth={1} rulesets={rulesets} histories={histories} />}
+      {winner.actionGraphPostHooks.length > 0 && <HookFirings label="actionGraph postHooks" firings={winner.actionGraphPostHooks} highlighter={highlighter} onExplain={onExplain} rulesets={rulesets} />}
     </div>
   );
 }
 
 // ── Utility breakdown ─────────────────────────────────────────────────────────
 
-function BreakdownNode({ node, onExplain, highlighter, depth = 0 }) {
+function BreakdownNode({ node, onExplain, highlighter, depth = 0, histories }) {
   const pad = { marginLeft: depth * 14 };
   switch (node.type) {
     case 'predicate': {
-      const adjustments = (node.history ?? []).filter(e => e.type === 'adjusted');
+      // node carries a historyKey, not its own history array (deduped —
+      // serializeTrace.js: the same predicate commonly appears in dozens of
+      // candidates' breakdowns, so the event history lives once in the
+      // tick/request-level histories map, looked up here by key).
+      const history = histories?.[node.historyKey] ?? [];
+      const adjustments = history.filter(e => e.type === 'adjusted');
       return (
         <div className="bd-node" style={pad}>
           <details>
@@ -1039,7 +1107,7 @@ function BreakdownNode({ node, onExplain, highlighter, depth = 0 }) {
               {adjustments.length > 0 && <span className="dim"> · {adjustments.length} adjustment{adjustments.length === 1 ? '' : 's'}</span>}
             </summary>
             <div className="bd-history">
-              {(node.history ?? []).map((e, i) => <HistoryEvent key={i} event={e} />)}
+              {history.map((e, i) => <HistoryEvent key={i} event={e} />)}
             </div>
           </details>
         </div>
@@ -1073,7 +1141,7 @@ function BreakdownNode({ node, onExplain, highlighter, depth = 0 }) {
       return (
         <div className="bd-node" style={pad}>
           <span className="dim">{node.aggregator}</span><span className="score">{round(node.score)}</span>
-          {node.sources.map((s, i) => <BreakdownNode key={i} node={s} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} />)}
+          {node.sources.map((s, i) => <BreakdownNode key={i} node={s} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} histories={histories} />)}
         </div>
       );
     case 'product':
@@ -1081,22 +1149,22 @@ function BreakdownNode({ node, onExplain, highlighter, depth = 0 }) {
       return (
         <div className="bd-node" style={pad}>
           <span className="dim">{node.type === 'product' ? '×' : node.op}</span><span className="score">{round(node.score)}</span>
-          <BreakdownNode node={node.left} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} />
-          <BreakdownNode node={node.right} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} />
+          <BreakdownNode node={node.left} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} histories={histories} />
+          <BreakdownNode node={node.right} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} histories={histories} />
         </div>
       );
     case 'negate':
       return (
         <div className="bd-node" style={pad}>
           <span className="dim">negate</span><span className="score">{round(node.score)}</span>
-          <BreakdownNode node={node.operand} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} />
+          <BreakdownNode node={node.operand} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} histories={histories} />
         </div>
       );
     case 'function':
       return (
         <div className="bd-node" style={pad}>
           <span className="dim">{node.name}()</span><span className="score">{round(node.score)}</span>
-          {node.args.map((a, i) => <BreakdownNode key={i} node={a} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} />)}
+          {node.args.map((a, i) => <BreakdownNode key={i} node={a} onExplain={onExplain} highlighter={highlighter} depth={depth + 1} histories={histories} />)}
         </div>
       );
     case 'constant':
@@ -1138,22 +1206,90 @@ function hookLabel(hook) {
   return `${icon} ${hook.name}${hook.requires ? ` [requires: ${hook.requires.join(', ')}]` : ''}`;
 }
 
-function HookFirings({ label, firings, highlighter, onExplain }) {
+function HookFirings({ label, firings, highlighter, onExplain, rulesets }) {
   return (
     <div className="play-hooks">
       <span className="dim">{label}:</span>
-      {firings.map((f, i) => (
-        f.skipped ? (
-          <span key={i} className="hook-chip skipped" title="requires unmet — skipped">{hookLabel(f.hook)} (skipped)</span>
-        ) : f.hook.type === 'swap-roles' ? (
-          <span key={i} className="hook-chip">{hookLabel(f.hook)}</span>
-        ) : (
-          <details key={i} className="hook-firing">
-            <summary className="hook-chip">{hookLabel(f.hook)} · {f.applications.length} firing{f.applications.length === 1 ? '' : 's'}</summary>
-            <ApplicationsList applications={f.applications} highlighter={highlighter} onExplain={onExplain} />
+      {firings.map((f, i) => {
+        const ruleset = rulesets?.find(r => r.name === f.hook.name);
+        if (f.hook.type === 'swap-roles') {
+          return <span key={i} className="hook-chip">{hookLabel(f.hook)}</span>;
+        }
+        return (
+          <details key={i} className={'hook-firing' + (f.skipped ? ' skipped' : '')}>
+            <summary className="hook-chip">
+              {hookLabel(f.hook)}
+              {f.skipped ? ' (skipped)' : ` · ${f.applications.length} firing${f.applications.length === 1 ? '' : 's'}`}
+            </summary>
+            <RulesetExecutionView
+              ruleset={ruleset}
+              applications={f.applications}
+              skipped={f.skipped}
+              highlighter={highlighter}
+              onExplain={onExplain}
+            />
           </details>
-        )
-      ))}
+        );
+      })}
+    </div>
+  );
+}
+
+function RulesetExecutionView({ ruleset, applications = [], skipped = false, highlighter, onExplain }) {
+  if (!ruleset) {
+    if (skipped) return <div className="dim" style={{ padding: '4px 10px' }}>requires unmet — skipped</div>;
+    if (applications.length === 0) {
+      return <div className="dim" style={{ padding: '4px 10px' }}>JS hook executed</div>;
+    }
+    return <ApplicationsList applications={applications} highlighter={highlighter} onExplain={onExplain} />;
+  }
+
+  return (
+    <div className="play-ruleset-execution">
+      {skipped && <div className="dim" style={{ padding: '4px 10px 8px' }}>requires unmet — skipped</div>}
+      {ruleset.rules.map(rule => {
+        const ruleApps = skipped ? [] : applications.filter(app => app.rule === rule.name);
+        const fired = ruleApps.length > 0;
+        return (
+          <details key={rule.id} className={'play-rule-exec-card' + (fired ? ' fired' : ' not-fired dim')}>
+            <summary className="play-rule-exec-summary">
+              <span>
+                <code className="rule-ref">{rule.name}</code>
+                {rule.comment && <span className="dim tiny-comment" title={rule.comment}> (?)</span>}
+              </span>
+              {fired ? (
+                <span className="badge ok">{ruleApps.length} firing{ruleApps.length === 1 ? '' : 's'}</span>
+              ) : (
+                <span className="dim tiny-note">{skipped ? 'skipped' : 'did not fire'}</span>
+              )}
+            </summary>
+            <div className="play-rule-exec-body">
+              {fired ? (
+                <div className="play-rule-firings">
+                  {ruleApps.map((app, idx) => (
+                    <div key={idx} className="play-app-instance">
+                      <div className="play-app-head">
+                        <BindingChips binding={app.binding} />
+                      </div>
+                      {app.premises.map((p, j) => (
+                        <div key={j} className="app-line dim">
+                          <PremiseOrEffect entry={p} highlighter={highlighter} onExplain={onExplain} />
+                        </div>
+                      ))}
+                      <div className="app-line">
+                        <span className="dim">⇒</span>
+                        {app.effects.map((e, j) => <PremiseOrEffect key={j} entry={e} highlighter={highlighter} onExplain={onExplain} chip />)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <pre className="play-rule-code"><code>{rule.bodyText}</code></pre>
+              )}
+            </div>
+          </details>
+        );
+      })}
     </div>
   );
 }
@@ -1183,7 +1319,8 @@ function ApplicationsList({ applications, highlighter, onExplain }) {
   );
 }
 
-function RulesetPhaseView({ phase, highlighter, onExplain }) {
+function RulesetPhaseView({ phase, highlighter, onExplain, rulesets }) {
+  const ruleset = rulesets?.find(r => r.name === phase.ruleset);
   return (
     <div className="play-phase">
       <details>
@@ -1191,7 +1328,7 @@ function RulesetPhaseView({ phase, highlighter, onExplain }) {
           <span className="badge">ruleset</span> <strong>{phase.ruleset}</strong>
           <span className="dim">{phase.mode} · {phase.applications.length} firing{phase.applications.length === 1 ? '' : 's'}</span>
         </summary>
-        <ApplicationsList applications={phase.applications} highlighter={highlighter} onExplain={onExplain} />
+        <RulesetExecutionView ruleset={ruleset} applications={phase.applications} highlighter={highlighter} onExplain={onExplain} />
       </details>
     </div>
   );

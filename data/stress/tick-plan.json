@@ -2,7 +2,7 @@
   "entityType": "agent",
   "phases": [
     {
-      "pipeline": "day",
+      "actionGraph": "day",
       "loop": [
         "SELF"
       ]
@@ -11,7 +11,7 @@
       "ruleset": "day-consequences"
     },
     {
-      "pipeline": "react",
+      "actionGraph": "react",
       "loop": [
         "SELF"
       ]

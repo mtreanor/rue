@@ -37,7 +37,7 @@ export class Stage {
     //   'branch'  — each winner routes individually, via routeFor() below.
     //   'collect' — execute the whole winning group, settle, then route the
     //               *stage* once via routesTo (or, with no routesTo, terminate
-    //               and fire the pipeline's postHooks once).
+    //               and fire the actionGraph's postHooks once).
     this.routing           = routing;
     this.routesTo          = routesTo;
     // Per-action routing is an opt-in the stage declares, not a property of

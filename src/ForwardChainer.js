@@ -9,15 +9,15 @@ export class ForwardChainer {
     this.ruleEvaluator = new RuleEvaluator();
   }
 
-  run(rules, evaluationContext, startingBinding, onApplication) {
-    while (this._runPass(rules, evaluationContext, startingBinding, onApplication)) {}
+  run(rules, evaluationContext, startingBinding, onApplication, { requireFullSatisfaction = false } = {}) {
+    while (this._runPass(rules, evaluationContext, startingBinding, onApplication, requireFullSatisfaction)) {}
   }
 
-  runOnce(rules, evaluationContext, startingBinding, onApplication) {
-    this._runPass(rules, evaluationContext, startingBinding, onApplication);
+  runOnce(rules, evaluationContext, startingBinding, onApplication, { requireFullSatisfaction = false } = {}) {
+    this._runPass(rules, evaluationContext, startingBinding, onApplication, requireFullSatisfaction);
   }
 
-  _runPass(rules, evaluationContext, startingBinding, onApplication) {
+  _runPass(rules, evaluationContext, startingBinding, onApplication, requireFullSatisfaction = false) {
     let changed = false;
     evaluationContext.getHandler('derived')?.clearCache();
     const firedThisPass = new Set();
@@ -27,7 +27,8 @@ export class ForwardChainer {
         evaluationContext.entityRegistry,
         evaluationContext,
         startingBinding,
-        evaluationContext.predicateSchema
+        evaluationContext.predicateSchema,
+        { requireFullSatisfaction }
       );
       for (const [, appList] of applications) {
         for (const app of appList) {

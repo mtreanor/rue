@@ -56,14 +56,14 @@ Lists every actionset in the scenario. Click an action to edit it in place.
 
 Shows the current world fact store (and per-entity private stores) as a searchable, filterable list. Click any fact to see its full assertion history and provenance — the rules that concluded it, and with what premises.
 
-### Pipelines
+### ActionGraphs
 
-Lists the pipelines defined in the scenario's `pipelines/` directory and their stage structure.
+Lists the actionGraphs defined in the scenario's `actionGraphs/` directory and their stage structure.
 
 ### Play
 
-A live scenario runner using [TickLoop](pipeline.md#tracing-and-interactive-runs). Steps the scenario tick by tick, rendering the full decision trace for every pipeline run.
+A live scenario runner using [TickPlan](actionGraph.md#tracing-and-interactive-runs). Steps the scenario tick by tick, rendering the full decision trace for every actionGraph run.
 
 The **You-play** filter selects which agents you control. At each selection point for a player-controlled agent, the tab shows the scored candidates with their utility breakdown, the tier and comparison premises that contributed to each score, and which action the engine would pick by default. You choose who actually acts.
 
-Requires a `play.json` at the scenario root. See `tools/action-rule-set-tool/README.md` for the format.
+Requires a `tick-plan.json` at the scenario root. See `tools/action-rule-set-tool/README.md` for the format.

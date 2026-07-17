@@ -1,9 +1,9 @@
-import { PipelineRunner } from './PipelineRunner.js';
+import { ActionGraphRunner } from './ActionGraphRunner.js';
 import { TraceRecorder } from './TraceRecorder.js';
-import { entryStageRoles } from './pipelineRoles.js';
+import { entryStageRoles } from './actionGraphRoles.js';
 
-// A TickLoop is the declarative form of the per-tick orchestration that
-// otherwise lives in scenario driver code (which pipeline runs for which
+// A TickPlan is the declarative form of the per-tick orchestration that
+// otherwise lives in scenario driver code (which actionGraph runs for which
 // entities, in what order, and which consequence rulesets fire between them).
 // Making it data means a generic host — the Play tool, a test harness — can
 // run any scenario's tick without scenario-specific JS.
@@ -12,24 +12,24 @@ import { entryStageRoles } from './pipelineRoles.js';
 //   {
 //     entityType: 'agent',                 // who the player can claim control over
 //     phases: [
-//       { pipeline: 'day', loop: ['SELF'] },                       // one invocation per agent
+//       { actionGraph: 'day', loop: ['SELF'] },                       // one invocation per agent
 //       { ruleset: 'day-consequences' },                            // fixpoint, once per tick
 //       { ruleset: 'drives', mode: 'single' },                      // single-pass variant
-//       { pipeline: 'confide', loop: ['SELF'], bindings: { TOPIC: 'harvest' } },
-//       { pipeline: 'react', loop: [] },                            // exactly one invocation
+//       { actionGraph: 'confide', loop: ['SELF'], bindings: { TOPIC: 'harvest' } },
+//       { actionGraph: 'react', loop: [] },                            // exactly one invocation
 //     ],
 //   }
 //
-// A pipeline phase's entry stage expects some set of role variables (see
-// pipelineRoles.js) — every one of them falls into exactly one of three
+// A actionGraph phase's entry stage expects some set of role variables (see
+// actionGraphRoles.js) — every one of them falls into exactly one of three
 // treatments, and only one needs to be configured explicitly per role:
 //
 //   - `bindings[role]` — a FIXED value, supplied identically to every
 //     invocation of this phase.
-//   - `loop` — role names TickLoop iterates: the cross product of every
+//   - `loop` — role names TickPlan iterates: the cross product of every
 //     named role's own full entity list (by its own introspected type, not
 //     a single shared `entityType`) becomes one invocation each, one full
-//     PipelineRunner call and its own trace entry per combination. `loop: []`
+//     ActionGraphRunner call and its own trace entry per combination. `loop: []`
 //     (or omitted) means exactly one invocation. Two or more loop roles of
 //     the same entity type is a cross product minus reflexive combinations
 //     — e.g. 10 agents × 10 agents is 90 invocations, not 100 — matching the
@@ -40,7 +40,7 @@ import { entryStageRoles } from './pipelineRoles.js';
 //   - left untouched (neither `loop` nor `bindings`) — FREE: not part of the
 //     initial binding at all, so the entry stage enumerates it internally and
 //     its own selectionStrategy picks one winner per invocation — the
-//     ordinary, existing pipeline mechanism, entirely unaffected by anything
+//     ordinary, existing actionGraph mechanism, entirely unaffected by anything
 //     here. This does not multiply the invocation count.
 //
 // runTick() advances the tick (wiping ephemerals via Engine.advanceTick),
@@ -48,12 +48,12 @@ import { entryStageRoles } from './pipelineRoles.js';
 //   {
 //     tick,
 //     phases: [
-//       { kind: 'pipeline', pipeline, loop, runs: [{ binding, label, trace: PipelineTrace }] },
+//       { kind: 'actionGraph', actionGraph, loop, runs: [{ binding, label, trace: ActionGraphTrace }] },
 //       { kind: 'ruleset',  ruleset, mode, applications: RuleApplication[] },
 //     ],
 //   }
 //
-// `decide` is threaded through to PipelineRunner.runInteractive per
+// `decide` is threaded through to ActionGraphRunner.runInteractive per
 // invocation, with { tick, phase, binding } added to each SelectionRequest —
 // `binding` is the invocation's full resolved initial binding (loop-assigned
 // and fixed alike), so a host can scope player control against any bound
@@ -63,20 +63,20 @@ import { entryStageRoles } from './pipelineRoles.js';
 // for one tick — the same shape as the configured `phases` array, just not
 // necessarily all of them or in the declared order. The configured `phases`
 // stays the default (and the thing a host resets back to); `plan` is how a
-// live session (Play) makes "which pipelines run, and in what order" a
+// live session (Play) makes "which actionGraphs run, and in what order" a
 // per-tick choice instead of a fixed property of the scenario.
-export class TickLoop {
-  constructor(engine, pipelines, { entityType, phases = [] } = {}) {
+export class TickPlan {
+  constructor(engine, actionGraphs, { entityType, phases = [] } = {}) {
     this.engine     = engine;
-    this.pipelines  = pipelines;   // { name: Pipeline }
-    // `?? 'agent'` rather than a destructuring default: a play.json that
+    this.actionGraphs  = actionGraphs;   // { name: ActionGraph }
+    // `?? 'agent'` rather than a destructuring default: a tick-plan.json that
     // never set entityType round-trips through JSON as an explicit `null`
     // (see PlayTab's plan editor), and a default *parameter* value only
     // covers `undefined`, not `null` — so an unset entityType would
     // otherwise silently stick as null instead of falling back.
     this.entityType = entityType ?? 'agent';
     this.phases     = phases;
-    this.runner     = new PipelineRunner(engine);
+    this.runner     = new ActionGraphRunner(engine);
   }
 
   // Entities of the scenario's primary controllable type — used only to
@@ -97,32 +97,32 @@ export class TickLoop {
     const tickTrace = { kind: 'tick', tick, phases: [] };
 
     for (const phase of (plan ?? this.phases)) {
-      if (phase.pipeline) {
-        tickTrace.phases.push(await this._runPipelinePhase(phase, tick, decide));
+      if (phase.actionGraph) {
+        tickTrace.phases.push(await this._runActionGraphPhase(phase, tick, decide));
       } else if (phase.ruleset) {
         tickTrace.phases.push(this._runRulesetPhase(phase));
       } else {
-        throw new Error(`TickLoop phase must name a "pipeline" or a "ruleset": ${JSON.stringify(phase)}`);
+        throw new Error(`TickPlan phase must name a "actionGraph" or a "ruleset": ${JSON.stringify(phase)}`);
       }
     }
     return tickTrace;
   }
 
-  async _runPipelinePhase(phase, tick, decide) {
-    const pipeline = this.pipelines[phase.pipeline];
-    if (!pipeline) throw new Error(`TickLoop: no pipeline named "${phase.pipeline}"`);
+  async _runActionGraphPhase(phase, tick, decide) {
+    const actionGraph = this.actionGraphs[phase.actionGraph];
+    if (!actionGraph) throw new Error(`TickPlan: no actionGraph named "${phase.actionGraph}"`);
     const loop       = phase.loop ?? [];
     const bindings   = phase.bindings ?? {};
-    const phaseTrace = { kind: 'pipeline', pipeline: phase.pipeline, loop, runs: [] };
+    const phaseTrace = { kind: 'actionGraph', actionGraph: phase.actionGraph, loop, runs: [] };
 
-    for (const loopAssignment of this._enumerateLoop(pipeline, loop)) {
+    for (const loopAssignment of this._enumerateLoop(actionGraph, loop)) {
       const binding = { ...bindings, ...loopAssignment };
       const label   = loop.length === 0 ? '(once)' : loop.map(role => binding[role]).join(' × ');
       const recorder = new TraceRecorder();
       const scopedDecide = decide
-        ? (request) => decide({ ...request, tick, phase: phase.pipeline, binding })
+        ? (request) => decide({ ...request, tick, phase: phase.actionGraph, binding })
         : null;
-      await this.runner.runInteractive(pipeline, binding, { recorder, decide: scopedDecide });
+      await this.runner.runInteractive(actionGraph, binding, { recorder, decide: scopedDecide });
       phaseTrace.runs.push({ binding, label, trace: recorder.trace });
     }
     return phaseTrace;
@@ -133,11 +133,11 @@ export class TickLoop {
   // that would bind two same-type roles to the same entity, unless that
   // type's `distinct` flag is `false`. An empty `loop` yields a single
   // empty assignment — one invocation, no loop-bound roles at all.
-  *_enumerateLoop(pipeline, loop) {
+  *_enumerateLoop(actionGraph, loop) {
     if (loop.length === 0) { yield {}; return; }
-    const roles = entryStageRoles(this.engine, pipeline);
+    const roles = entryStageRoles(this.engine, actionGraph);
     const lists = loop.map(role => {
-      const type = this._resolveRoleType(pipeline, roles, role);
+      const type = this._resolveRoleType(actionGraph, roles, role);
       return { role, type, names: this._entityNamesOfType(type) };
     });
     yield* this._cross(lists, 0, {});
@@ -147,16 +147,16 @@ export class TickLoop {
   // entry stage's actionset actually declares it, or — when that actionset
   // has no actions loaded at all yet (a stub still being authored, e.g.
   // reception's judge/claim-judge before their content is written) — this
-  // TickLoop's own `entityType`, matching what every phase already assumed
-  // before roles were introspectable at all. A pipeline whose entry stage
+  // TickPlan's own `entityType`, matching what every phase already assumed
+  // before roles were introspectable at all. A actionGraph whose entry stage
   // *does* have actions, but simply doesn't declare the named role, still
   // throws: there's real introspection data to check the name against, and
   // an unrecognized name there is far more likely a typo than a stub.
-  _resolveRoleType(pipeline, roles, role) {
+  _resolveRoleType(actionGraph, roles, role) {
     const type = roles.get(role);
     if (type) return type;
     if (roles.size === 0) return this.entityType;
-    throw new Error(`TickLoop: pipeline "${pipeline.name}" has no entry-stage role "${role}" to loop over (has: ${[...roles.keys()].join(', ')})`);
+    throw new Error(`TickPlan: actionGraph "${actionGraph.name}" has no entry-stage role "${role}" to loop over (has: ${[...roles.keys()].join(', ')})`);
   }
 
   *_cross(lists, i, acc) {

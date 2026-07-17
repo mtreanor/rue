@@ -116,27 +116,33 @@ function persistEngineState(name) {
 // keeps a thin name-keyed wrapper (unchanged signature, unchanged route
 // behavior) below it, so the existing State tab is untouched by this split.
 
-// One row per fact record in a store. `tick` is when the fact reached its
-// current state (its last assertion if active, else its last event); `firstTick`
-// is when it was first asserted; `ticks` are all assertion ticks.
+// One row per *currently active* fact record in a store — superseded
+// records (a numeric predicate's earlier values before a later `+=`
+// replaced them, or a boolean that was retracted and never reasserted) are
+// dropped entirely, not just dimmed. FactStore's append-only history is
+// still there for anyone querying the engine directly (`wasEverTrue`,
+// `factHistory`); this is specifically the viewer's live-state read, and a
+// viewer showing "what's true right now" shouldn't require the reader to
+// mentally filter out dead rows to answer that question. `tick` is when the
+// fact reached its current (active) state; `firstTick` is when it was first
+// asserted; `ticks` are all assertion ticks for this still-active record.
 function serializeStore(owner, store) {
-  return store.factHistory.map(r => {
-    const asserts   = r.events.filter(e => e.type === 'asserted');
-    const lastEvent = r.events[r.events.length - 1] ?? null;
-    const active    = r.isCurrentlyActive();
-    return {
-      owner,
-      name:      r.fact.name,
-      args:      r.fact.args,
-      value:     r.fact.value ?? null,
-      negated:   !!r.fact.negated,
-      active,
-      tick:      active ? (asserts.at(-1)?.tick ?? null) : (lastEvent?.tick ?? null),
-      firstTick: asserts[0]?.tick ?? null,
-      ticks:     asserts.map(e => e.tick),
-      strength:  r.strength,
-    };
-  });
+  return store.factHistory
+    .filter(r => r.isCurrentlyActive())
+    .map(r => {
+      const asserts = r.events.filter(e => e.type === 'asserted');
+      return {
+        owner,
+        name:      r.fact.name,
+        args:      r.fact.args,
+        value:     r.fact.value ?? null,
+        negated:   !!r.fact.negated,
+        tick:      asserts.at(-1)?.tick ?? null,
+        firstTick: asserts[0]?.tick ?? null,
+        ticks:     asserts.map(e => e.tick),
+        strength:  r.strength,
+      };
+    });
 }
 
 // Every fact across the world store and every private store.

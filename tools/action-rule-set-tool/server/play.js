@@ -1,9 +1,9 @@
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { Engine } from '../../../src/Engine.js';
-import { TickLoop } from '../../../src/pipeline/TickLoop.js';
-import { pipelineFromJSON } from '../../../src/pipeline/PipelineLoader.js';
-import { serializeTickTrace, serializeCandidate } from '../../../src/pipeline/serializeTrace.js';
-import { entryStageRoles, entryStageRolesPlain } from '../../../src/pipeline/pipelineRoles.js';
+import { TickPlan } from '../../../src/plan/TickPlan.js';
+import { actionGraphFromJSON } from '../../../src/plan/ActionGraphLoader.js';
+import { serializeTickTrace, serializeCandidate } from '../../../src/plan/serializeTrace.js';
+import { entryStageRoles, entryStageRolesPlain } from '../../../src/plan/actionGraphRoles.js';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 import {
   onReload,
@@ -15,7 +15,7 @@ import {
 import { registerScenarioJSHooks } from './scenario.js';
 
 // Play mode: a live engine stepped tick by tick through the scenario's own
-// TickLoop (the `play` section of its project-config entry), recording a full
+// TickPlan (the `play` section of its project-config entry), recording a full
 // decision trace per tick. Player control is a per-session substitution of
 // *who answers* each selection request — the authored selectionStrategy still
 // computes the engine's default pick; a controlled decision suspends the tick
@@ -42,7 +42,7 @@ function clonePlan(phases) {
   return (phases ?? []).map(p => ({ ...p }));
 }
 
-// Loads a scenario's play.json, engine, and pipelines — the content a Play
+// Loads a scenario's tick-plan.json, engine, and actionGraphs — the content a Play
 // session needs. Shared by PlaySession (which keeps the engine around to
 // tick it) and previewPlayInfo (a one-shot read for the pre-session plan
 // editor, which needs the same role/entity introspection but never ticks).
@@ -54,36 +54,36 @@ function loadPlayContent(scenarioName) {
   const paths = resolveScenarioPaths(scenario);
   ensureScenarioFiles(paths);
   if (!existsSync(paths.play)) {
-    throw new Error(`Scenario "${scenarioName}" has no play.json — Play mode needs one ({ entityType, phases })`);
+    throw new Error(`Scenario "${scenarioName}" has no tick-plan.json — Play mode needs one ({ entityType, phases })`);
   }
-  const playConfig = JSON.parse(readFileSync(paths.play, 'utf-8'));
+  const tickPlanConfig = JSON.parse(readFileSync(paths.play, 'utf-8'));
   const engine = new Engine(paths);
 
-  const pipelines = {};
-  let pipelineFiles = [];
-  try { pipelineFiles = readdirSync(paths.pipelines); } catch { /* no pipelines dir */ }
-  for (const f of pipelineFiles) {
+  const actionGraphs = {};
+  let actionGraphFiles = [];
+  try { actionGraphFiles = readdirSync(paths.actionGraphs); } catch { /* no actionGraphs dir */ }
+  for (const f of actionGraphFiles) {
     if (!f.endsWith('.json')) continue;
     const name = f.slice(0, -5);
-    pipelines[name] = pipelineFromJSON(JSON.parse(readFileSync(`${paths.pipelines}/${f}`, 'utf-8')));
+    actionGraphs[name] = actionGraphFromJSON(JSON.parse(readFileSync(`${paths.actionGraphs}/${f}`, 'utf-8')));
   }
-  return { engine, pipelines, playConfig, paths };
+  return { engine, actionGraphs, tickPlanConfig, paths };
 }
 
-// Role/entity introspection for the plan editor — pipelineRoles (what each
-// pipeline's entry stage expects) and entitiesByType (what the scenario has
+// Role/entity introspection for the plan editor — actionGraphRoles (what each
+// actionGraph's entry stage expects) and entitiesByType (what the scenario has
 // of each type) — without starting a session. The plan editor needs this to
 // offer the same typed fixed/loop role picker before Start Session as it
 // does once a session (and its live engine) exists.
 export function previewPlayInfo(scenarioName) {
-  const { engine, pipelines, playConfig } = loadPlayContent(scenarioName);
+  const { engine, actionGraphs, tickPlanConfig } = loadPlayContent(scenarioName);
   return {
-    entityType:         playConfig.entityType ?? 'agent',
-    configuredPhases:   playConfig.phases,
-    availablePipelines: Object.keys(pipelines),
+    entityType:         tickPlanConfig.entityType ?? 'agent',
+    configuredPhases:   tickPlanConfig.phases,
+    availableActionGraphs: Object.keys(actionGraphs),
     availableRulesets:  [...engine.rulesets.keys()],
-    pipelineRoles: Object.fromEntries(
-      Object.entries(pipelines).map(([name, p]) => [name, entryStageRolesPlain(engine, p)])
+    actionGraphRoles: Object.fromEntries(
+      Object.entries(actionGraphs).map(([name, p]) => [name, entryStageRolesPlain(engine, p)])
     ),
     entitiesByType: Object.fromEntries(
       [...engine.world.entityRegistry.entries()].map(([type, list]) => [type, list.map(e => e?.name ?? e).sort()])
@@ -94,13 +94,13 @@ export function previewPlayInfo(scenarioName) {
 class PlaySession {
   constructor(scenarioName) {
     this.scenarioName = scenarioName;
-    const { engine, pipelines, playConfig, paths } = loadPlayContent(scenarioName);
+    const { engine, actionGraphs, tickPlanConfig, paths } = loadPlayContent(scenarioName);
 
     this.engine     = engine;
-    this.pipelines  = pipelines;
-    this.playConfig = playConfig;
+    this.actionGraphs  = actionGraphs;
+    this.tickPlanConfig = tickPlanConfig;
     this.paths      = paths;
-    this.loop       = new TickLoop(this.engine, pipelines, playConfig);
+    this.loop       = new TickPlan(this.engine, actionGraphs, tickPlanConfig);
 
     this.traces     = [];        // serialized TickTraces, index = tick - 1
     this.controlled = { agents: [], stages: [] };
@@ -113,7 +113,7 @@ class PlaySession {
     // selectable at any point between ticks (see setPlan). A fresh array each
     // time — never the same reference the in-flight tick captured — so
     // changing the plan mid-step can't perturb a tick already under way.
-    this.activePlan = clonePlan(this.playConfig.phases);
+    this.activePlan = clonePlan(this.tickPlanConfig.phases);
   }
 
   info() {
@@ -126,28 +126,28 @@ class PlaySession {
       stale:      this.stale,
       agents:     this.loop.entityNames(),
       stages:     Object.fromEntries(
-        Object.entries(this.pipelines).map(([name, p]) => [name, Object.keys(p.stages)])
+        Object.entries(this.actionGraphs).map(([name, p]) => [name, Object.keys(p.stages)])
       ),
       // configuredPhases is the scenario's authored default (and reset
       // target); activePlan is what the next Step tick will actually run —
       // freely reordered/subset/repeated relative to the default. The two
-      // available lists are every pipeline/ruleset the engine actually has
+      // available lists are every actionGraph/ruleset the engine actually has
       // loaded, not just the ones the configured phases happen to use — the
       // player can build a plan out of any of them.
-      // The fallback type for a pipeline whose entry stage has no actions
-      // loaded at all yet (a stub) — see _validatePhase / TickLoop's own
+      // The fallback type for a actionGraph whose entry stage has no actions
+      // loaded at all yet (a stub) — see _validatePhase / TickPlan's own
       // _resolveRoleType for why that fallback exists.
       entityType:         this.loop.entityType,
-      configuredPhases:   this.playConfig.phases,
+      configuredPhases:   this.tickPlanConfig.phases,
       activePlan:         this.activePlan,
-      availablePipelines: Object.keys(this.pipelines),
+      availableActionGraphs: Object.keys(this.actionGraphs),
       availableRulesets:  [...this.engine.rulesets.keys()],
-      // What each pipeline's entry stage expects (name -> entity type), and
+      // What each actionGraph's entry stage expects (name -> entity type), and
       // every entity the engine has of each type — together, enough for the
       // plan editor to offer a typed fixed/loop picker per role instead of
       // free text, with no separate call needed.
-      pipelineRoles: Object.fromEntries(
-        Object.entries(this.pipelines).map(([name, p]) => [name, entryStageRolesPlain(this.engine, p)])
+      actionGraphRoles: Object.fromEntries(
+        Object.entries(this.actionGraphs).map(([name, p]) => [name, entryStageRolesPlain(this.engine, p)])
       ),
       entitiesByType: Object.fromEntries(
         [...this.engine.world.entityRegistry.entries()].map(([type, list]) => [type, list.map(e => e?.name ?? e).sort()])
@@ -162,17 +162,17 @@ class PlaySession {
   // Replaces the plan the next Step tick will run. `null` (or omitting the
   // call) resets to the scenario's configured default. Each entry is
   // validated against what the engine actually has loaded — a typo'd
-  // pipeline/ruleset name fails the request outright rather than silently
+  // actionGraph/ruleset name fails the request outright rather than silently
   // producing an empty phase.
   setPlan(plan) {
-    this.activePlan = plan == null ? clonePlan(this.playConfig.phases) : plan.map((entry, i) => this._validatePhase(entry, i));
+    this.activePlan = plan == null ? clonePlan(this.tickPlanConfig.phases) : plan.map((entry, i) => this._validatePhase(entry, i));
   }
 
-  // Every entry-stage role falls into exactly one of: looped (TickLoop
+  // Every entry-stage role falls into exactly one of: looped (TickPlan
   // iterates it — the cross product of every looped role's own entity list
   // becomes one invocation each), fixed (a specific value, every
   // invocation), or untouched (left free for the entry stage's own
-  // enumerate-and-select scoring — the ordinary pipeline mechanism, no
+  // enumerate-and-select scoring — the ordinary actionGraph mechanism, no
   // special handling needed here at all). A role can't be both looped and
   // fixed; every fixed value must name a real entity of that role's type.
   //
@@ -182,12 +182,12 @@ class PlaySession {
   // is written), in which case there's nothing to check the name against and
   // it falls back to this scenario's own entityType — matching what every
   // phase already assumed before roles were introspectable, and matching
-  // TickLoop's own fallback (see pipelineRoles.js / TickLoop._resolveRoleType).
+  // TickPlan's own fallback (see actionGraphRoles.js / TickPlan._resolveRoleType).
   _validatePhase(entry, i) {
-    if (entry?.pipeline) {
-      const pipeline = this.pipelines[entry.pipeline];
-      if (!pipeline) throw new Error(`plan[${i}]: no pipeline named "${entry.pipeline}"`);
-      const roles    = entryStageRoles(this.engine, pipeline);
+    if (entry?.actionGraph) {
+      const actionGraph = this.actionGraphs[entry.actionGraph];
+      if (!actionGraph) throw new Error(`plan[${i}]: no actionGraph named "${entry.actionGraph}"`);
+      const roles    = entryStageRoles(this.engine, actionGraph);
       const stub     = roles.size === 0;
       const loop     = entry.loop ?? [];
       const bindings = entry.bindings ?? {};
@@ -195,12 +195,12 @@ class PlaySession {
 
       for (const role of loop) {
         if (!stub && !roles.has(role)) {
-          throw new Error(`plan[${i}]: pipeline "${entry.pipeline}" has no entry role "${role}" to loop over (has: ${[...roles.keys()].join(', ')})`);
+          throw new Error(`plan[${i}]: actionGraph "${entry.actionGraph}" has no entry role "${role}" to loop over (has: ${[...roles.keys()].join(', ')})`);
         }
       }
       for (const [role, value] of Object.entries(bindings)) {
         if (!stub && !roles.has(role)) {
-          throw new Error(`plan[${i}]: pipeline "${entry.pipeline}" has no entry role "${role}" to bind (has: ${[...roles.keys()].join(', ')})`);
+          throw new Error(`plan[${i}]: actionGraph "${entry.actionGraph}" has no entry role "${role}" to bind (has: ${[...roles.keys()].join(', ')})`);
         }
         if (loop.includes(role)) throw new Error(`plan[${i}]: role "${role}" cannot be both looped and fixed`);
         const type = roles.get(role) ?? this.loop.entityType;
@@ -209,13 +209,13 @@ class PlaySession {
           throw new Error(`plan[${i}]: no ${type} entity named "${value}" for role "${role}"`);
         }
       }
-      return { pipeline: entry.pipeline, loop: [...loop], bindings: { ...bindings } };
+      return { actionGraph: entry.actionGraph, loop: [...loop], bindings: { ...bindings } };
     }
     if (entry?.ruleset) {
       if (!this.engine.rulesets.has(entry.ruleset)) throw new Error(`plan[${i}]: no ruleset named "${entry.ruleset}"`);
       return { ruleset: entry.ruleset, mode: entry.mode === 'single' ? 'single' : 'fixpoint' };
     }
-    throw new Error(`plan[${i}] must name a "pipeline" or a "ruleset": ${JSON.stringify(entry)}`);
+    throw new Error(`plan[${i}] must name a "actionGraph" or a "ruleset": ${JSON.stringify(entry)}`);
   }
 
   // A selection request is the player's to answer when any control is
@@ -316,7 +316,7 @@ class PlaySession {
   whyFact(fact)             { return whyFactForEngine(this.engine, fact); }
   explainFact(fact)         { return explainFactForEngine(this.engine, fact); }
 
-  // A scenario's play.json can declare `views`: named, always-on queries
+  // A scenario's tick-plan.json can declare `views`: named, always-on queries
   // (label + DSL text) re-run against this session's live engine — "who's in
   // which group," "what's each group's active topic," and so on, rendered
   // generically by the Play tab via the same PredicateView/explain machinery
@@ -330,7 +330,7 @@ class PlaySession {
   // Plain pass-through into engine.query()'s existing partialBinding
   // mechanism (runQueryForEngine), not a new query feature.
   runViews() {
-    const views = this.playConfig.views ?? [];
+    const views = this.tickPlanConfig.views ?? [];
     const tick  = this.engine.world.tickTracker.currentTick;
     return views.map(view => {
       const partialBinding = view.tickBound ? { [view.tickBound]: tick } : {};
@@ -340,17 +340,23 @@ class PlaySession {
       // rollup component), not just this run's results.
       return {
         label: view.label, query: view.query, kind: view.kind ?? null,
+        details: view.details,
         ...runQueryForEngine(this.engine, view.query, null, partialBinding),
       };
     });
   }
 
   _serializeRequest(request) {
+    // One shared registry across every candidate in this request, same
+    // reasoning as serializeTickTrace: multiple candidates commonly reference
+    // the same predicate (e.g. a shared group's topicMomentum), and a request
+    // typically covers all of them at once, not one at a time.
+    const historyRegistry = new Map();
     return {
       tick:       request.tick,
       phase:      request.phase,
       binding:    request.binding,
-      pipeline:   request.pipeline,
+      actionGraph:   request.actionGraph,
       stageNames: request.stageNames,
       strategy:   request.strategy,
       // Same serializeCandidate a completed tick's trace uses — a candidate
@@ -359,9 +365,10 @@ class PlaySession {
       // fact. Only `index`/`isDefault` are choice-specific additions.
       candidates: request.candidates.map((c, index) => ({
         index,
-        ...serializeCandidate(c),
+        ...serializeCandidate(c, historyRegistry),
         isDefault: request.defaultWinners.includes(c),
       })),
+      histories: Object.fromEntries(historyRegistry),
     };
   }
 }

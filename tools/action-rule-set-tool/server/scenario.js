@@ -130,18 +130,18 @@ export function listScenarios() {
   const config = loadProjectConfig();
   return Object.entries(config.scenarios).map(([name, s]) => {
     const paths = resolveScenarioPaths(s);
-    let pipelines = [];
+    let actionGraphs = [];
     try {
-      pipelines = readdirSync(paths.pipelines)
+      actionGraphs = readdirSync(paths.actionGraphs)
         .filter(f => f.endsWith('.json'))
         .map(f => f.slice(0, -5));
-    } catch { /* no pipelines dir */ }
+    } catch { /* no actionGraphs dir */ }
     return {
       name,
       active: name === config.active,
       rulesets:   listNamesInScenarioDir(paths.dir, 'ruleset'),
       actionsets: listNamesInScenarioDir(paths.dir, 'actionset'),
-      pipelines,
+      actionGraphs,
       hasPredicates: existsSync(paths.predicates),
       hasPlay: existsSync(paths.play),
     };

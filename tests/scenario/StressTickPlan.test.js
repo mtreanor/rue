@@ -1,9 +1,9 @@
-// End-to-end test of the stress scenario's pipeline content (the Play-mode
-// data): the two-leap day pipeline (day-modes → calls → receptions, with a
+// End-to-end test of the stress scenario's actionGraph content (the Play-mode
+// data): the two-leap day actionGraph (day-modes → calls → receptions, with a
 // swap-roles hand-off), the pooled settle-scores fan-out (confrontations +
 // schemes), occurrence minting and spatial witnessing, and the react
-// pipeline's one-reading-per-occurrence judgements — all driven through
-// TickLoop from the scenario's own play config, exactly as the Play server
+// actionGraph's one-reading-per-occurrence judgements — all driven through
+// TickPlan from the scenario's own play config, exactly as the Play server
 // runs it.
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,9 +11,9 @@ import { readFileSync, readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { Engine } from '../../src/Engine.js';
-import { TickLoop } from '../../src/pipeline/TickLoop.js';
-import { pipelineFromJSON } from '../../src/pipeline/PipelineLoader.js';
-import { serializeTickTrace } from '../../src/pipeline/serializeTrace.js';
+import { TickPlan } from '../../src/plan/TickPlan.js';
+import { actionGraphFromJSON } from '../../src/plan/ActionGraphLoader.js';
+import { serializeTickTrace } from '../../src/plan/serializeTrace.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -23,19 +23,19 @@ function buildLoop() {
 
   const engine = new Engine(scenarioDir);
 
-  const pipelinesDir = join(scenarioDir, 'pipelines');
-  const pipelines = {};
-  for (const entry of readdirSync(pipelinesDir)) {
+  const actionGraphsDir = join(scenarioDir, 'actiongraphs');
+  const actionGraphs = {};
+  for (const entry of readdirSync(actionGraphsDir)) {
     if (!entry.endsWith('.json')) continue;
     const name = entry.replace(/\.json$/, '');
-    pipelines[name] = pipelineFromJSON(JSON.parse(readFileSync(join(pipelinesDir, entry), 'utf-8')));
+    actionGraphs[name] = actionGraphFromJSON(JSON.parse(readFileSync(join(actionGraphsDir, entry), 'utf-8')));
   }
 
-  const play = JSON.parse(readFileSync(join(scenarioDir, 'play.json'), 'utf-8'));
-  return { engine, loop: new TickLoop(engine, pipelines, play) };
+  const play = JSON.parse(readFileSync(join(scenarioDir, 'tick-plan.json'), 'utf-8'));
+  return { engine, loop: new TickPlan(engine, actionGraphs, play) };
 }
 
-// The chain of winning action names down one agent's pipeline trace.
+// The chain of winning action names down one agent's actionGraph trace.
 function winnerChain(trace) {
   const names = [];
   (function walk(evaluation) {
@@ -52,12 +52,12 @@ function winnerChain(trace) {
 // Finds the run whose loop-bound entity (SELF/JUDGE/whatever the phase loops)
 // matches `entity` — each run's `label` is exactly that value for a
 // single-loop-role phase (the only kind this scenario's config uses).
-function runOf(tickTrace, pipelineName, entity) {
-  const phase = tickTrace.phases.find(p => p.kind === 'pipeline' && p.pipeline === pipelineName);
+function runOf(tickTrace, actionGraphName, entity) {
+  const phase = tickTrace.phases.find(p => p.kind === 'actionGraph' && p.actionGraph === actionGraphName);
   return phase.runs.find(r => r.label === entity);
 }
 
-describe('stress scenario — day pipeline through TickLoop', () => {
+describe('stress scenario — day actionGraph through TickPlan', () => {
   it('tick 1 exercises both routing leaps, the pooled fan-out, witnessing, and reactions', async () => {
     const { engine, loop } = buildLoop();
     const trace = await loop.runTick();
@@ -100,9 +100,11 @@ describe('stress scenario — day pipeline through TickLoop', () => {
     const maraSer = runOf(serialized, 'day', 'mara');
     const callCandidates = maraSer.trace.root.winners[0].next.candidates;
     const talia = callCandidates.find(c => c.actionName === 'call-on' && c.binding.OTHER === 'talia');
-    // call-warmth's numeric history names the priming rules that built it.
+    // call-warmth's numeric history (deduped into the top-level histories
+    // map, looked up by historyKey) names the priming rules that built it.
     const warmth = talia.breakdown.find(b => b.type === 'predicate' && b.name === 'call-warmth');
-    const ruleNames = warmth.history.filter(e => e.via.kind === 'rule').map(e => e.via.name);
+    const warmthHistory = serialized.histories[warmth.historyKey];
+    const ruleNames = warmthHistory.filter(e => e.via.kind === 'rule').map(e => e.via.name);
     assert.ok(ruleNames.includes('high trust warms a call'));
     assert.ok(ruleNames.includes('admiration seeks its object'));
   });

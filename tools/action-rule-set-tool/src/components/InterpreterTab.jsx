@@ -70,8 +70,9 @@ async function dispatch(scenario, data, text) {
 
   if (t === 'facts' || t.startsWith('facts ')) {
     const args = t === 'facts' ? [] : t.slice(6).trim().split(/\s+/);
-    const facts = await api.stateFacts(scenario);
-    const active = facts.filter(f => f.active);
+    // api.stateFacts already returns only currently-active records
+    // (server/state.js's serializeStore drops superseded ones outright).
+    const active = await api.stateFacts(scenario);
     if (args.length === 0) {
       return formatStore('world', active.filter(f => f.owner === null));
     }

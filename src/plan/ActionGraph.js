@@ -1,4 +1,4 @@
-export class Pipeline {
+export class ActionGraph {
   constructor(name, {
     entry,
     selectionStrategy = 'highestUtility',

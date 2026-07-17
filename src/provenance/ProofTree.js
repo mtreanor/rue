@@ -90,7 +90,19 @@ function expandProvenance(prov, ctx, visited) {
   if (prov.type === 'action-effect') {
     const ar   = prov.actionRecord;
     const plan = ar?.planRecord ? ` (plan #${ar.planRecord.id})` : '';
-    return { via: 'action', detail: `${ar?.action?.name ?? '?'}${plan}`, support: [] };
+    const support = [];
+    if (ar?.binding) {
+      if (ar.action?.preconditions) {
+        for (const cond of ar.action.preconditions) {
+          const boundText = cond.predicate.describe(ar.binding);
+          support.push(new ProofNode({ statement: boundText, via: 'precondition' }));
+        }
+      }
+      for (const [k, v] of Object.entries(ar.binding)) {
+        support.push(new ProofNode({ statement: `?${k} = ${v}`, via: 'binding' }));
+      }
+    }
+    return { via: 'action', detail: `${ar?.action?.name ?? '?'}${plan}`, support };
   }
   if (prov.type === 'sensor') return { via: 'sensor', detail: prov.sensorName ?? null, support: [] };
 

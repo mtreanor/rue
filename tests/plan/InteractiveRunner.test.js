@@ -2,11 +2,11 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../../src/Engine.js';
 import { Fact } from '../../src/Fact.js';
-import { Pipeline } from '../../src/pipeline/Pipeline.js';
-import { Stage } from '../../src/pipeline/Stage.js';
-import { PipelineRunner } from '../../src/pipeline/PipelineRunner.js';
-import { TraceRecorder } from '../../src/pipeline/TraceRecorder.js';
-import { TickLoop } from '../../src/pipeline/TickLoop.js';
+import { ActionGraph } from '../../src/plan/ActionGraph.js';
+import { Stage } from '../../src/plan/Stage.js';
+import { ActionGraphRunner } from '../../src/plan/ActionGraphRunner.js';
+import { TraceRecorder } from '../../src/plan/TraceRecorder.js';
+import { TickPlan } from '../../src/plan/TickPlan.js';
 
 function makeEngine() {
   return new Engine({
@@ -51,7 +51,7 @@ function loadContent(engine) {
         effects settled(?SELF)
   `);
 
-  return new Pipeline('interactive-test', {
+  return new ActionGraph('interactive-test', {
     entry: 'mode-stage',
     stages: {
       'mode-stage': new Stage({
@@ -65,13 +65,13 @@ function loadContent(engine) {
   });
 }
 
-describe('PipelineRunner.runInteractive', () => {
+describe('ActionGraphRunner.runInteractive', () => {
   it('matches run() exactly when decide returns null (accept the default)', async () => {
     const engine = makeEngine();
-    const pipeline = loadContent(engine);
+    const actionGraph = loadContent(engine);
     const requests = [];
 
-    await new PipelineRunner(engine).runInteractive(pipeline, { SELF: 'alice' }, {
+    await new ActionGraphRunner(engine).runInteractive(actionGraph, { SELF: 'alice' }, {
       decide: (request) => { requests.push(request); return null; },
     });
 
@@ -89,10 +89,10 @@ describe('PipelineRunner.runInteractive', () => {
 
   it('a forced losing candidate executes instead of the default, and the trace records source: player', async () => {
     const engine = makeEngine();
-    const pipeline = loadContent(engine);
+    const actionGraph = loadContent(engine);
     const recorder = new TraceRecorder();
 
-    await new PipelineRunner(engine).runInteractive(pipeline, { SELF: 'alice' }, {
+    await new ActionGraphRunner(engine).runInteractive(actionGraph, { SELF: 'alice' }, {
       recorder,
       decide: (request) => {
         if (request.stageNames.includes('mode-stage')) {
@@ -114,9 +114,9 @@ describe('PipelineRunner.runInteractive', () => {
 
   it('an empty player selection means no winner executes', async () => {
     const engine = makeEngine();
-    const pipeline = loadContent(engine);
+    const actionGraph = loadContent(engine);
 
-    await new PipelineRunner(engine).runInteractive(pipeline, { SELF: 'alice' }, {
+    await new ActionGraphRunner(engine).runInteractive(actionGraph, { SELF: 'alice' }, {
       decide: () => [],
     });
 
@@ -126,11 +126,11 @@ describe('PipelineRunner.runInteractive', () => {
 
   it('suspends on a pending promise and resumes when it resolves', async () => {
     const engine = makeEngine();
-    const pipeline = loadContent(engine);
+    const actionGraph = loadContent(engine);
 
     let resolveChoice;
     let sawRequest = null;
-    const runPromise = new PipelineRunner(engine).runInteractive(pipeline, { SELF: 'alice' }, {
+    const runPromise = new ActionGraphRunner(engine).runInteractive(actionGraph, { SELF: 'alice' }, {
       decide: (request) => {
         if (request.stageNames.includes('mode-stage')) {
           sawRequest = request;
@@ -153,10 +153,10 @@ describe('PipelineRunner.runInteractive', () => {
   });
 });
 
-describe('TickLoop', () => {
-  it('runs pipeline phases per entity and ruleset phases once, returning a tick trace', async () => {
+describe('TickPlan', () => {
+  it('runs actionGraph phases per entity and ruleset phases once, returning a tick trace', async () => {
     const engine = makeEngine();
-    const pipeline = loadContent(engine);
+    const actionGraph = loadContent(engine);
     engine.loadRules(`
       ruleset "tick-consequences"
         rule "settle everyone who acted"
@@ -164,10 +164,10 @@ describe('TickLoop', () => {
           => settled(?X)
     `);
 
-    const loop = new TickLoop(engine, { 'interactive-test': pipeline }, {
+    const loop = new TickPlan(engine, { 'interactive-test': actionGraph }, {
       entityType: 'agent',
       phases: [
-        { pipeline: 'interactive-test', loop: ['SELF'] },
+        { actionGraph: 'interactive-test', loop: ['SELF'] },
         { ruleset: 'tick-consequences' },
       ],
     });
@@ -177,10 +177,10 @@ describe('TickLoop', () => {
     assert.equal(tickTrace.tick, 1);
     assert.equal(tickTrace.phases.length, 2);
 
-    const pipelinePhase = tickTrace.phases[0];
-    assert.equal(pipelinePhase.kind, 'pipeline');
-    assert.deepEqual(pipelinePhase.runs.map(r => r.label), ['alice', 'bob']);
-    assert.ok(pipelinePhase.runs.every(r => r.trace.root !== null));
+    const actionGraphPhase = tickTrace.phases[0];
+    assert.equal(actionGraphPhase.kind, 'actionGraph');
+    assert.deepEqual(actionGraphPhase.runs.map(r => r.label), ['alice', 'bob']);
+    assert.ok(actionGraphPhase.runs.every(r => r.trace.root !== null));
 
     const rulesetPhase = tickTrace.phases[1];
     assert.equal(rulesetPhase.kind, 'ruleset');
@@ -191,7 +191,7 @@ describe('TickLoop', () => {
 
   it('runTick({ plan }) runs a different subset/order than the configured phases, without changing the default', async () => {
     const engine = makeEngine();
-    const pipeline = loadContent(engine);
+    const actionGraph = loadContent(engine);
     engine.loadRules(`
       ruleset "tick-consequences"
         rule "settle everyone who acted"
@@ -199,15 +199,15 @@ describe('TickLoop', () => {
           => settled(?X)
     `);
 
-    const loop = new TickLoop(engine, { 'interactive-test': pipeline }, {
+    const loop = new TickPlan(engine, { 'interactive-test': actionGraph }, {
       entityType: 'agent',
       phases: [
-        { pipeline: 'interactive-test', loop: ['SELF'] },
+        { actionGraph: 'interactive-test', loop: ['SELF'] },
         { ruleset: 'tick-consequences' },
       ],
     });
 
-    // Run only the ruleset phase this tick — the pipeline phase is skipped
+    // Run only the ruleset phase this tick — the actionGraph phase is skipped
     // entirely, so nothing settles (nobody acted).
     const skipped = await loop.runTick({ plan: [{ ruleset: 'tick-consequences' }] });
     assert.equal(skipped.phases.length, 1);
@@ -218,28 +218,28 @@ describe('TickLoop', () => {
     // runs both phases in their declared order.
     const normal = await loop.runTick();
     assert.equal(normal.phases.length, 2);
-    assert.equal(normal.phases[0].kind, 'pipeline');
+    assert.equal(normal.phases[0].kind, 'actionGraph');
     assert.ok(engine.world.factStore.contains('settled', 'alice'));
 
     // A reordered plan runs in the given order, not the declared one.
     const reordered = await loop.runTick({
       plan: [
         { ruleset: 'tick-consequences' },
-        { pipeline: 'interactive-test', loop: ['SELF'] },
+        { actionGraph: 'interactive-test', loop: ['SELF'] },
       ],
     });
     assert.equal(reordered.phases[0].kind, 'ruleset');
-    assert.equal(reordered.phases[1].kind, 'pipeline');
+    assert.equal(reordered.phases[1].kind, 'actionGraph');
   });
 
   it('threads tick, phase, and entity into each decide request', async () => {
     const engine = makeEngine();
-    const pipeline = loadContent(engine);
+    const actionGraph = loadContent(engine);
     const seen = [];
 
-    const loop = new TickLoop(engine, { 'interactive-test': pipeline }, {
+    const loop = new TickPlan(engine, { 'interactive-test': actionGraph }, {
       entityType: 'agent',
-      phases: [{ pipeline: 'interactive-test', loop: ['SELF'] }],
+      phases: [{ actionGraph: 'interactive-test', loop: ['SELF'] }],
     });
 
     await loop.runTick({
@@ -256,7 +256,7 @@ describe('TickLoop', () => {
 
   it('wipes ephemeral numerics at each tick boundary', async () => {
     const engine = makeEngine();
-    const pipeline = loadContent(engine);
+    const actionGraph = loadContent(engine);
     engine.loadRules(`
       ruleset "drives"
         rule "drive up"
@@ -264,10 +264,10 @@ describe('TickLoop', () => {
           => drive(?X) += 5
     `);
 
-    const loop = new TickLoop(engine, { 'interactive-test': pipeline }, {
+    const loop = new TickPlan(engine, { 'interactive-test': actionGraph }, {
       entityType: 'agent',
       phases: [
-        { pipeline: 'interactive-test', loop: ['SELF'] },
+        { actionGraph: 'interactive-test', loop: ['SELF'] },
         { ruleset: 'drives', mode: 'single' },
       ],
     });
@@ -282,13 +282,13 @@ describe('TickLoop', () => {
   });
 });
 
-describe('TickLoop — loop / bindings / free roles', () => {
-  // A pipeline with two entry-stage roles of the same type, so a 2-loop plan
-  // is a cross product minus reflexive combinations: TickLoop skips binding
+describe('TickPlan — loop / bindings / free roles', () => {
+  // A actionGraph with two entry-stage roles of the same type, so a 2-loop plan
+  // is a cross product minus reflexive combinations: TickPlan skips binding
   // two same-type loop roles to the same entity unless that entity type's
   // `distinct` flag is `false`. `guarded` controls whether "greet" also has
   // a precondition excluding self-reference — with `agentDistinct: false`,
-  // reflexive combinations reach the pipeline again, so the precondition is
+  // reflexive combinations reach the actionGraph again, so the precondition is
   // what would exclude them there.
   function makeGreetEngine({ guarded, agentDistinct = true } = {}) {
     const engine = new Engine({
@@ -311,18 +311,18 @@ describe('TickLoop — loop / bindings / free roles', () => {
           utility 1.0
           effects greeted(?SELF, ?OTHER)
     `);
-    const pipeline = new Pipeline('greet-test', {
+    const actionGraph = new ActionGraph('greet-test', {
       entry: 'greet-stage',
       stages: { 'greet-stage': new Stage({ actionset: 'greetings', routing: 'branch' }) },
     });
-    return { engine, pipeline };
+    return { engine, actionGraph };
   }
 
-  it('an empty loop runs the pipeline exactly once, with only the fixed bindings supplied', async () => {
-    const { engine, pipeline } = makeGreetEngine({ guarded: true });
-    const loop = new TickLoop(engine, { 'greet-test': pipeline }, {
+  it('an empty loop runs the actionGraph exactly once, with only the fixed bindings supplied', async () => {
+    const { engine, actionGraph } = makeGreetEngine({ guarded: true });
+    const loop = new TickPlan(engine, { 'greet-test': actionGraph }, {
       entityType: 'agent',
-      phases: [{ pipeline: 'greet-test', loop: [], bindings: { SELF: 'alice', OTHER: 'bob' } }],
+      phases: [{ actionGraph: 'greet-test', loop: [], bindings: { SELF: 'alice', OTHER: 'bob' } }],
     });
 
     const trace = await loop.runTick();
@@ -334,10 +334,10 @@ describe('TickLoop — loop / bindings / free roles', () => {
   });
 
   it('two loop roles of a distinct entity type skip reflexive combinations by default', async () => {
-    const { engine, pipeline } = makeGreetEngine({ guarded: false });
-    const loop = new TickLoop(engine, { 'greet-test': pipeline }, {
+    const { engine, actionGraph } = makeGreetEngine({ guarded: false });
+    const loop = new TickPlan(engine, { 'greet-test': actionGraph }, {
       entityType: 'agent',
-      phases: [{ pipeline: 'greet-test', loop: ['SELF', 'OTHER'] }],
+      phases: [{ actionGraph: 'greet-test', loop: ['SELF', 'OTHER'] }],
     });
 
     const trace = await loop.runTick();
@@ -355,15 +355,15 @@ describe('TickLoop — loop / bindings / free roles', () => {
   });
 
   it('an entity type with distinct: false allows loop roles to bind the same entity, so an unguarded action genuinely self-binds', async () => {
-    const { engine, pipeline } = makeGreetEngine({ guarded: false, agentDistinct: false });
-    const loop = new TickLoop(engine, { 'greet-test': pipeline }, {
+    const { engine, actionGraph } = makeGreetEngine({ guarded: false, agentDistinct: false });
+    const loop = new TickPlan(engine, { 'greet-test': actionGraph }, {
       entityType: 'agent',
-      phases: [{ pipeline: 'greet-test', loop: ['SELF', 'OTHER'] }],
+      phases: [{ actionGraph: 'greet-test', loop: ['SELF', 'OTHER'] }],
     });
 
     const trace = await loop.runTick();
     const phase = trace.phases[0];
-    // With `distinct: false` on `agent`, TickLoop no longer excludes the
+    // With `distinct: false` on `agent`, TickPlan no longer excludes the
     // reflexive pair — the full 2 × 2 cross product runs.
     assert.equal(phase.runs.length, 4);
     assert.deepEqual(phase.runs.map(r => r.label).sort(), ['alice × alice', 'alice × bob', 'bob × alice', 'bob × bob']);
@@ -378,10 +378,10 @@ describe('TickLoop — loop / bindings / free roles', () => {
   });
 
   it('with distinct: false, an explicit precondition is what excludes the reflexive pair instead', async () => {
-    const { engine, pipeline } = makeGreetEngine({ guarded: true, agentDistinct: false });
-    const loop = new TickLoop(engine, { 'greet-test': pipeline }, {
+    const { engine, actionGraph } = makeGreetEngine({ guarded: true, agentDistinct: false });
+    const loop = new TickPlan(engine, { 'greet-test': actionGraph }, {
       entityType: 'agent',
-      phases: [{ pipeline: 'greet-test', loop: ['SELF', 'OTHER'] }],
+      phases: [{ actionGraph: 'greet-test', loop: ['SELF', 'OTHER'] }],
     });
 
     const trace = await loop.runTick();
@@ -413,15 +413,15 @@ describe('TickLoop — loop / bindings / free roles', () => {
           utility mood(?SELF, ?TOPIC)
           effects feels(?SELF, ?TOPIC)
     `);
-    const pipeline = new Pipeline('remark-test', {
+    const actionGraph = new ActionGraph('remark-test', {
       entry: 'remark-stage',
       stages: { 'remark-stage': new Stage({ actionset: 'remarks', routing: 'branch' }) },
     });
 
-    const loop = new TickLoop(engine, { 'remark-test': pipeline }, {
+    const loop = new TickPlan(engine, { 'remark-test': actionGraph }, {
       entityType: 'agent',
       // TOPIC is neither looped nor fixed — left free.
-      phases: [{ pipeline: 'remark-test', loop: ['SELF'] }],
+      phases: [{ actionGraph: 'remark-test', loop: ['SELF'] }],
     });
 
     const trace = await loop.runTick();
@@ -436,42 +436,42 @@ describe('TickLoop — loop / bindings / free roles', () => {
   });
 
   it('looping over an unknown role throws a clear error', async () => {
-    const { engine, pipeline } = makeGreetEngine();
-    const loop = new TickLoop(engine, { 'greet-test': pipeline }, {
+    const { engine, actionGraph } = makeGreetEngine();
+    const loop = new TickPlan(engine, { 'greet-test': actionGraph }, {
       entityType: 'agent',
-      phases: [{ pipeline: 'greet-test', loop: ['NOBODY'] }],
+      phases: [{ actionGraph: 'greet-test', loop: ['NOBODY'] }],
     });
 
     await assert.rejects(() => loop.runTick(), /no entry-stage role "NOBODY"/);
   });
 });
 
-describe('TickLoop — stub pipelines (no entry-stage actions authored yet)', () => {
-  // A pipeline whose entry stage actionset has zero actions loaded — exactly
+describe('TickPlan — stub actionGraphs (no entry-stage actions authored yet)', () => {
+  // A actionGraph whose entry stage actionset has zero actions loaded — exactly
   // reception's judge/claim-judge before their content is written (see
   // AGENTS.md). entryStageRoles finds nothing to check a loop role's name
-  // against, so TickLoop falls back to its own configured entityType, the
+  // against, so TickPlan falls back to its own configured entityType, the
   // same entity list every phase drew from before roles were introspectable.
   it('falls back to entityType when the entry stage has no actions to introspect', async () => {
     const engine = new Engine({
       predicates: { predicates: { noticed: { type: 'boolean', args: ['agent'] } } },
       entities: { agent: { alice: {}, bob: {} } },
     });
-    const pipeline = new Pipeline('stub', {
+    const actionGraph = new ActionGraph('stub', {
       entry: 'stub-stage',
       stages: { 'stub-stage': new Stage({ actionset: 'empty-set', routing: 'branch' }) },
     });
     engine.actionsets.set('empty-set', []); // no actions loaded — the actual stub condition
 
-    const loop = new TickLoop(engine, { stub: pipeline }, {
+    const loop = new TickPlan(engine, { stub: actionGraph }, {
       entityType: 'agent',
-      phases: [{ pipeline: 'stub', loop: ['JUDGE'] }],
+      phases: [{ actionGraph: 'stub', loop: ['JUDGE'] }],
     });
 
     const trace = await loop.runTick();
     const phase = trace.phases[0];
     // Two agents, falling back to entityType 'agent' — exactly like a real
-    // (non-stub) pipeline looping a role of that same type would.
+    // (non-stub) actionGraph looping a role of that same type would.
     assert.equal(phase.runs.length, 2);
     assert.deepEqual(phase.runs.map(r => r.binding.JUDGE).sort(), ['alice', 'bob']);
   });
@@ -488,13 +488,13 @@ describe('TickLoop — stub pipelines (no entry-stage actions authored yet)', ()
           utility 1.0
           effects acted(?SELF)
     `);
-    const pipeline = new Pipeline('real', {
+    const actionGraph = new ActionGraph('real', {
       entry: 'real-stage',
       stages: { 'real-stage': new Stage({ actionset: 'real-set', routing: 'branch' }) },
     });
-    const loop = new TickLoop(engine, { real: pipeline }, {
+    const loop = new TickPlan(engine, { real: actionGraph }, {
       entityType: 'agent',
-      phases: [{ pipeline: 'real', loop: ['NOBODY'] }],
+      phases: [{ actionGraph: 'real', loop: ['NOBODY'] }],
     });
 
     await assert.rejects(() => loop.runTick(), /no entry-stage role "NOBODY"/);

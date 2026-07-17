@@ -300,7 +300,7 @@ function HooksEditor({ label, hooks, onChange, rulesets, jsHooks = [], allowSwap
 // (pooled candidates across every checked stage) same as `end`. Used both for
 // a stage's own "Routes to" default and, per action, in ActionRoutesPanel —
 // same interface, same multi-select semantics, either place a route is picked.
-function RoutesToEditor({ value, stages, onChange, blankHint = 'Unchecked = terminate pipeline' }) {
+function RoutesToEditor({ value, stages, onChange, blankHint = 'Unchecked = terminate actionGraph' }) {
   const current = value === null ? [] : [].concat(value);
   function toggle(target) {
     const next = current.includes(target) ? current.filter(t => t !== target) : [...current, target];
@@ -329,9 +329,9 @@ function RoutesToEditor({ value, stages, onChange, blankHint = 'Unchecked = term
 // multi-select interface as the stage's own "Routes to" field, so an action
 // can fan out to several stages just like a stage can. Blank (nothing
 // checked) falls back to the stage's own "Routes to" default.
-function ActionRoutesPanel({ stageName, stage, pipelineData, onChange, actionsets }) {
+function ActionRoutesPanel({ stageName, stage, actionGraphData, onChange, actionsets }) {
   const actions = actionsForStage(stage, actionsets);
-  const otherStages = Object.keys(pipelineData.stages ?? {}).filter(n => n !== stageName);
+  const otherStages = Object.keys(actionGraphData.stages ?? {}).filter(n => n !== stageName);
   const routes = stage.actionRoutes ?? {};
 
   function setRoute(actionName, value) {
@@ -339,9 +339,9 @@ function ActionRoutesPanel({ stageName, stage, pipelineData, onChange, actionset
   }
 
   return (
-    <div className="pipeline-detail">
+    <div className="actionGraph-detail">
       <div className="detail-header">
-        <span className="pipeline-settings-title">Per-action routing</span>
+        <span className="actionGraph-settings-title">Per-action routing</span>
         <span className="dim" style={{ fontSize: 12, marginLeft: 4 }}>{stageName}</span>
       </div>
       <div className="detail-fields">
@@ -367,9 +367,9 @@ function ActionRoutesPanel({ stageName, stage, pipelineData, onChange, actionset
 // ── HooksPanel — right-panel editor for pre or post hooks ─────────────────────
 function HooksPanel({ stageName, label, hooks, onChange, rulesets, jsHooks, roleOptions }) {
   return (
-    <div className="pipeline-detail">
+    <div className="actionGraph-detail">
       <div className="detail-header">
-        <span className="pipeline-settings-title">{label}</span>
+        <span className="actionGraph-settings-title">{label}</span>
         <span className="dim" style={{ fontSize: 12, marginLeft: 4 }}>{stageName}</span>
       </div>
       <div className="detail-fields">
@@ -380,14 +380,14 @@ function HooksPanel({ stageName, label, hooks, onChange, rulesets, jsHooks, role
 }
 
 // ── StagePanel — right-panel editor for the stage's core config ───────────────
-function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDelete, data }) {
+function StagePanel({ stageName, stage, actionGraphData, onUpdate, onRename, onDelete, data }) {
   const [nameVal, setNameVal] = useState(stageName);
   useEffect(() => setNameVal(stageName), [stageName]);
 
   const rulesets   = (data?.rulesets   ?? []).map(r => r.name);
   const jsHooks    = (data?.jsHooks    ?? []).map(h => h.name);
   const actionsets = (data?.actionsets ?? []).map(a => a.name);
-  const otherStages = Object.keys(pipelineData.stages ?? {}).filter(n => n !== stageName);
+  const otherStages = Object.keys(actionGraphData.stages ?? {}).filter(n => n !== stageName);
 
   function commitRename() {
     const t = nameVal.trim();
@@ -395,7 +395,7 @@ function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDele
   }
 
   return (
-    <div className="pipeline-detail">
+    <div className="actionGraph-detail">
       <div className="detail-header">
         <input
           className="stage-name-input"
@@ -459,7 +459,7 @@ function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDele
         <div className="detail-field">
           <span>Selection strategy</span>
           <select value={stage.selectionStrategy ?? ''} onChange={e => onUpdate({ selectionStrategy: e.target.value || null })}>
-            <option value="">— inherit from pipeline —</option>
+            <option value="">— inherit from actionGraph —</option>
             <option value="highestUtility">highestUtility</option>
             <option value="proportional">proportional</option>
             <option value="random">random</option>
@@ -470,43 +470,43 @@ function StagePanel({ stageName, stage, pipelineData, onUpdate, onRename, onDele
   );
 }
 
-// ── PipelineSettings ──────────────────────────────────────────────────────────
-function PipelineSettings({ pipelineData, onUpdate, onEntryChange, data }) {
+// ── ActionGraphSettings ──────────────────────────────────────────────────────────
+function ActionGraphSettings({ actionGraphData, onUpdate, onEntryChange, data }) {
   const rulesets    = (data?.rulesets ?? []).map(r => r.name);
   const jsHooks     = (data?.jsHooks  ?? []).map(h => h.name);
   const roleOptions = collectRoleNames(data?.actionsets ?? []);
-  const stages      = Object.keys(pipelineData.stages ?? {});
+  const stages      = Object.keys(actionGraphData.stages ?? {});
   return (
-    <div className="pipeline-detail">
+    <div className="actionGraph-detail">
       <div className="detail-header">
-        <span className="pipeline-settings-title">Pipeline settings</span>
+        <span className="actionGraph-settings-title">ActionGraph settings</span>
       </div>
       <div className="detail-fields">
         <div className="detail-field">
           <span>Entry stage</span>
-          <select value={pipelineData.entry ?? ''} onChange={e => onEntryChange(e.target.value || null)}>
+          <select value={actionGraphData.entry ?? ''} onChange={e => onEntryChange(e.target.value || null)}>
             <option value="">— none —</option>
             {stages.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div className="detail-field">
           <span>Selection strategy</span>
-          <select value={pipelineData.selectionStrategy ?? 'highestUtility'} onChange={e => onUpdate({ selectionStrategy: e.target.value })}>
+          <select value={actionGraphData.selectionStrategy ?? 'highestUtility'} onChange={e => onUpdate({ selectionStrategy: e.target.value })}>
             <option value="highestUtility">highestUtility</option>
             <option value="proportional">proportional</option>
             <option value="random">random</option>
           </select>
         </div>
-        <HooksEditor label="Pre-hooks"  hooks={pipelineData.preHooks  ?? []} onChange={v => onUpdate({ preHooks:  v })} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} />
-        <HooksEditor label="Post-hooks" hooks={pipelineData.postHooks ?? []} onChange={v => onUpdate({ postHooks: v })} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} />
+        <HooksEditor label="Pre-hooks"  hooks={actionGraphData.preHooks  ?? []} onChange={v => onUpdate({ preHooks:  v })} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} />
+        <HooksEditor label="Post-hooks" hooks={actionGraphData.postHooks ?? []} onChange={v => onUpdate({ postHooks: v })} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} />
 
         <div className="detail-field">
           <span>Notes</span>
           <textarea
-            className="pipeline-notes"
-            value={pipelineData.notes ?? ''}
+            className="actionGraph-notes"
+            value={actionGraphData.notes ?? ''}
             onChange={e => onUpdate({ notes: e.target.value })}
-            placeholder="Notes about this pipeline…"
+            placeholder="Notes about this actionGraph…"
             rows={4}
           />
         </div>
@@ -609,8 +609,8 @@ function StageNode({ name, stage, isEntry, selected, x, y, onSelect, actionsets 
 }
 
 // ── StageGraph ────────────────────────────────────────────────────────────────
-function StageGraph({ pipelineData, selected, onSelect, actionsets = [] }) {
-  const { entry, stages = {} } = pipelineData;
+function StageGraph({ actionGraphData, selected, onSelect, actionsets = [] }) {
+  const { entry, stages = {} } = actionGraphData;
   const names = Object.keys(stages);
   const { col, row, countPerRow, yOf, totalH } = computeLayout(entry, stages, actionsets);
 
@@ -705,9 +705,9 @@ function StageGraph({ pipelineData, selected, onSelect, actionsets = [] }) {
   );
 }
 
-// ── PipelinesTab ──────────────────────────────────────────────────────────────
-export default function PipelinesTab({ scenario, data }) {
-  const [pipelines, setPipelines] = useState([]);
+// ── ActionGraphsTab ──────────────────────────────────────────────────────────────
+export default function ActionGraphsTab({ scenario, data }) {
+  const [actionGraphs, setActionGraphs] = useState([]);
   const [current, setCurrent]     = useState('');
   const [localData, setLocalData] = useState(null);
   // selected: null | { name: string, section: 'stage'|'pre'|'post' }
@@ -722,8 +722,8 @@ export default function PipelinesTab({ scenario, data }) {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
-        const list = await api.savePipeline(scenarioName, data);
-        setPipelines(list);
+        const list = await api.saveActionGraph(scenarioName, data);
+        setActionGraphs(list);
         setError(null);
       } catch (e) { setError(e.message); }
     }, 400);
@@ -738,8 +738,8 @@ export default function PipelinesTab({ scenario, data }) {
     if (!scenarioName) return;
     setLoading(true);
     try {
-      const list = await api.pipelines(scenarioName);
-      setPipelines(list);
+      const list = await api.actionGraphs(scenarioName);
+      setActionGraphs(list);
       setError(null);
       userEdit.current = false;
       if (!keepCurrent || !list.find(p => p.name === current)) {
@@ -757,29 +757,29 @@ export default function PipelinesTab({ scenario, data }) {
 
   useEffect(() => { setSelected(null); userEdit.current = false; load(scenario, false); }, [scenario]);
 
-  function switchPipeline(name) {
-    const p = pipelines.find(p => p.name === name);
+  function switchActionGraph(name) {
+    const p = actionGraphs.find(p => p.name === name);
     userEdit.current = false;
     setCurrent(name); setLocalData(p ?? null); setSelected(null);
   }
 
-  async function createPipeline() {
-    const name = prompt('New pipeline name:');
+  async function createActionGraph() {
+    const name = prompt('New actionGraph name:');
     if (!name?.trim()) return;
     try {
-      await api.createPipeline(scenario, name.trim());
-      const list = await api.pipelines(scenario);
-      setPipelines(list);
+      await api.createActionGraph(scenario, name.trim());
+      const list = await api.actionGraphs(scenario);
+      setActionGraphs(list);
       const created = list.find(p => p.name === name.trim());
       if (created) { userEdit.current = false; setCurrent(created.name); setLocalData(created); setSelected(null); }
     } catch (e) { setError(e.message); }
   }
 
-  async function deletePipeline() {
+  async function deleteActionGraph() {
     if (!current) return;
     try {
-      const list = await api.deletePipeline(scenario, current);
-      setPipelines(list);
+      const list = await api.deleteActionGraph(scenario, current);
+      setActionGraphs(list);
       userEdit.current = false;
       const next = list[0] ?? null;
       setCurrent(next?.name ?? '');
@@ -881,19 +881,19 @@ export default function PipelinesTab({ scenario, data }) {
   const roleOptions = collectRoleNames(data?.actionsets ?? []);
 
   return (
-    <div className="pipeline-tab">
-      <div className="pipeline-toolbar">
-        <label className="pipeline-pick">
-          Pipeline
-          <select value={current} onChange={e => switchPipeline(e.target.value)} disabled={pipelines.length === 0}>
-            {pipelines.length === 0
-              ? <option value="">— no pipelines —</option>
-              : pipelines.map(p => <option key={p.name} value={p.name}>{p.name}</option>)
+    <div className="actionGraph-tab">
+      <div className="actionGraph-toolbar">
+        <label className="actionGraph-pick">
+          ActionGraph
+          <select value={current} onChange={e => switchActionGraph(e.target.value)} disabled={actionGraphs.length === 0}>
+            {actionGraphs.length === 0
+              ? <option value="">— no actionGraphs —</option>
+              : actionGraphs.map(p => <option key={p.name} value={p.name}>{p.name}</option>)
             }
           </select>
-          <button className="btn tiny" onClick={createPipeline} title="Create pipeline">+</button>
+          <button className="btn tiny" onClick={createActionGraph} title="Create actionGraph">+</button>
           {current && (
-            <ConfirmDelete onConfirm={deletePipeline} title={`Delete pipeline "${current}"`} />
+            <ConfirmDelete onConfirm={deleteActionGraph} title={`Delete actionGraph "${current}"`} />
           )}
         </label>
       </div>
@@ -901,26 +901,26 @@ export default function PipelinesTab({ scenario, data }) {
       {error && <div className="banner error">{error}</div>}
       {loading && <div className="dim" style={{ padding: '20px' }}>Loading…</div>}
       {!loading && !localData && (
-        <div className="empty">{pipelines.length === 0 ? 'No pipelines — click + to create one.' : 'Select a pipeline above.'}</div>
+        <div className="empty">{actionGraphs.length === 0 ? 'No actionGraphs — click + to create one.' : 'Select a actionGraph above.'}</div>
       )}
 
       {!loading && localData && (
-        <div className="pipeline-main">
-          <div className="pipeline-canvas-wrap">
-            <div className="pipeline-canvas-scroll">
-              <StageGraph pipelineData={localData} selected={selected} onSelect={handleSelect} actionsets={data?.actionsets ?? []} />
+        <div className="actionGraph-main">
+          <div className="actionGraph-canvas-wrap">
+            <div className="actionGraph-canvas-scroll">
+              <StageGraph actionGraphData={localData} selected={selected} onSelect={handleSelect} actionsets={data?.actionsets ?? []} />
             </div>
             <button className="btn primary stage-add-pin" onClick={addStage}>+ stage</button>
           </div>
 
-          <div className="pipeline-panel">
-            {selected === null && <PipelineSettings pipelineData={localData} onUpdate={patch} onEntryChange={changeEntry} data={data} />}
+          <div className="actionGraph-panel">
+            {selected === null && <ActionGraphSettings actionGraphData={localData} onUpdate={patch} onEntryChange={changeEntry} data={data} />}
             {selected?.section === 'stage' && localData.stages[selected.name] && (
               <StagePanel
                 key={selected.name}
                 stageName={selected.name}
                 stage={localData.stages[selected.name]}
-                pipelineData={localData}
+                actionGraphData={localData}
                 onUpdate={u => patchStage(selected.name, u)}
                 onRename={n => renameStage(selected.name, n)}
                 onDelete={() => deleteStage(selected.name)}
@@ -956,7 +956,7 @@ export default function PipelinesTab({ scenario, data }) {
                 key={selected.name + '/actions'}
                 stageName={selected.name}
                 stage={localData.stages[selected.name]}
-                pipelineData={localData}
+                actionGraphData={localData}
                 onChange={v => patchStage(selected.name, { actionRoutes: v })}
                 actionsets={data?.actionsets ?? []}
               />

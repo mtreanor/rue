@@ -299,7 +299,6 @@ input.dsl-input-highlighted {
 .state-table td { padding: 4px 10px; border-bottom: 1px solid var(--panel-2); vertical-align: top; }
 .state-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .state-table code { font-family: var(--mono); color: var(--text); }
-.state-table tr.inactive td code { color: var(--dim); text-decoration: line-through; }
 .state-table tbody tr:hover td { background: var(--panel); }
 /* Provenance expansion */
 .fact-clickable { cursor: pointer; }
@@ -312,7 +311,7 @@ input.dsl-input-highlighted {
 .prov-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-size: 12px; padding: 1px 0; }
 .prov-statement { font-family: var(--mono); color: var(--text); }
 .prov-via { font-size: 11px; color: var(--accent); }
-.prov-via-given, .prov-via-external, .prov-via-absent, .prov-via-cycle { color: var(--dim); }
+.prov-via-given, .prov-via-external, .prov-via-absent, .prov-via-cycle, .prov-via-binding, .prov-via-precondition { color: var(--dim); }
 .prov-via-rule, .prov-via-derived, .prov-via-action { color: var(--ok); }
 .prov-tick { color: var(--dim); font-size: 11px; }
 .prov-absent { color: var(--err); }
@@ -390,27 +389,27 @@ input.dsl-input-highlighted {
 .pred-tier-row { display: grid; grid-template-columns: 1fr 80px 80px auto; gap: 6px; margin-top: 4px; }
 .pred-modal .ent-field > .btn.tiny { align-self: flex-start; margin-top: 6px; }
 
-/* ── Pipelines tab ─────────────────────────────────────────────────────────── */
-.pipeline-tab { display: flex; flex-direction: column; gap: 0; }
+/* ── Graphs tab ─────────────────────────────────────────────────────────── */
+.actionGraph-tab { display: flex; flex-direction: column; gap: 0; }
 
-.pipeline-toolbar {
+.actionGraph-toolbar {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 0 12px; border-bottom: 1px solid var(--border);
 }
-.pipeline-pick { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+.actionGraph-pick { display: flex; align-items: center; gap: 8px; color: var(--dim); }
 
 /* Flex row: scrollable canvas + fixed-width detail panel */
-.pipeline-main { display: flex; align-items: flex-start; gap: 0; margin-top: 16px; }
+.actionGraph-main { display: flex; align-items: flex-start; gap: 0; margin-top: 16px; }
 
 /* Canvas wrap: grows to fill, relative so the pinned button positions against it */
-.pipeline-canvas-wrap {
+.actionGraph-canvas-wrap {
   flex: 1; min-width: 0; position: relative;
 }
 
 /* Scrollable canvas — grows to fit its content.
    Flex-center so the stage graph is centered in the available space; when the
    graph is wider than the container it overflows and both scroll directions work. */
-.pipeline-canvas-scroll {
+.actionGraph-canvas-scroll {
   width: 100%; min-height: 200px; overflow: auto;
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 8px 0 0 8px;
@@ -497,14 +496,14 @@ input.dsl-input-highlighted {
 .action-route-target.is-default { color: var(--dim); font-style: italic; }
 
 /* ── Detail panel (right side) — no scroll, grows with content ── */
-.pipeline-panel {
+.actionGraph-panel {
   width: 360px; flex-shrink: 0;
   border: 1px solid var(--border); border-left: none; border-radius: 0 8px 8px 0;
   background: var(--panel);
   /* No overflow: auto — page scrolls naturally */
 }
 
-.pipeline-detail { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.actionGraph-detail { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 
 .detail-header {
   display: flex; align-items: center; gap: 8px;
@@ -516,7 +515,7 @@ input.dsl-input-highlighted {
   color: var(--text); padding: 4px 6px;
 }
 .stage-name-input:hover, .stage-name-input:focus { border-color: var(--border); background: var(--panel-2); }
-.pipeline-settings-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.actionGraph-settings-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 
 /* Detail fields — stacked label above input, full width */
@@ -540,7 +539,7 @@ input.dsl-input-highlighted {
 /* Thin separator between primary and secondary fields */
 .detail-section-divider { border: none; border-top: 1px solid var(--border); margin: 2px 0; }
 
-.pipeline-notes {
+.actionGraph-notes {
   width: 100%; box-sizing: border-box; resize: vertical;
   font-family: inherit; font-size: 13px; line-height: 1.5;
   color: var(--text); background: var(--panel-2);
@@ -688,7 +687,7 @@ input.dsl-input-highlighted {
 
 /* ── PredicateView — shared predicate/fact instance rendering ────────────── */
 
-.predicate-view { display: inline-flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.predicate-view { display: inline; }
 .predicate-view .predicate-expr { display: inline; margin: 0; padding: 0; background: none; border: none; white-space: pre-wrap; font-family: var(--mono); font-size: 13px; }
 .predicate-owner { font-family: var(--mono); font-size: 12px; }
 .predicate-value { font-family: var(--mono); font-size: 12.5px; color: var(--text); }
@@ -700,7 +699,7 @@ input.dsl-input-highlighted {
 .play-state-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
 .play-state-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 
-/* ── Play — pipeline plan editor ───────────────────────────────────────────── */
+/* ── Play — tick plan editor ───────────────────────────────────────────── */
 
 .play-plan-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
 .play-plan-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -767,3 +766,45 @@ input.dsl-input-highlighted {
   font-family: var(--mono); font-size: 12.5px; color: var(--text); padding: 0;
 }
 .interp-field::placeholder { color: var(--dim); }
+
+/* Explain Button Hover Logic */
+.explain-btn {
+  padding: 0 4px;
+  margin: 0 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+  font-size: 11px;
+  line-height: 1;
+  vertical-align: baseline;
+}
+.explain-btn:focus-visible {
+  opacity: 0.7;
+}
+
+/* Show explain button when hovering its containing row or predicate view */
+.predicate-view:hover .explain-btn,
+.prov-head:hover .explain-btn,
+.play-view-row:hover .explain-btn,
+.play-detail-item:hover .explain-btn {
+  opacity: 0.7;
+}
+.explain-btn:hover {
+  opacity: 1 !important;
+}
+
+/* Ruleset Execution Card Styling */
+.play-ruleset-execution { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 6px 14px; width: 100%; box-sizing: border-box; }
+.play-rule-exec-card { border: 1px solid var(--border); border-radius: 6px; background: var(--panel); overflow: hidden; }
+.play-rule-exec-card.fired { border-left: 3px solid var(--ok); }
+.play-rule-exec-card.not-fired { border-left: 3px solid var(--border); opacity: 0.75; }
+.play-rule-exec-summary { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; font-size: 12px; cursor: pointer; user-select: none; }
+.play-rule-exec-summary:hover { background: var(--panel-2); }
+.play-rule-exec-body { padding: 8px 10px; background: var(--panel-2); border-top: 1px solid var(--border); font-size: 12px; }
+.play-rule-code { margin: 0; padding: 6px 8px; font-family: var(--mono); font-size: 11.5px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; overflow-x: auto; white-space: pre-wrap; color: var(--dim); }
+.play-app-instance { padding: 4px 0; }
+.play-app-instance + .play-app-instance { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
+.hook-firing.skipped { opacity: 0.75; }
+

@@ -4,7 +4,7 @@ import AddRuleTab from './components/AddRuleTab.jsx';
 import ActionsetsTab from './components/ActionsetsTab.jsx';
 import AddActionTab from './components/AddActionTab.jsx';
 import StateTab from './components/StateTab.jsx';
-import PipelinesTab from './components/PipelinesTab.jsx';
+import ActionGraphsTab from './components/ActionGraphsTab.jsx';
 import PlayTab from './components/PlayTab.jsx';
 import InterpreterTab from './components/InterpreterTab.jsx';
 import PredicateSidebar from './components/PredicateSidebar.jsx';
@@ -181,7 +181,7 @@ export default function App() {
               <button className={tab === 'actionsets' ? 'active' : ''} onClick={() => goTo('actionsets')}>Actions</button>
               <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')} title="Add action" aria-label="Add action">+</button>
             </div>
-            <button className={tab === 'pipelines' ? 'active' : ''} onClick={() => goTo('pipelines')}>Pipelines</button>
+            <button className={tab === 'actiongraphs' ? 'active' : ''} onClick={() => goTo('actiongraphs')}>Graphs</button>
             <button className={'tab-play' + (tab === 'play' ? ' active' : '')} onClick={() => goTo('play')}>Play</button>
           </nav>
           <button
@@ -208,8 +208,8 @@ export default function App() {
 
         {error && <div className="banner error global">{error}</div>}
 
-        {tab === 'pipelines' ? (
-          <PipelinesTab scenario={scenario} data={data} />
+        {tab === 'actiongraphs' ? (
+          <ActionGraphsTab scenario={scenario} data={data} />
         ) : tab === 'play' ? (
           <PlayTab scenario={scenario} highlighter={highlighter} />
         ) : (

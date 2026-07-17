@@ -1,24 +1,24 @@
-# Pipelines
+# ActionGraphs
 
-A **pipeline** is a named, declarative layer over the engine. Where [actions](actions.md) give you scoreable units of behaviour and `scoreActionset` gives you one pass of *score → pick → execute*, a pipeline strings several of those passes together: a graph of **stages** connected by routes, run from an entry stage to a terminal action in one call.
+A **actionGraph** is a named, declarative layer over the engine. Where [actions](actions.md) give you scoreable units of behaviour and `scoreActionset` gives you one pass of *score → pick → execute*, a actionGraph strings several of those passes together: a graph of **stages** connected by routes, run from an entry stage to a terminal action in one call.
 
-Each stage pairs **priming rules** with an **actionset**. Running a stage means: run its hooks, fire its priming rules to prime scores, score the actionset, filter by a salience floor, pick winners with a selection strategy, execute them, and — if the stage resolves a route for the winner — continue into the named child stage. When it resolves to nothing, that winner is *terminal*: the pipeline's `postHooks` fire and that branch ends.
+Each stage pairs **priming rules** with an **actionset**. Running a stage means: run its hooks, fire its priming rules to prime scores, score the actionset, filter by a salience floor, pick winners with a selection strategy, execute them, and — if the stage resolves a route for the winner — continue into the named child stage. When it resolves to nothing, that winner is *terminal*: the actionGraph's `postHooks` fire and that branch ends.
 
 ```javascript
-import { Pipeline, Stage, PipelineRunner } from 'klugh';
+import { ActionGraph, Stage, ActionGraphRunner } from 'klugh';
 
-const pipeline = new Pipeline('turn', {
+const actionGraph = new ActionGraph('turn', {
   entry: 'choose-stage',
   stages: {
     'choose-stage': new Stage({ actionset: 'moves', routing: 'branch' }),
   },
 });
 
-new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 ```
 
-::: tip No pipeline-aware DSL
-The pipeline *structure* — stages, hooks, selection strategies, and all routing (including per-action routing) — is constructed in JavaScript (`new Pipeline`, `new Stage`). Actions carry no routing knowledge of their own; they are plain scoreable units defined in ordinary actionset files. A stage that wants to route differently per action opts in with `perActionRouting` and an `actionRoutes` map — see [Routing disciplines](#routing-disciplines-branch-vs-collect).
+::: tip No actionGraph-aware DSL
+The actionGraph *structure* — stages, hooks, selection strategies, and all routing (including per-action routing) — is constructed in JavaScript (`new ActionGraph`, `new Stage`). Actions carry no routing knowledge of their own; they are plain scoreable units defined in ordinary actionset files. A stage that wants to route differently per action opts in with `perActionRouting` and an `actionRoutes` map — see [Routing disciplines](#routing-disciplines-branch-vs-collect).
 :::
 
 ---
@@ -45,20 +45,20 @@ new Stage({
 | `primingRules` | An ordered array of `{ type: 'ruleset-single' \| 'ruleset-fixpoint', name }` — same shape as `preHooks`/`postHooks` — run just before this stage scores its actionset. Almost always `'ruleset-single'`: typically `+=` accumulation into ephemeral numerics that the actions then read as utility. Unlike `postHooks` rulesets, `'ruleset-single'` does **not** loop to fixpoint. |
 | `actionset` | The named actionset to score for this stage. |
 | `salienceFloor` | Candidates scoring below this are discarded. Defaults to `0`. |
-| `selectionStrategy` | How winners are picked from the scored candidates — see [Selection strategies](#selection-strategies). Falls back to the pipeline's strategy, then `highestUtility`. |
+| `selectionStrategy` | How winners are picked from the scored candidates — see [Selection strategies](#selection-strategies). Falls back to the actionGraph's strategy, then `highestUtility`. |
 | `routing` | **Required.** `'branch'` or `'collect'` — see [Routing disciplines](#routing-disciplines-branch-vs-collect). |
 | `routesTo` | Stage-level destination (a stage name or array). In `collect` routing it is *the* route; in `branch` routing it is the **default** route for winners with no `actionRoutes` entry of their own (or when `perActionRouting` is off). |
 | `perActionRouting` | Opts this stage into routing each winning action independently — see [Routing disciplines](#routing-disciplines-branch-vs-collect). Only valid on a `'branch'` stage; the `Stage` constructor throws if combined with `routing: 'collect'`. |
 | `actionRoutes` | `{ actionName: stageName \| 'end' }`. Consulted only when `perActionRouting` is true; an action absent from the map (or mapped to a blank entry) falls back to `routesTo`. |
 | `preHooks` / `postHooks` | Ordered [hooks](#hooks) that run before scoring / after a winner executes (`branch`) or once after the group (`collect`). |
 
-A `Pipeline` carries the same `preHooks` / `postHooks` / `selectionStrategy` at the top level. The pipeline's `preHooks` run once at the start; its `postHooks` run each time a **terminal** action executes.
+A `ActionGraph` carries the same `preHooks` / `postHooks` / `selectionStrategy` at the top level. The actionGraph's `preHooks` run once at the start; its `postHooks` run each time a **terminal** action executes.
 
 ---
 
 ## Example 1 — a single stage
 
-The simplest pipeline is one stage with one terminal action. The runner scores the actionset for the starting binding, picks the highest-scoring eligible candidate, and executes it.
+The simplest actionGraph is one stage with one terminal action. The runner scores the actionset for the starting binding, picks the highest-scoring eligible candidate, and executes it.
 
 ```klugh
 // actions/moves.klugh
@@ -74,20 +74,20 @@ action "rest"
 ```
 
 ```javascript
-import { Pipeline, Stage, PipelineRunner } from 'klugh';
+import { ActionGraph, Stage, ActionGraphRunner } from 'klugh';
 
-const pipeline = new Pipeline('turn', {
+const actionGraph = new ActionGraph('turn', {
   entry: 'rest-stage',
   stages: {
     'rest-stage': new Stage({ actionset: 'moves', routing: 'branch' }),
   },
 });
 
-new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 // alice rests; fatigue drops by 10.
 ```
 
-With no `routesTo` on `rest-stage`, `rest` is terminal: the pipeline ends after it executes (and any pipeline `postHooks` fire).
+With no `routesTo` on `rest-stage`, `rest` is terminal: the actionGraph ends after it executes (and any actionGraph `postHooks` fire).
 
 ---
 
@@ -129,9 +129,9 @@ action "ignore"
 ```
 
 ```javascript
-import { Pipeline, Stage, PipelineRunner } from 'klugh';
+import { ActionGraph, Stage, ActionGraphRunner } from 'klugh';
 
-const pipeline = new Pipeline('exchange', {
+const actionGraph = new ActionGraph('exchange', {
   entry: 'initiate-stage',
   stages: {
     'initiate-stage': new Stage({
@@ -145,23 +145,23 @@ const pipeline = new Pipeline('exchange', {
   },
 });
 
-new PipelineRunner(engine).run(pipeline, { SELF: 'alice', OTHER: 'bob' });
+new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice', OTHER: 'bob' });
 // 1. initiate-stage: alice greets bob, routes to respond-stage.
 // 2. swap-roles hook: ?SELF=bob, ?OTHER=alice.
 // 3. respond-stage: bob picks the higher-scoring of "greet back" / "ignore".
 ```
 
-The route follows the stage's `routesTo`. The child stage runs its own hooks and priming rules, scores its actionset against the (swapped) binding, and selects a winner — which may itself be terminal or route onward. Only a terminal winner fires the pipeline's `postHooks`; routing winners do not.
+The route follows the stage's `routesTo`. The child stage runs its own hooks and priming rules, scores its actionset against the (swapped) binding, and selects a winner — which may itself be terminal or route onward. Only a terminal winner fires the actionGraph's `postHooks`; routing winners do not.
 
 ::: tip Fan-out routing
-A route may name several child stages (an array, in JS — on `routesTo` or on an individual `actionRoutes` entry). Their candidates are **pooled** and one selection runs across the union, using the pipeline-level strategy. A single named route uses that child stage's own strategy.
+A route may name several child stages (an array, in JS — on `routesTo` or on an individual `actionRoutes` entry). Their candidates are **pooled** and one selection runs across the union, using the actionGraph-level strategy. A single named route uses that child stage's own strategy.
 :::
 
 ---
 
 ## Routing disciplines: branch vs collect
 
-The examples above use the **branch** discipline: each winner routes individually, so a stage with *N* winners produces up to *N* independent continuations, and each child stage scores against the world *as that one winner left it*. This is right for agent-turn pipelines — alice greets bob, bob responds; one actor's choice hands to the next.
+The examples above use the **branch** discipline: each winner routes individually, so a stage with *N* winners produces up to *N* independent continuations, and each child stage scores against the world *as that one winner left it*. This is right for agent-turn actionGraphs — alice greets bob, bob responds; one actor's choice hands to the next.
 
 A winner's continuation is resolved by the stage's `routeFor(actionName)`: when the stage has no per-action routing, every winner just takes `routesTo`. Because the next stage is so often the same for every action in a stage, that single default is usually enough:
 
@@ -189,9 +189,9 @@ new Stage({
 });
 ```
 
-The reserved sentinel `end` marks an action **terminal** despite whatever `routesTo` the stage might otherwise default to — that branch stops there and the pipeline's `postHooks` fire. `end` is reserved: no stage may be named `end`, and the runner throws if one is.
+The reserved sentinel `end` marks an action **terminal** despite whatever `routesTo` the stage might otherwise default to — that branch stops there and the actionGraph's `postHooks` fire. `end` is reserved: no stage may be named `end`, and the runner throws if one is.
 
-Generation/transform pipelines want the opposite: apply the **whole group**, settle, then advance once. "Pick one mechanic per edge, *then* add a single win condition against the finished set." That is the **collect** discipline, set on the `Stage`:
+Generation/transform actionGraphs want the opposite: apply the **whole group**, settle, then advance once. "Pick one mechanic per edge, *then* add a single win condition against the finished set." That is the **collect** discipline, set on the `Stage`:
 
 ```javascript
 new Stage({
@@ -202,7 +202,7 @@ new Stage({
 });
 ```
 
-A `collect` stage executes every selected winner, runs its `postHooks` **once**, then routes the *stage* once via `routesTo` (which the child sees with the stage's incoming binding — the group has no single winner to carry a binding onward). With no `routesTo`, the group is terminal and the pipeline's `postHooks` fire once.
+A `collect` stage executes every selected winner, runs its `postHooks` **once**, then routes the *stage* once via `routesTo` (which the child sees with the stage's incoming binding — the group has no single winner to carry a binding onward). With no `routesTo`, the group is terminal and the actionGraph's `postHooks` fire once.
 
 | | `branch` | `collect` |
 |---|---|---|
@@ -223,7 +223,7 @@ A collect stage's `routesTo` may also be an array — each named child then runs
 
 ## Hooks
 
-Hooks run at stage boundaries and the pipeline edges. Each hook is a small tagged object; a stage threads its binding through them in order.
+Hooks run at stage boundaries and the actionGraph edges. Each hook is a small tagged object; a stage threads its binding through them in order.
 
 | Hook | Shape | Effect |
 |------|-------|--------|
@@ -263,7 +263,7 @@ Most actions mint no occurrence, so `occ` is unbound and the hook skips cleanly;
 
 ### JS hooks
 
-`{ type: 'js', name }` is an escape hatch for logic that's cheaper or clearer written imperatively than as rules — typically because the rule-based version would force `RuleEvaluator`'s Cartesian candidate-binding generation to explore a search space far larger than the actual computation needs (e.g. a self-join comparing every occurrence of some kind against every other one). Register the function once, by name, before running any pipeline:
+`{ type: 'js', name }` is an escape hatch for logic that's cheaper or clearer written imperatively than as rules — typically because the rule-based version would force `RuleEvaluator`'s Cartesian candidate-binding generation to explore a search space far larger than the actual computation needs (e.g. a self-join comparing every occurrence of some kind against every other one). Register the function once, by name, before running any actionGraph:
 
 ```javascript
 engine.registerJSHook('resolve-something', (engine, binding) => {
@@ -273,7 +273,7 @@ engine.registerJSHook('resolve-something', (engine, binding) => {
 });
 ```
 
-Then reference it from a pipeline's `preHooks`/`postHooks` exactly like a ruleset hook: `{ type: 'js', name: 'resolve-something' }`.
+Then reference it from a actionGraph's `preHooks`/`postHooks` exactly like a ruleset hook: `{ type: 'js', name: 'resolve-something' }`.
 
 **If a hook lives in a scenario's `hooks/` directory** (rather than only being registered by a driver script directly, like the snippet above), the action-rule-set-tool's Play mode can run it too — but only if the file exports both a string-literal `hookName` and a function named exactly `handler`:
 
@@ -284,11 +284,11 @@ export function handler(engine, binding) { /* ... */ }
 
 The tool's passive scenario-browsing endpoints only ever regex-scan `hooks/` for `hookName` (never import or execute the file — see `action-rule-set-tool/server/scenario.js`'s `loadJSHooks`). Starting a Play session is the one point that actually `import()`s each file and registers its `handler` (`registerScenarioJSHooks`, called from `server/play.js`'s `startPlaySession`) — a deliberate, narrower exception to "never execute scenario-authored code," scoped to an explicit user action against a scenario already being run for real. A driver script that never goes through Play mode (a console demo, a test) doesn't need the `handler` export at all — it can keep calling `registerJSHook` directly with whatever function name it likes, exactly as in the snippet above.
 
-The same registered function is also callable directly, outside any pipeline, via `engine.runJSHook(name, binding?)` — the JS-hook equivalent of `Engine.runRulesetFixpoint`/`runRulesetSingle`. This matters because a pipeline hook fires once per `run()` *invocation*, not once per tick — if a driver calls `run()` once per agent, a hook nested in that pipeline fires once per agent too.
+The same registered function is also callable directly, outside any actionGraph, via `engine.runJSHook(name, binding?)` — the JS-hook equivalent of `Engine.runRulesetFixpoint`/`runRulesetSingle`. This matters because a actionGraph hook fires once per `run()` *invocation*, not once per tick — if a driver calls `run()` once per agent, a hook nested in that actionGraph fires once per agent too.
 
-Before reaching for direct invocation, check whether the real problem is that the driver is calling `run()` once per agent in the first place. That pattern exists because a role variable (typically `?SELF`) needs to be pre-bound differently each time — often to make a single-key `groupBy` pick one winner per agent. The [compound array form of `groupBy`](#compound-array-form-group-by-a-tuple-of-variables) can often eliminate the per-agent loop entirely: leave `?SELF` unbound, group by `['SELF', ...]`, and a single `run()` call scores and selects across every agent at once — at which point a postHook genuinely fires once per tick, as a real pipeline hook, no direct invocation needed.
+Before reaching for direct invocation, check whether the real problem is that the driver is calling `run()` once per agent in the first place. That pattern exists because a role variable (typically `?SELF`) needs to be pre-bound differently each time — often to make a single-key `groupBy` pick one winner per agent. The [compound array form of `groupBy`](#compound-array-form-group-by-a-tuple-of-variables) can often eliminate the per-agent loop entirely: leave `?SELF` unbound, group by `['SELF', ...]`, and a single `run()` call scores and selects across every agent at once — at which point a postHook genuinely fires once per tick, as a real actionGraph hook, no direct invocation needed.
 
-Direct invocation remains the right tool when the *loop itself* is load-bearing — e.g. the ACT phase, where agents move sequentially and a later mover must see the groups earlier movers just formed (order genuinely matters, not just selection). Logic that needs to run once per tick *after* such a genuinely-ordered loop, rather than once per pass through it, should be invoked directly via `runJSHook` from the driver's tick loop — still declared and registered through the one named-hook mechanism, just invoked at the right point rather than nested inside the loop.
+Direct invocation remains the right tool when the *loop itself* is load-bearing — e.g. the ACT phase, where agents move sequentially and a later mover must see the groups earlier movers just formed (order genuinely matters, not just selection). Logic that needs to run once per tick *after* such a genuinely-ordered loop, rather than once per pass through it, should be invoked directly via `runJSHook` from the driver's tick plan — still declared and registered through the one named-hook mechanism, just invoked at the right point rather than nested inside the loop.
 
 ---
 
@@ -326,7 +326,7 @@ new Stage({
 
 This is what makes it possible to leave a role variable like `?SELF` **unbound** and still get correct, independent selection per agent, in a single `run()` call — no per-agent loop in the driver. With both `?SELF` and `?BID` free, the stage enumerates a candidate per `(SELF, BID)` pair; a plain string `groupBy: 'BID'` would collapse every agent's vote on the same bid down to one overall winner, losing everyone else's independent decision. `groupBy: ['SELF', 'BID']` instead picks the best action *per agent per bid*, so every eligible agent's own choice for every bid they're eligible to act on survives selection.
 
-This matters beyond convenience: a stage/pipeline hook only fires once per `run()` invocation. Collapsing a per-agent loop into one `run()` call via compound `groupBy` is what lets a postHook genuinely fire once per tick — see [JS hooks](#js-hooks) above.
+This matters beyond convenience: a stage/actionGraph hook only fires once per `run()` invocation. Collapsing a per-agent loop into one `run()` call via compound `groupBy` is what lets a postHook genuinely fire once per tick — see [JS hooks](#js-hooks) above.
 
 ### Pattern form — group by a key read from world state
 
@@ -361,19 +361,19 @@ otherwise discards: every candidate each stage considered (losers and
 below-salience-floor entries included, flagged), each candidate's utility
 breakdown, every hook and priming pass's `RuleApplication`s, each winner's
 route and minted occurrence. The recorder's tree mirrors the run's recursion
-(evaluations → winners → child evaluations); `serializePipelineTrace` /
+(evaluations → winners → child evaluations); `serializeActionGraphTrace` /
 `serializeTickTrace` turn it into self-contained JSON, expanding each numeric
 utility leaf into its full event history (delta, resulting value, and the
 rule or action that made each adjustment, with that firing's premises).
 
 ```javascript
 const recorder = new TraceRecorder();
-runner.run(pipeline, { SELF: 'alice' }, { recorder });
-const json = serializePipelineTrace(recorder.trace);
+runner.run(actionGraph, { SELF: 'alice' }, { recorder });
+const json = serializeActionGraphTrace(recorder.trace);
 ```
 
 **Interactive runs** — `runInteractive` consults an async `decide` callback at
-each selection point. It receives `{ pipeline, stageNames, binding,
+each selection point. It receives `{ actionGraph, stageNames, binding,
 candidates, strategy, defaultWinners }` and may return a subset of
 `candidates` to force (a player's choice — `[]` means no winner executes), a
 promise of one (suspending the run until it resolves), or `null` to accept
@@ -381,17 +381,17 @@ the engine's default. The authored `selectionStrategy` still computes
 `defaultWinners` every time; `decide` substitutes the outcome for one firing
 only.
 
-**TickLoop** — declarative per-tick orchestration (which pipeline runs per
+**TickPlan** — declarative per-tick orchestration (which actionGraph runs per
 entity, which consequence rulesets fire between phases), so a generic host
 can run a scenario's tick from config instead of scenario-specific driver
-code. Returns a per-tick trace covering every entity's pipeline run and every
+code. Returns a per-tick trace covering every entity's actionGraph run and every
 ruleset phase's firings.
 
 ```javascript
-const loop = new TickLoop(engine, { day: dayPipeline }, {
+const loop = new TickPlan(engine, { day: dayActionGraph }, {
   entityType: 'agent',
   phases: [
-    { pipeline: 'day', role: 'SELF' },      // once per agent
+    { actionGraph: 'day', role: 'SELF' },      // once per agent
     { ruleset: 'day-consequences' },        // fixpoint, once per tick
   ],
 });
@@ -399,11 +399,11 @@ const tickTrace = await loop.runTick({ decide });
 ```
 
 The action-rule-set-tool's **Play** tab is the reference host: it steps a
-scenario's TickLoop against a live engine, renders the full trace, and routes
+scenario's TickPlan against a live engine, renders the full trace, and routes
 selection points matching its player-control config through the suspended
-`decide` path. Play mode is activated by placing a `play.json` at the scenario
-root — it declares the `entityType` and `phases` array (pipeline phases with
-a `loop` of role variables, or ruleset phases) that the TickLoop runs each tick.
+`decide` path. Play mode is activated by placing a `tick-plan.json` at the scenario
+root — it declares the `entityType` and `phases` array (actionGraph phases with
+a `loop` of role variables, or ruleset phases) that the TickPlan runs each tick.
 See `tools/action-rule-set-tool/README.md` for the full format.
 
 ---
@@ -412,15 +412,15 @@ See `tools/action-rule-set-tool/README.md` for the full format.
 
 | Call | Description |
 |------|-------------|
-| `new Pipeline(name, { entry, selectionStrategy, preHooks, postHooks, stages })` | Builds a pipeline. `stages` maps stage names to `Stage` instances; `entry` names the first. |
+| `new ActionGraph(name, { entry, selectionStrategy, preHooks, postHooks, stages })` | Builds a actionGraph. `stages` maps stage names to `Stage` instances; `entry` names the first. |
 | `new Stage({ primingRules, actionset, salienceFloor, selectionStrategy, routing, routesTo, perActionRouting, actionRoutes, preHooks, postHooks })` | Builds one stage. `actionset` and `routing` are required; `routing` is `'branch'` or `'collect'`. `routesTo` (a stage name or array) is the route in `collect`, and the default route in `branch`. `perActionRouting` (only valid with `routing: 'branch'`) opts the stage into per-action routes, read from `actionRoutes` (`{ actionName: stageName \| 'end' }`); an action absent from the map falls back to `routesTo`. `primingRules`, `preHooks`, and `postHooks` are hook arrays. |
 | `stage.routeFor(actionName)` | The resolved route for a winning action — its own `actionRoutes` entry when `perActionRouting` is on and set, else `routesTo`. What the runner calls internally; useful for inspecting a stage's effective routing. |
-| `new PipelineRunner(engine)` | Wraps an engine for execution. |
-| `runner.run(pipeline, initialBinding, { recorder }?)` | Runs the pipeline from its entry stage with the given starting binding (e.g. `{ SELF: 'alice' }`). Synchronous; the engine's selection strategy decides every winner. |
-| `runner.runInteractive(pipeline, initialBinding, { recorder, decide }?)` | Async variant; `decide(request)` may force winners, suspend on a promise, or return `null` for the default. |
-| `new TickLoop(engine, pipelines, { entityType, phases })` | Declarative tick orchestration; `loop.runTick({ decide }?)` returns a TickTrace. |
+| `new ActionGraphRunner(engine)` | Wraps an engine for execution. |
+| `runner.run(actionGraph, initialBinding, { recorder }?)` | Runs the actionGraph from its entry stage with the given starting binding (e.g. `{ SELF: 'alice' }`). Synchronous; the engine's selection strategy decides every winner. |
+| `runner.runInteractive(actionGraph, initialBinding, { recorder, decide }?)` | Async variant; `decide(request)` may force winners, suspend on a promise, or return `null` for the default. |
+| `new TickPlan(engine, actionGraphs, { entityType, phases })` | Declarative tick orchestration; `loop.runTick({ decide }?)` returns a TickTrace. |
 | `new TraceRecorder()` / `NULL_RECORDER` | The decision-trace recorder and its no-op default. |
-| `serializePipelineTrace(trace)` / `serializeTickTrace(tickTrace)` | Trace tree → self-contained JSON (breakdowns, numeric histories, rule firings rendered). |
+| `serializeActionGraphTrace(trace)` / `serializeTickTrace(tickTrace)` | Trace tree → self-contained JSON (breakdowns, numeric histories, rule firings rendered). |
 | `selectCandidates(candidates, strategy, engine?)` | The selection primitive. `engine` is required only for the pattern form of `groupBy`. |
 
 See [Actions](actions.md) for how candidates are scored, [Rules](rules.md) for ruleset semantics, and [Action records](action-records.md) for the breakdowns a stage's scoring produces.

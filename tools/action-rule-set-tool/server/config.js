@@ -85,7 +85,7 @@ export function loadProjectConfig() {
 // consistent: an edit to predicates.json / state / a ruleset and the directory
 // scans that list them all read and write the exact same shadow file, so a
 // saved change never lingers as "pending" and a newly created file is
-// immediately visible to the scans that enumerate rulesets and pipelines.
+// immediately visible to the scans that enumerate rulesets and actionGraphs.
 export function resolveScenarioPaths(scenario) {
   const realDir = resolve(configDir, typeof scenario === 'string' ? scenario : scenario.dir ?? '');
   const dir = workingPath(realDir);      // the shadow tree root for this scenario
@@ -97,8 +97,8 @@ export function resolveScenarioPaths(scenario) {
     entities:    sub('entities.json'),
     state:       sub('state'),
     definitions: sub('definitions.klugh'),
-    pipelines:   sub('pipelines'),
+    actionGraphs:   sub('actiongraphs'),
     hooks:       sub('hooks'),
-    play:        sub('play.json'),
+    play:        sub('tick-plan.json'),
   };
 }

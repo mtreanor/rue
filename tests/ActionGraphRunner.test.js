@@ -2,9 +2,9 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/Engine.js';
 import { Fact } from '../src/Fact.js';
-import { Pipeline } from '../src/pipeline/Pipeline.js';
-import { Stage } from '../src/pipeline/Stage.js';
-import { PipelineRunner } from '../src/pipeline/PipelineRunner.js';
+import { ActionGraph } from '../src/plan/ActionGraph.js';
+import { Stage } from '../src/plan/Stage.js';
+import { ActionGraphRunner } from '../src/plan/ActionGraphRunner.js';
 
 // Minimal engine with two agents and enough predicates to test routing.
 function makeEngine() {
@@ -24,9 +24,9 @@ function makeEngine() {
   });
 }
 
-// ── Basic single-stage pipeline ──────────────────────────────────────────────
+// ── Basic single-stage actionGraph ──────────────────────────────────────────────
 
-describe('PipelineRunner — single stage, terminal action', () => {
+describe('ActionGraphRunner — single stage, terminal action', () => {
   it('runs the entry stage and executes the top-scoring action', () => {
     const engine = makeEngine();
     engine.loadActions(`
@@ -37,20 +37,20 @@ describe('PipelineRunner — single stage, terminal action', () => {
           effects acted(?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({ actionset: 'moves', routing: 'branch' }),
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.ok(!engine.world.factStore.contains('acted', 'bob'));
   });
 
-  it('fires pipeline postHooks after a terminal action', () => {
+  it('fires actionGraph postHooks after a terminal action', () => {
     const engine = makeEngine();
     engine.loadActions(`
       actionset "moves"
@@ -66,7 +66,7 @@ describe('PipelineRunner — single stage, terminal action', () => {
           => responded(?X)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       postHooks: [{ type: 'ruleset-fixpoint', name: 'post-consequences' }],
       stages: {
@@ -74,7 +74,7 @@ describe('PipelineRunner — single stage, terminal action', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.ok(engine.world.factStore.contains('responded', 'alice'));
@@ -83,7 +83,7 @@ describe('PipelineRunner — single stage, terminal action', () => {
 
 // ── Two-stage routing ────────────────────────────────────────────────────────
 
-describe('PipelineRunner — routing between stages', () => {
+describe('ActionGraphRunner — routing between stages', () => {
   it('follows a stage default route into a child stage', () => {
     const engine = makeEngine();
     engine.loadActions(`
@@ -101,7 +101,7 @@ describe('PipelineRunner — routing between stages', () => {
           effects responded(?OTHER)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({ actionset: 'tier1', routing: 'branch', routesTo: 'respond-stage' }),
@@ -109,7 +109,7 @@ describe('PipelineRunner — routing between stages', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice', OTHER: 'bob' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice', OTHER: 'bob' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.ok(engine.world.factStore.contains('responded', 'bob'));
@@ -137,7 +137,7 @@ describe('PipelineRunner — routing between stages', () => {
           effects responded(?OTHER)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({
@@ -150,13 +150,13 @@ describe('PipelineRunner — routing between stages', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice', OTHER: 'bob' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice', OTHER: 'bob' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.ok(engine.world.factStore.contains('responded', 'bob'));
   });
 
-  it('does not fire pipeline postHooks for routing actions — only terminal', () => {
+  it('does not fire actionGraph postHooks for routing actions — only terminal', () => {
     const engine = makeEngine();
     engine.loadActions(`
       actionset "tier1"
@@ -178,7 +178,7 @@ describe('PipelineRunner — routing between stages', () => {
           => acted(?X)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       postHooks: [{ type: 'ruleset-fixpoint', name: 'post' }],
       stages: {
@@ -187,7 +187,7 @@ describe('PipelineRunner — routing between stages', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('responded', 'alice'));
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
@@ -196,7 +196,7 @@ describe('PipelineRunner — routing between stages', () => {
 
 // ── branch stage-level default routing ───────────────────────────────────────
 
-describe('PipelineRunner — branch routesTo default', () => {
+describe('ActionGraphRunner — branch routesTo default', () => {
   it('routes an action via the stage default when perActionRouting is off', () => {
     const engine = makeEngine();
     // perActionRouting isn't enabled — both actions fall back to the stage default.
@@ -215,7 +215,7 @@ describe('PipelineRunner — branch routesTo default', () => {
           effects responded(?OTHER)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({ actionset: 'tier1', routing: 'branch', routesTo: 'respond-stage' }),
@@ -223,7 +223,7 @@ describe('PipelineRunner — branch routesTo default', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice', OTHER: 'bob' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice', OTHER: 'bob' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.ok(engine.world.factStore.contains('responded', 'bob'),
@@ -254,7 +254,7 @@ describe('PipelineRunner — branch routesTo default', () => {
           effects handoff(?SELF, ?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({
@@ -269,7 +269,7 @@ describe('PipelineRunner — branch routesTo default', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('handoff', 'alice', 'alice'),
       "the action's own route should win over the stage default");
@@ -294,7 +294,7 @@ describe('PipelineRunner — branch routesTo default', () => {
           effects responded(?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({
@@ -308,14 +308,14 @@ describe('PipelineRunner — branch routesTo default', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.ok(!engine.world.factStore.contains('responded', 'alice'),
       'an actionRoutes entry of `end` should terminate the branch instead of taking the stage default');
   });
 
-  it('fires pipeline postHooks when an action ends via an actionRoutes entry of `end`', () => {
+  it('fires actionGraph postHooks when an action ends via an actionRoutes entry of `end`', () => {
     const engine = makeEngine();
     engine.loadActions(`
       actionset "tier1"
@@ -338,7 +338,7 @@ describe('PipelineRunner — branch routesTo default', () => {
           => handoff(?X, ?X)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       postHooks: [{ type: 'ruleset-fixpoint', name: 'post' }],
       stages: {
@@ -353,10 +353,10 @@ describe('PipelineRunner — branch routesTo default', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('handoff', 'alice', 'alice'),
-      'pipeline postHooks should fire for an action that ends via an actionRoutes entry of `end`');
+      'actionGraph postHooks should fire for an action that ends via an actionRoutes entry of `end`');
   });
 
   it('falls back to the stage default when perActionRouting is on but the entry is blank', () => {
@@ -376,7 +376,7 @@ describe('PipelineRunner — branch routesTo default', () => {
           effects responded(?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({
@@ -390,13 +390,13 @@ describe('PipelineRunner — branch routesTo default', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('responded', 'alice'),
       'a blank actionRoutes entry should fall back to the stage default, not terminate');
   });
 
-  it('rejects a pipeline with a stage named "end"', () => {
+  it('rejects a actionGraph with a stage named "end"', () => {
     const engine = makeEngine();
     engine.loadActions(`
       actionset "moves"
@@ -406,12 +406,12 @@ describe('PipelineRunner — branch routesTo default', () => {
           effects acted(?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'end',
       stages: { end: new Stage({ actionset: 'moves', routing: 'branch' }) },
     });
 
-    assert.throws(() => new PipelineRunner(engine).run(pipeline, { SELF: 'alice' }),
+    assert.throws(() => new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' }),
       /reserved terminal route/);
   });
 });
@@ -422,11 +422,11 @@ describe('PipelineRunner — branch routesTo default', () => {
 // actionRoutes) had a test proving the array form actually pools candidates
 // across every named stage and picks one winner — as opposed to, say, running
 // each named stage independently. Both paths share the exact same fan-out code
-// in PipelineRunner._commitAndRoute, so one stage-level test and one
+// in ActionGraphRunner._commitAndRoute, so one stage-level test and one
 // per-action test (same scenario, routed from a different source) confirm
 // they behave identically.
 
-describe('PipelineRunner — fan-out routing (multiple targets)', () => {
+describe('ActionGraphRunner — fan-out routing (multiple targets)', () => {
   function makeFanOutEngine() {
     return new Engine({
       predicates: {
@@ -464,7 +464,7 @@ describe('PipelineRunner — fan-out routing (multiple targets)', () => {
           effects markB(?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({ actionset: 'tier1', routing: 'branch', routesTo: ['stage-a', 'stage-b'] }),
@@ -473,7 +473,7 @@ describe('PipelineRunner — fan-out routing (multiple targets)', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('engaged', 'alice'));
     assert.ok(engine.world.factStore.contains('markB', 'alice'),
@@ -506,7 +506,7 @@ describe('PipelineRunner — fan-out routing (multiple targets)', () => {
           effects markB(?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({
@@ -520,7 +520,7 @@ describe('PipelineRunner — fan-out routing (multiple targets)', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('engaged', 'alice'));
     assert.ok(engine.world.factStore.contains('markB', 'alice'),
@@ -532,7 +532,7 @@ describe('PipelineRunner — fan-out routing (multiple targets)', () => {
 
 // ── swap-roles hook ──────────────────────────────────────────────────────────
 
-describe('PipelineRunner — swap-roles hook', () => {
+describe('ActionGraphRunner — swap-roles hook', () => {
   it('swaps SELF and OTHER before the child stage scores', () => {
     const engine = makeEngine();
     engine.loadActions(`
@@ -550,7 +550,7 @@ describe('PipelineRunner — swap-roles hook', () => {
     `);
 
     // After swap: SELF=bob, OTHER=alice. So handoff(bob, alice).
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'tier1-stage',
       stages: {
         'tier1-stage': new Stage({
@@ -563,7 +563,7 @@ describe('PipelineRunner — swap-roles hook', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice', OTHER: 'bob' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice', OTHER: 'bob' });
 
     assert.ok(engine.world.factStore.contains('handoff', 'bob', 'alice'),
       'after swap SELF=bob should be the actor in respond-stage');
@@ -573,7 +573,7 @@ describe('PipelineRunner — swap-roles hook', () => {
 
 // ── js hook ───────────────────────────────────────────────────────────────────
 
-describe('PipelineRunner — js hook', () => {
+describe('ActionGraphRunner — js hook', () => {
   it('a { type: "js" } postHook invokes the registered function with (engine, binding)', () => {
     const engine = makeEngine();
     engine.loadActions(`
@@ -588,7 +588,7 @@ describe('PipelineRunner — js hook', () => {
       eng.assert(`acted(${seenSelf.name ?? seenSelf})`);
     });
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({
@@ -599,7 +599,7 @@ describe('PipelineRunner — js hook', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.equal(seenSelf?.name, 'alice');
@@ -616,7 +616,7 @@ describe('PipelineRunner — js hook', () => {
     let calls = 0;
     engine.registerJSHook('count-calls', () => { calls++; });
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({
@@ -628,7 +628,7 @@ describe('PipelineRunner — js hook', () => {
     });
 
     // "wait" mints no occurrence, so a requires: ['occ'] hook should skip.
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.equal(calls, 0);
   });
@@ -648,7 +648,7 @@ describe('PipelineRunner — js hook', () => {
       receivedNames = [...binding.assignments.keys()];
     });
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({
@@ -659,13 +659,13 @@ describe('PipelineRunner — js hook', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.deepEqual(receivedNames, ['occ'],
       'a requires-scoped js hook should receive only the required variables, not the full incoming binding');
   });
 
-  it('the same registered function is directly callable via engine.runJSHook, outside any pipeline', () => {
+  it('the same registered function is directly callable via engine.runJSHook, outside any actionGraph', () => {
     const engine = makeEngine();
     engine.registerJSHook('direct-call', (eng) => {
       eng.assert('acted(bob)');
@@ -684,7 +684,7 @@ describe('PipelineRunner — js hook', () => {
 
 // ── salienceFloor filtering ──────────────────────────────────────────────────
 
-describe('PipelineRunner — salienceFloor', () => {
+describe('ActionGraphRunner — salienceFloor', () => {
   it('excludes candidates scoring below the floor', () => {
     const engine = makeEngine();
     engine.loadActions(`
@@ -695,14 +695,14 @@ describe('PipelineRunner — salienceFloor', () => {
           effects acted(?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({ actionset: 'moves', salienceFloor: 0.01, routing: 'branch' }),
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(!engine.world.factStore.contains('acted', 'alice'),
       'action below salienceFloor should not execute');
@@ -718,14 +718,14 @@ describe('PipelineRunner — salienceFloor', () => {
           effects acted(?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({ actionset: 'moves', salienceFloor: 0.01, routing: 'branch' }),
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
   });
@@ -733,7 +733,7 @@ describe('PipelineRunner — salienceFloor', () => {
 
 // ── groupBy selection ────────────────────────────────────────────────────────
 
-describe('PipelineRunner — groupBy (string form)', () => {
+describe('ActionGraphRunner — groupBy (string form)', () => {
   it('selects one winner per distinct value of the groupBy variable', () => {
     const engine = new Engine({
       predicates: {
@@ -751,7 +751,7 @@ describe('PipelineRunner — groupBy (string form)', () => {
           effects handoff(?SELF, ?OTHER)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({
@@ -764,14 +764,14 @@ describe('PipelineRunner — groupBy (string form)', () => {
 
     // SELF=alice, OTHER is free — enumerates bob and carol.
     // groupBy OTHER → one winner per OTHER value, so both should execute.
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('handoff', 'alice', 'bob'));
     assert.ok(engine.world.factStore.contains('handoff', 'alice', 'carol'));
   });
 });
 
-describe('PipelineRunner — groupBy (compound array form)', () => {
+describe('ActionGraphRunner — groupBy (compound array form)', () => {
   // Scenario: several agents each respond to several pending bids. A single
   // string groupBy ('BID') would collapse every agent's vote on the same bid
   // down to one overall winner, losing everyone else's independent decision.
@@ -809,7 +809,7 @@ describe('PipelineRunner — groupBy (compound array form)', () => {
           effects voted(?BID, ?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'vote-stage',
       stages: {
         'vote-stage': new Stage({
@@ -822,7 +822,7 @@ describe('PipelineRunner — groupBy (compound array form)', () => {
 
     // No SELF pre-bound — a single run() call should still produce every
     // eligible (agent, bid) vote, not just one agent's or one bid's.
-    new PipelineRunner(engine).run(pipeline, {});
+    new ActionGraphRunner(engine).run(actionGraph, {});
 
     assert.ok(engine.world.factStore.contains('voted', 'bid1', 'alice'));
     assert.ok(engine.world.factStore.contains('voted', 'bid1', 'bob'));
@@ -850,7 +850,7 @@ describe('PipelineRunner — groupBy (compound array form)', () => {
           utility 0.9
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'vote-stage',
       stages: {
         'vote-stage': new Stage({
@@ -861,7 +861,7 @@ describe('PipelineRunner — groupBy (compound array form)', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, {});
+    new ActionGraphRunner(engine).run(actionGraph, {});
 
     // vote-high wins (no effects), so voted(bid1, alice) must NOT be set —
     // if it were, vote-low (the loser) would have wrongly executed too.
@@ -870,7 +870,7 @@ describe('PipelineRunner — groupBy (compound array form)', () => {
   });
 });
 
-describe('PipelineRunner — groupBy (pattern form)', () => {
+describe('ActionGraphRunner — groupBy (pattern form)', () => {
   // Scenario: a judge evaluates acts. Each act has a `role` record linking it
   // to the actor. The judge action is scored per (JUDGE, ACT) pair, but we
   // want one winner per distinct actor derived from world state via the role
@@ -910,7 +910,7 @@ describe('PipelineRunner — groupBy (pattern form)', () => {
 
     // groupBy pattern: for each candidate (JUDGE, ACT), look up the actor of
     // ACT in world state. Group by actor — one judgement per distinct actor.
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'judge-stage',
       stages: {
         'judge-stage': new Stage({
@@ -924,7 +924,7 @@ describe('PipelineRunner — groupBy (pattern form)', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { JUDGE: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { JUDGE: 'alice' });
 
     // One judgement per actor (bob, carol) — two total.
     const judgedAct1 = engine.world.factStore.contains('judged', 'alice', 'act1');
@@ -963,7 +963,7 @@ describe('PipelineRunner — groupBy (pattern form)', () => {
           effects judged(?JUDGE, ?ACT)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'judge-stage',
       stages: {
         'judge-stage': new Stage({
@@ -977,7 +977,7 @@ describe('PipelineRunner — groupBy (pattern form)', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { JUDGE: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { JUDGE: 'alice' });
 
     // Only one winner for the bob group — act2 (higher salience).
     assert.ok(!engine.world.factStore.contains('judged', 'alice', 'act1'), 'act1 should lose to act2');
@@ -987,7 +987,7 @@ describe('PipelineRunner — groupBy (pattern form)', () => {
 
 // ── collect routing ──────────────────────────────────────────────────────────
 
-describe('PipelineRunner — collect routing', () => {
+describe('ActionGraphRunner — collect routing', () => {
   it('executes the whole winning group, then routes the stage once', () => {
     const engine = new Engine({
       predicates: {
@@ -1014,7 +1014,7 @@ describe('PipelineRunner — collect routing', () => {
 
     // produce: groupBy A → one winner per agent (alice, bob). collect → both
     // mint, THEN route once to the finish stage.
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'produce-stage',
       stages: {
         'produce-stage': new Stage({
@@ -1027,7 +1027,7 @@ describe('PipelineRunner — collect routing', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, {});
+    new ActionGraphRunner(engine).run(actionGraph, {});
 
     assert.ok(engine.world.factStore.contains('minted', 'alice'));
     assert.ok(engine.world.factStore.contains('minted', 'bob'));
@@ -1062,7 +1062,7 @@ describe('PipelineRunner — collect routing', () => {
           effects tally() += 1
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'produce-stage',
       stages: {
         'produce-stage': new Stage({
@@ -1076,14 +1076,14 @@ describe('PipelineRunner — collect routing', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, {});
+    new ActionGraphRunner(engine).run(actionGraph, {});
 
     // Each of the two winners routed independently → finish ran twice.
     const ctx = engine.world.createEvaluationContext();
     assert.equal(engine.world.queryHandlers.getHandler('numeric').getValue('tally', [], ctx), 2);
   });
 
-  it('fires pipeline postHooks after a terminal collect group', () => {
+  it('fires actionGraph postHooks after a terminal collect group', () => {
     const engine = new Engine({
       predicates: {
         predicates: {
@@ -1107,10 +1107,10 @@ describe('PipelineRunner — collect routing', () => {
           => settled(?A)
     `);
 
-    // A terminal collect stage (no routesTo) fires the pipeline postHooks once,
+    // A terminal collect stage (no routesTo) fires the actionGraph postHooks once,
     // after the whole group has executed — so the consequence ruleset sees every
     // winner's effects.
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'produce-stage',
       postHooks: [{ type: 'ruleset-fixpoint', name: 'post' }],
       stages: {
@@ -1122,7 +1122,7 @@ describe('PipelineRunner — collect routing', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, {});
+    new ActionGraphRunner(engine).run(actionGraph, {});
 
     assert.ok(engine.world.factStore.contains('settled', 'alice'));
     assert.ok(engine.world.factStore.contains('settled', 'bob'),
@@ -1166,7 +1166,7 @@ describe('PipelineRunner — collect routing', () => {
           effects started(?A)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 's1',
       stages: {
         s1: new Stage({ actionset: 'stage1', routing: 'collect', routesTo: 's2' }),
@@ -1174,7 +1174,7 @@ describe('PipelineRunner — collect routing', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { A: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { A: 'alice' });
 
     assert.ok(engine.world.factStore.contains('ready', 'alice'));
     assert.ok(engine.world.factStore.contains('started', 'alice'),
@@ -1203,7 +1203,7 @@ describe('Stage — routing validation', () => {
 
 // ── stage primingRules integration ──────────────────────────────────────────────
 
-describe('PipelineRunner — stage primingRules', () => {
+describe('ActionGraphRunner — stage primingRules', () => {
   it('applies the stage primingRules before scoring', () => {
     const engine = makeEngine();
 
@@ -1232,7 +1232,7 @@ describe('PipelineRunner — stage primingRules', () => {
           => score(?SELF) += 10
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({
@@ -1243,7 +1243,7 @@ describe('PipelineRunner — stage primingRules', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('responded', 'alice'),
       'high-score-act should win after priming rules fire');
@@ -1262,7 +1262,7 @@ describe('PipelineRunner — stage primingRules', () => {
 // effects — single pass, scoped to the binding the hook was called with
 // (reusing the same evaluation path stage primingRules already use safely).
 
-describe('PipelineRunner — ruleset-fixpoint hook clamps an accumulating numeric effect', () => {
+describe('ActionGraphRunner — ruleset-fixpoint hook clamps an accumulating numeric effect', () => {
   it('a += rule in a ruleset-fixpoint postHook runs to its max clamp, not one delta', () => {
     const engine = makeEngine();
     engine.world.assert(new Fact('acted', 'alice'));
@@ -1281,7 +1281,7 @@ describe('PipelineRunner — ruleset-fixpoint hook clamps an accumulating numeri
           => score(?X) += 10
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       postHooks: [{ type: 'ruleset-fixpoint', name: 'score-rules' }],
       stages: {
@@ -1289,7 +1289,7 @@ describe('PipelineRunner — ruleset-fixpoint hook clamps an accumulating numeri
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     const numeric = engine.world.queryHandlers.getHandler('numeric');
     assert.equal(numeric.getRecord('score', ['alice']).currentValue(), 100,
@@ -1297,7 +1297,7 @@ describe('PipelineRunner — ruleset-fixpoint hook clamps an accumulating numeri
   });
 });
 
-describe('PipelineRunner — ruleset-single hook applies an accumulating numeric effect exactly once', () => {
+describe('ActionGraphRunner — ruleset-single hook applies an accumulating numeric effect exactly once', () => {
   it('a += rule in a ruleset-single postHook applies its delta exactly once', () => {
     const engine = makeEngine();
     engine.world.assert(new Fact('acted', 'alice'));
@@ -1316,7 +1316,7 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
           => score(?SELF) += 10
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       postHooks: [{ type: 'ruleset-single', name: 'score-rules' }],
       stages: {
@@ -1324,7 +1324,7 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     const numeric = engine.world.queryHandlers.getHandler('numeric');
     assert.equal(numeric.getRecord('score', ['alice']).currentValue(), 10,
@@ -1343,8 +1343,8 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
           utility 1.0
           effects responded(?SELF)
     `);
-    // ?SELF is pre-bound by the pipeline's starting binding, so this rule
-    // should only ever touch the agent the pipeline is running for.
+    // ?SELF is pre-bound by the actionGraph's starting binding, so this rule
+    // should only ever touch the agent the actionGraph is running for.
     engine.loadRules(`
       ruleset "score-rules"
         rule "give score to self if already acted"
@@ -1352,7 +1352,7 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
           => score(?SELF) += 10
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       postHooks: [{ type: 'ruleset-single', name: 'score-rules' }],
       stages: {
@@ -1360,7 +1360,7 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     const numeric = engine.world.queryHandlers.getHandler('numeric');
     assert.equal(numeric.getRecord('score', ['alice']).currentValue(), 10);
@@ -1368,10 +1368,10 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
       'bob was never bound to ?SELF, so the hook must not touch bob at all');
   });
 
-  it('works as a pipeline preHook, scoped to the run() starting binding', () => {
+  it('works as a actionGraph preHook, scoped to the run() starting binding', () => {
     const engine = makeEngine();
     // Pre-existing state the preHook rule reacts to — both agents qualify,
-    // but only the one the pipeline is invoked for should be touched.
+    // but only the one the actionGraph is invoked for should be touched.
     engine.world.assert(new Fact('acted', 'alice'));
     engine.world.assert(new Fact('acted', 'bob'));
 
@@ -1389,7 +1389,7 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
           => score(?SELF) += 7
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       preHooks: [{ type: 'ruleset-single', name: 'seed-rules' }],
       stages: {
@@ -1397,12 +1397,12 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     const numeric = engine.world.queryHandlers.getHandler('numeric');
     assert.equal(numeric.getRecord('score', ['alice']).currentValue(), 7);
     assert.equal(numeric.getRecord('score', ['bob']), null,
-      'preHook should only run scoped to the agent the pipeline was invoked for');
+      'preHook should only run scoped to the agent the actionGraph was invoked for');
   });
 });
 
@@ -1414,7 +1414,7 @@ describe('PipelineRunner — ruleset-single hook applies an accumulating numeric
 // scoped to *only* that occurrence, not every occurrence that has ever
 // existed (the retroactive-reprocessing bug `requires` exists to prevent).
 
-describe('PipelineRunner — hook requires', () => {
+describe('ActionGraphRunner — hook requires', () => {
   it('a requires: [\'occ\'] postHook fires, scoped to the just-minted occurrence', () => {
     const engine = makeEngine();
     engine.loadActions(`
@@ -1432,7 +1432,7 @@ describe('PipelineRunner — hook requires', () => {
           => witnessed(?occ, ?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({
@@ -1443,7 +1443,7 @@ describe('PipelineRunner — hook requires', () => {
       },
     });
 
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     const occurrences = engine.world.entityRegistry.get('occurrence');
     assert.equal(occurrences.length, 1);
@@ -1467,7 +1467,7 @@ describe('PipelineRunner — hook requires', () => {
           => witnessed(?occ, ?SELF)
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({
@@ -1480,7 +1480,7 @@ describe('PipelineRunner — hook requires', () => {
 
     // Should not throw, and should simply do nothing — no occurrence exists
     // for the hook to run against.
-    new PipelineRunner(engine).run(pipeline, { SELF: 'alice' });
+    new ActionGraphRunner(engine).run(actionGraph, { SELF: 'alice' });
 
     assert.ok(engine.world.factStore.contains('acted', 'alice'));
     assert.equal((engine.world.entityRegistry.get('occurrence') ?? []).length, 0,
@@ -1513,7 +1513,7 @@ describe('PipelineRunner — hook requires', () => {
           => score(?SELF) += 10
     `);
 
-    const pipeline = new Pipeline('test', {
+    const actionGraph = new ActionGraph('test', {
       entry: 'moves-stage',
       stages: {
         'moves-stage': new Stage({
@@ -1527,9 +1527,9 @@ describe('PipelineRunner — hook requires', () => {
       },
     });
 
-    const runner = new PipelineRunner(engine);
-    runner.run(pipeline, { SELF: 'alice' });
-    runner.run(pipeline, { SELF: 'alice' });
+    const runner = new ActionGraphRunner(engine);
+    runner.run(actionGraph, { SELF: 'alice' });
+    runner.run(actionGraph, { SELF: 'alice' });
 
     const numeric = engine.world.queryHandlers.getHandler('numeric');
     assert.equal(numeric.getRecord('score', ['alice']).currentValue(), 20,

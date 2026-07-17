@@ -1,5 +1,6 @@
 import React from 'react';
 import HighlightedCode from './HighlightedCode.jsx';
+import ExplainButton from './ExplainButton.jsx';
 
 // One predicate/fact instance — name(args), optionally `= value` — rendered
 // identically everywhere a predicate instance appears in the tool: the State
@@ -38,15 +39,10 @@ export default function PredicateView({
       {/* an explicit `text` already carries any owner prefix — avoid duplicating it */}
       {!text && owner && <span className="dim predicate-owner">{owner}.</span>}
       <HighlightedCode text={rendered} highlighter={highlighter} className="predicate-expr" />
-      {value != null && <span className="predicate-value">= {formatValue(value)}</span>}
-      {active === false && <span className="dim predicate-retracted">retracted</span>}
+      {value != null && <span className="predicate-value"> = {formatValue(value)}</span>}
+      {active === false && <span className="dim predicate-retracted"> retracted</span>}
       {onExplain && (
-        <button
-          type="button" className="btn tiny ghost predicate-explain" title="Full provenance"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onExplain({ name, args, owner }); }}
-        >
-          explain
-        </button>
+        <ExplainButton onClick={() => onExplain({ name, args, owner })} />
       )}
     </span>
   );

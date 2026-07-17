@@ -1,11 +1,11 @@
-import { Pipeline } from './Pipeline.js';
+import { ActionGraph } from './ActionGraph.js';
 import { Stage } from './Stage.js';
 
-// Parse a pipeline from its JSON file representation into the Pipeline/Stage
-// objects the PipelineRunner expects. Throws on missing required fields.
-export function pipelineFromJSON(json) {
-  if (!json.name)  throw new Error('Pipeline JSON is missing "name"');
-  if (!json.entry) throw new Error('Pipeline JSON is missing "entry"');
+// Parse an ActionGraph from its JSON file representation into the ActionGraph/Stage
+// objects the ActionGraphRunner expects. Throws on missing required fields.
+export function actionGraphFromJSON(json) {
+  if (!json.name)  throw new Error('ActionGraph JSON is missing "name"');
+  if (!json.entry) throw new Error('ActionGraph JSON is missing "entry"');
 
   const stages = {};
   for (const [name, s] of Object.entries(json.stages ?? {})) {
@@ -23,7 +23,7 @@ export function pipelineFromJSON(json) {
     });
   }
 
-  return new Pipeline(json.name, {
+  return new ActionGraph(json.name, {
     entry:             json.entry,
     selectionStrategy: json.selectionStrategy ?? 'highestUtility',
     preHooks:          json.preHooks  ?? [],
@@ -32,11 +32,11 @@ export function pipelineFromJSON(json) {
   });
 }
 
-// Serialize a Pipeline back to the JSON representation. Useful for writing the
-// file after the engine mutates or confirms the pipeline structure.
-export function pipelineToJSON(pipeline) {
+// Serialize an ActionGraph back to the JSON representation. Useful for writing the
+// file after the engine mutates or confirms the action graph structure.
+export function actionGraphToJSON(actionGraph) {
   const stages = {};
-  for (const [name, stage] of Object.entries(pipeline.stages)) {
+  for (const [name, stage] of Object.entries(actionGraph.stages)) {
     stages[name] = {
       actionset:         stage.actionset         ?? null,
       routing:           stage.routing,
@@ -51,11 +51,11 @@ export function pipelineToJSON(pipeline) {
     };
   }
   return {
-    name:              pipeline.name,
-    entry:             pipeline.entry,
-    selectionStrategy: pipeline.selectionStrategy ?? 'highestUtility',
-    preHooks:          pipeline.preHooks  ?? [],
-    postHooks:         pipeline.postHooks ?? [],
+    name:              actionGraph.name,
+    entry:             actionGraph.entry,
+    selectionStrategy: actionGraph.selectionStrategy ?? 'highestUtility',
+    preHooks:          actionGraph.preHooks  ?? [],
+    postHooks:         actionGraph.postHooks ?? [],
     stages,
   };
 }

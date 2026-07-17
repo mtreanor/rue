@@ -62,10 +62,10 @@ function createPipeline(scenario, name) {
     stages:            {},
   }, null, 2) + '\n';
 
-  const dirAbs = join(resolveScenarioPaths(s).dir, 'pipelines');
+  const dirAbs = resolveScenarioPaths(s).actionGraphs;
   mkdirSync(dirAbs, { recursive: true });
   const abs = join(dirAbs, `${name}.json`);
-  if (existsSync(abs)) throw new Error(`A pipeline named "${name}" already exists`);
+  if (existsSync(abs)) throw new Error(`An actionGraph named "${name}" already exists`);
   writeFileSync(abs, initialContent);
   return { ok: true, name };
 }
