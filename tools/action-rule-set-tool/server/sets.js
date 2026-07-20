@@ -38,15 +38,15 @@ export function createScenario(name) {
 }
 
 export function createSet(scenario, kind, name) {
-  if (kind === 'pipeline')  return createPipeline(scenario, name);
-  if (kind === 'ruleset')   return createNamedSet(scenario, name, 'ruleset');
-  if (kind === 'actionset') return createNamedSet(scenario, name, 'actionset');
+  if (kind === 'actionGraph') return createActionGraph(scenario, name);
+  if (kind === 'ruleset')     return createNamedSet(scenario, name, 'ruleset');
+  if (kind === 'actionset')   return createNamedSet(scenario, name, 'actionset');
   throw new Error(`Unknown set kind "${kind}"`);
 }
 
-function createPipeline(scenario, name) {
+function createActionGraph(scenario, name) {
   name = (name ?? '').trim();
-  if (!NAME_RE.test(name)) throw new Error(`Invalid pipeline name "${name}" — letters, digits, - and _; no leading digit`);
+  if (!NAME_RE.test(name)) throw new Error(`Invalid actionGraph name "${name}" — letters, digits, - and _; no leading digit`);
 
   const cfg = loadProjectConfig();
   const s = cfg.scenarios[scenario];

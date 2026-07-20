@@ -36,9 +36,18 @@ export const api = {
   createScenario: (name) => req('POST', '/api/scenarios', { name }).then(r => r.data),
   scenario: (name) => req('GET', `/api/scenario/${encodeURIComponent(name)}`).then(r => r.data),
   createSet: (scenario, kind, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/set`, { kind, name }).then(r => r.data),
-  getPlayConfig: (scenario) => req('GET', `/api/scenario/${encodeURIComponent(scenario)}/play-config`).then(r => r.data),
-  putPlayConfig: (scenario, content) => req('PUT', `/api/scenario/${encodeURIComponent(scenario)}/play-config`, content).then(r => r.data),
-  bootstrapPlay: (scenario) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/play-config/bootstrap`).then(r => r.data),
+  tickPlans: (scenario) => req('GET', `/api/scenario/${encodeURIComponent(scenario)}/tickplans`).then(r => r.data.tickPlans ?? []),
+  tickPlan: (scenario, planName) => req('GET', `/api/scenario/${encodeURIComponent(scenario)}/tickplan/${encodeURIComponent(planName)}`).then(r => r.data),
+  saveTickPlan: (scenario, planName, content) => req('PUT', `/api/scenario/${encodeURIComponent(scenario)}/tickplan/${encodeURIComponent(planName)}`, content).then(r => r.data),
+  createTickPlan: (scenario, name) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/tickplan`, { name }).then(r => r.data.tickPlans ?? []),
+
+  // A scenario's Play-mode pinned watches (data/<scenario>/tool/watches.json)
+  // — scenario-wide definitions, independent of which tick plan or Play
+  // session is active. See watch.js and PlayWatchSidebar.jsx.
+  watches: (scenario) => req('GET', `/api/scenario/${encodeURIComponent(scenario)}/watches`).then(r => r.data.watches ?? []),
+  createWatch: (scenario, body) => req('POST', `/api/scenario/${encodeURIComponent(scenario)}/watches`, body).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data.watches ?? []; }),
+  updateWatch: (scenario, body) => req('PUT', `/api/scenario/${encodeURIComponent(scenario)}/watches`, body).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data.watches ?? []; }),
+  deleteWatch: (scenario, body) => req('DELETE', `/api/scenario/${encodeURIComponent(scenario)}/watches`, body).then(r => r.data.watches ?? []),
   match: (payload) => req('POST', '/api/match', payload).then(r => r.data),
   validate: (payload) => req('POST', '/api/validate', payload).then(r => r.data),
   addRule: (payload) => req('POST', '/api/rule', payload),
@@ -49,8 +58,8 @@ export const api = {
   editAction: (payload) => req('PUT', '/api/action', payload),
   deleteAction: (payload) => req('DELETE', '/api/action', payload),
 
-  playSession: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/session`).then(r => r.data),
-  playStart: (name, controlled) => req('POST', `/api/play/${encodeURIComponent(name)}/start`, { controlled }).then(r => r.data),
+  playSession: (name, planName) => req('GET', `/api/play/${encodeURIComponent(name)}/session${planName ? `?plan=${encodeURIComponent(planName)}` : ''}`).then(r => r.data),
+  playStart: (name, planName, controlled) => req('POST', `/api/play/${encodeURIComponent(name)}/start`, { planName, controlled }).then(r => r.data),
   playStep: (name) => req('POST', `/api/play/${encodeURIComponent(name)}/step`).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
   playChoose: (name, indexes) => req('POST', `/api/play/${encodeURIComponent(name)}/choose`, { indexes }).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
   tickPlanConfig: (name, controlled) => req('POST', `/api/play/${encodeURIComponent(name)}/config`, { controlled }).then(r => r.data),
@@ -63,11 +72,15 @@ export const api = {
   playFacts: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/facts`).then(r => r.data.facts ?? []),
   playEntities: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/entities`).then(r => r.data.entities ?? []),
   playQuery: (name, text, scopedTo = null) => req('POST', `/api/play/${encodeURIComponent(name)}/query`, { text, scopedTo }).then(r => r.data),
-  playViews: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/views`).then(r => r.data.views ?? []),
+  playWatches: (name) => req('GET', `/api/play/${encodeURIComponent(name)}/watches`).then(r => r.data.watches ?? []),
   playAssert: (name, text) => req('POST', `/api/play/${encodeURIComponent(name)}/assert`, { text }).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data.facts ?? []; }),
   playDelete: (name, fact) => req('POST', `/api/play/${encodeURIComponent(name)}/delete`, fact).then(r => r.data.facts ?? []),
   playWhy: (name, fact) => req('POST', `/api/play/${encodeURIComponent(name)}/why`, fact).then(r => r.data),
   playExplain: (name, fact) => req('POST', `/api/play/${encodeURIComponent(name)}/explain`, fact).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
+  // One level of the provenance inspector's backward walk (provenanceResolver.js).
+  // `address` is a typed node address; resolves to { node } with drill addresses
+  // embedded on the node's sub-elements.
+  playResolve: (name, address) => req('POST', `/api/play/${encodeURIComponent(name)}/resolve`, address).then(r => { if (!r.ok) throw new Error(r.data.error); return r.data; }),
 
   stateFacts: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/facts`).then(r => r.data.facts ?? []),
   stateEntities: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/entities`).then(r => r.data.entities ?? []),

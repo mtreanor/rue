@@ -4,7 +4,7 @@ import AddRuleTab from './components/AddRuleTab.jsx';
 import ActionsetsTab from './components/ActionsetsTab.jsx';
 import AddActionTab from './components/AddActionTab.jsx';
 import StateTab from './components/StateTab.jsx';
-import ActionGraphsTab from './components/ActionGraphsTab.jsx';
+import TickPlanFlowTab from './components/flow/TickPlanFlowTab.jsx';
 import PlayTab from './components/PlayTab.jsx';
 import InterpreterTab from './components/InterpreterTab.jsx';
 import PredicateSidebar from './components/PredicateSidebar.jsx';
@@ -18,6 +18,15 @@ export default function App() {
   const [scenario, setScenario] = useState('');
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('rulesets');
+  // Flow keeps its own selection and pan/zoom in local + ReactFlow-internal
+  // state, both of which are lost on unmount. Rather than lift that state up,
+  // Flow stays mounted (hidden via CSS) once first visited, instead of being
+  // torn down like every other tab on switch.
+  const [flowVisited, setFlowVisited] = useState(false);
+  // Same reasoning for Play: its collapsed/expanded trace sections and scroll
+  // position live in local state (Collapsible's own useState, scroll offsets)
+  // that a real unmount would discard. Stays mounted once first visited.
+  const [playVisited, setPlayVisited] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [highlighter, setHighlighter] = useState(null);
@@ -34,6 +43,23 @@ export default function App() {
   const [ruleQuery, setRuleQuery] = useState('');
   const [ruleNameQuery, setRuleNameQuery] = useState('');
   const [actionNameQuery, setActionNameQuery] = useState('');
+
+  // "Open in Rules/Actions" jumps — from a ruleset/actionset dropdown
+  // elsewhere (Flow's hooks/actionset pickers) straight to that one item,
+  // pre-filtered. Each is consumed once by the destination tab on mount (see
+  // InspectTab/ActionsetsTab's focusRuleset/focusActionset props) — a plain
+  // value works because switching tabs unmounts the previous one, so the
+  // next mount always sees whatever was just requested.
+  const [focusRuleset, setFocusRuleset] = useState(null);
+  const [focusActionset, setFocusActionset] = useState(null);
+  function goToRuleset(name) {
+    goTo('rulesets');
+    setFocusRuleset(name);
+  }
+  function goToActionset(name) {
+    goTo('actionsets');
+    setFocusActionset(name);
+  }
   const [interpOpen, setInterpOpen] = useState(false);
   const [interpHistory, setInterpHistory] = useState(null); // null = not yet initialized
   const [interpCmdHistory, setInterpCmdHistory] = useState([]);
@@ -41,7 +67,14 @@ export default function App() {
   function goTo(name) {
     setEditingRule(null);
     setEditingAction(null);
+    // A plain tab click (not one of the goToRuleset/goToActionset jumps
+    // below) should land on that tab showing everything, not still narrowed
+    // to whatever was last jumped to.
+    setFocusRuleset(null);
+    setFocusActionset(null);
     setTab(name);
+    if (name === 'flow') setFlowVisited(true);
+    if (name === 'play') setPlayVisited(true);
   }
   function startEditRule(rule) {
     setEditingAction(null);
@@ -181,7 +214,7 @@ export default function App() {
               <button className={tab === 'actionsets' ? 'active' : ''} onClick={() => goTo('actionsets')}>Actions</button>
               <button className={tab === 'add-action' ? 'active' : ''} onClick={() => goTo('add-action')} title="Add action" aria-label="Add action">+</button>
             </div>
-            <button className={tab === 'actiongraphs' ? 'active' : ''} onClick={() => goTo('actiongraphs')}>Graphs</button>
+            <button className={tab === 'flow' ? 'active' : ''} onClick={() => goTo('flow')}>Flow</button>
             <button className={'tab-play' + (tab === 'play' ? ' active' : '')} onClick={() => goTo('play')}>Play</button>
           </nav>
           <button
@@ -208,11 +241,16 @@ export default function App() {
 
         {error && <div className="banner error global">{error}</div>}
 
-        {tab === 'actiongraphs' ? (
-          <ActionGraphsTab scenario={scenario} data={data} />
-        ) : tab === 'play' ? (
-          <PlayTab scenario={scenario} highlighter={highlighter} />
-        ) : (
+        {flowVisited && (
+          <TickPlanFlowTab
+            scenario={scenario} data={data} onGoToRuleset={goToRuleset} onGoToActionset={goToActionset}
+            hidden={tab !== 'flow'}
+          />
+        )}
+        {playVisited && (
+          <PlayTab scenario={scenario} highlighter={highlighter} hidden={tab !== 'play'} />
+        )}
+        {tab === 'flow' || tab === 'play' ? null : (
           <div className="layout">
             <PredicateSidebar
               predicates={data?.predicates ?? []}
@@ -231,6 +269,7 @@ export default function App() {
                   onChanged={() => reload()} onEdit={startEditRule}
                   query={ruleQuery} onQueryChange={setRuleQuery}
                   nameQuery={ruleNameQuery} onNameQueryChange={setRuleNameQuery}
+                  focusRuleset={focusRuleset}
                 />
               )}
               {data && tab === 'add-rule' && (
@@ -247,6 +286,7 @@ export default function App() {
                   scenario={scenario} data={data} highlighter={highlighter}
                   onChanged={() => reload()} onEdit={startEditAction}
                   nameQuery={actionNameQuery} onNameQueryChange={setActionNameQuery}
+                  focusActionset={focusActionset}
                 />
               )}
               {data && tab === 'add-action' && (

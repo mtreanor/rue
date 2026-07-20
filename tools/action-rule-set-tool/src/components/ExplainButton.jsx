@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function ExplainButton({ onClick, title = "Explain provenance", disabled = false }) {
+export default function ExplainButton({ onClick, title = "Inspect provenance", disabled = false }) {
   return (
     <button
       type="button"

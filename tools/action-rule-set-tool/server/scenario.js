@@ -143,7 +143,10 @@ export function listScenarios() {
       actionsets: listNamesInScenarioDir(paths.dir, 'actionset'),
       actionGraphs,
       hasPredicates: existsSync(paths.predicates),
-      hasPlay: existsSync(paths.play),
+      hasPlay: (() => {
+        try { return readdirSync(paths.tickPlans).some(f => f.endsWith('.json')); }
+        catch { return false; }
+      })(),
     };
   });
 }

@@ -1,4 +1,5 @@
 import { Fact } from '../Fact.js';
+import { toFactArg } from '../entityValue.js';
 
 // One node in a proof tree: a statement, how it came to hold (`via`), and the
 // premises that support it (`support`, recursively). `present: false` marks a
@@ -98,8 +99,8 @@ function expandProvenance(prov, ctx, visited) {
           support.push(new ProofNode({ statement: boundText, via: 'precondition' }));
         }
       }
-      for (const [k, v] of Object.entries(ar.binding)) {
-        support.push(new ProofNode({ statement: `?${k} = ${v}`, via: 'binding' }));
+      for (const [k, v] of ar.binding.assignments) {
+        support.push(new ProofNode({ statement: `?${k} = ${toFactArg(v)}`, via: 'binding' }));
       }
     }
     return { via: 'action', detail: `${ar?.action?.name ?? '?'}${plan}`, support };
@@ -171,8 +172,13 @@ function nodeFromJustification(j, ctx, visited) {
         }),
       });
 
+    // A satisfied `not X`/`~X` premise: the rule already fired, so this is the
+    // normal, correct way for the premise to hold, not an anomaly worth
+    // flagging with the ✗ absence marker (see nodeFromRecord's `reasons.length
+    // === 0` and the 'external' cases below for the genuinely notable kind of
+    // absence — explaining something that turns out not to currently hold).
     case 'absence':
-      return new ProofNode({ statement: j.description, via: 'absent', present: false });
+      return new ProofNode({ statement: j.description, via: 'absent' });
 
     default:
       return new ProofNode({ statement: j.description || '(unknown)', via: j.kind });

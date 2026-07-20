@@ -49,8 +49,13 @@ function* walkPredicates(predicate) {
 // the rule silently yield nothing at evaluation time. Mirror RuleEvaluator's
 // binding check here so the author gets a heads-up at load rather than a rule
 // that quietly never fires.
-function warnUnsafeNegations(rule) {
-  const bindable = new Set();
+//
+// `given` names variables the rule's `[given ?X, ...]` header annotation
+// vouches for (DSLParser.parseRuleGiven) — supplied externally via the
+// caller's startingBinding, a fact this loader has no other way to see since
+// that wiring lives in the actionGraph/pipeline config, not the rule data.
+function warnUnsafeNegations(rule, given = []) {
+  const bindable = new Set(given);
   for (const { predicate } of rule.predicateEntries) {
     for (const v of predicate.getBindingVariables()) bindable.add(v.name);
   }
@@ -112,7 +117,7 @@ export class RuleLoader {
     const effects = data.effects.map(e => this.buildStateOperation(e));
     const rule = new Rule(data.name, predicateEntries, effects);
     warnUnboundOwners(rule);
-    warnUnsafeNegations(rule);
+    warnUnsafeNegations(rule, data.given ?? []);
     return rule;
   }
 

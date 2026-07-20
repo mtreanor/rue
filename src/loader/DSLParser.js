@@ -263,6 +263,7 @@ export class DSLParser {
   parseRule() {
     this.expect('IDENT', 'rule');
     const name = this.expect('STRING').value;
+    const given = this.check('LBRACKET') ? this.parseRuleGiven() : [];
 
     const predicates = [];
     while (!this.check('FAT_ARROW') && !this.check('EOF')) {
@@ -281,7 +282,27 @@ export class DSLParser {
       effects.push(this.parseStateOperation());
     }
 
-    return { name, predicates, effects };
+    return { name, predicates, effects, given };
+  }
+
+  // `rule "name" [given ?SELF, ?OTHER]` — an explicit declaration that the
+  // named variables always arrive pre-bound via the caller's startingBinding
+  // (the convention every 'ruleset-single'/'ruleset-fixpoint' hook uses),
+  // rather than through any positive premise in the rule body. RuleLoader's
+  // unsafe-negation check can't see that external wiring — it only has this
+  // rule's own predicates to reason about — so a rule that's legitimately
+  // safe only by that convention needs to say so explicitly here, or the
+  // check flags it as dead code. See RuleLoader.warnUnsafeNegations.
+  parseRuleGiven() {
+    this.expect('LBRACKET');
+    this.expect('IDENT', 'given');
+    const names = [this.expect('VARIABLE').value];
+    while (this.check('COMMA')) {
+      this.advance();
+      names.push(this.expect('VARIABLE').value);
+    }
+    this.expect('RBRACKET');
+    return names;
   }
 
   parseDefinition() {

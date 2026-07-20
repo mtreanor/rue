@@ -1,10 +1,13 @@
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { Engine } from '../../../src/Engine.js';
 import { TickPlan } from '../../../src/plan/TickPlan.js';
 import { actionGraphFromJSON } from '../../../src/plan/ActionGraphLoader.js';
 import { serializeTickTrace, serializeCandidate } from '../../../src/plan/serializeTrace.js';
+import { resolveProvenanceNode } from '../../../src/plan/provenanceResolver.js';
 import { entryStageRoles, entryStageRolesPlain } from '../../../src/plan/actionGraphRoles.js';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
+import { defaultTickPlanName, loadTickPlan } from './tickplans.js';
+import { loadWatches } from './watch.js';
 import {
   onReload,
   ensureScenarioFiles,
@@ -42,21 +45,22 @@ function clonePlan(phases) {
   return (phases ?? []).map(p => ({ ...p }));
 }
 
-// Loads a scenario's tick-plan.json, engine, and actionGraphs — the content a Play
-// session needs. Shared by PlaySession (which keeps the engine around to
-// tick it) and previewPlayInfo (a one-shot read for the pre-session plan
-// editor, which needs the same role/entity introspection but never ticks).
-function loadPlayContent(scenarioName) {
+// Loads a scenario's named tick plan, engine, and actionGraphs — the content
+// a Play session needs. Shared by PlaySession (which keeps the engine around
+// to tick it) and previewPlayInfo (a one-shot read for the pre-session
+// preview, which needs the same role/entity introspection but never ticks).
+// `planName` null means "whichever plan is the scenario's default" (see
+// tickplans.js's defaultTickPlanName) — most callers don't care which plan
+// they get, only that one is loaded.
+function loadPlayContent(scenarioName, planName) {
   const config   = loadProjectConfig();
   const scenario = config.scenarios[scenarioName];
   if (!scenario) throw new Error(`Unknown scenario "${scenarioName}"`);
 
   const paths = resolveScenarioPaths(scenario);
   ensureScenarioFiles(paths);
-  if (!existsSync(paths.play)) {
-    throw new Error(`Scenario "${scenarioName}" has no tick-plan.json — Play mode needs one ({ entityType, phases })`);
-  }
-  const tickPlanConfig = JSON.parse(readFileSync(paths.play, 'utf-8'));
+  const resolvedPlanName = planName ?? defaultTickPlanName(scenarioName);
+  const tickPlanConfig = loadTickPlan(scenarioName, resolvedPlanName);
   const engine = new Engine(paths);
 
   const actionGraphs = {};
@@ -67,7 +71,7 @@ function loadPlayContent(scenarioName) {
     const name = f.slice(0, -5);
     actionGraphs[name] = actionGraphFromJSON(JSON.parse(readFileSync(`${paths.actionGraphs}/${f}`, 'utf-8')));
   }
-  return { engine, actionGraphs, tickPlanConfig, paths };
+  return { engine, actionGraphs, tickPlanConfig, paths, planName: resolvedPlanName };
 }
 
 // Role/entity introspection for the plan editor — actionGraphRoles (what each
@@ -75,9 +79,10 @@ function loadPlayContent(scenarioName) {
 // of each type) — without starting a session. The plan editor needs this to
 // offer the same typed fixed/loop role picker before Start Session as it
 // does once a session (and its live engine) exists.
-export function previewPlayInfo(scenarioName) {
-  const { engine, actionGraphs, tickPlanConfig } = loadPlayContent(scenarioName);
+export function previewPlayInfo(scenarioName, planName) {
+  const { engine, actionGraphs, tickPlanConfig, planName: resolvedPlanName } = loadPlayContent(scenarioName, planName);
   return {
+    planName:           resolvedPlanName,
     entityType:         tickPlanConfig.entityType ?? 'agent',
     configuredPhases:   tickPlanConfig.phases,
     availableActionGraphs: Object.keys(actionGraphs),
@@ -92,10 +97,11 @@ export function previewPlayInfo(scenarioName) {
 }
 
 class PlaySession {
-  constructor(scenarioName) {
+  constructor(scenarioName, planName) {
     this.scenarioName = scenarioName;
-    const { engine, actionGraphs, tickPlanConfig, paths } = loadPlayContent(scenarioName);
+    const { engine, actionGraphs, tickPlanConfig, paths, planName: resolvedPlanName } = loadPlayContent(scenarioName, planName);
 
+    this.planName   = resolvedPlanName;
     this.engine     = engine;
     this.actionGraphs  = actionGraphs;
     this.tickPlanConfig = tickPlanConfig;
@@ -119,6 +125,7 @@ class PlaySession {
   info() {
     return {
       scenario:   this.scenarioName,
+      planName:   this.planName,
       tick:       this.engine.world.tickTracker.currentTick,
       traceCount: this.traces.length,
       controlled: this.controlled,
@@ -316,32 +323,42 @@ class PlaySession {
   whyFact(fact)             { return whyFactForEngine(this.engine, fact); }
   explainFact(fact)         { return explainFactForEngine(this.engine, fact); }
 
-  // A scenario's tick-plan.json can declare `views`: named, always-on queries
-  // (label + DSL text) re-run against this session's live engine — "who's in
-  // which group," "what's each group's active topic," and so on, rendered
-  // generically by the Play tab via the same PredicateView/explain machinery
-  // every fact row already uses (see PlayTab.jsx's PinnedViewsPanel). Nothing
-  // scenario-specific lives in the tool itself — a view is just a query the
-  // scenario author wrote, the same way a rule or an action is.
+  // One level of the provenance inspector's backward walk, resolved against
+  // this session's live engine (see provenanceResolver.js). Stateless: the
+  // address fully describes what to resolve, so no per-session node registry
+  // to grow or invalidate — a stale session just fails the next lookup, same
+  // as every other Play state call.
+  resolveProvenance(address) { return resolveProvenanceNode(this.engine, address); }
+
+  // A scenario declares `watches` in data/<scenario>/tool/watches.json:
+  // named, always-on queries (label + DSL text) re-run against this
+  // session's live engine — "who's in which group," "what's each group's
+  // active topic," and so on, rendered generically by the Play tab's left
+  // sidebar via the same PredicateView/explain machinery every fact row
+  // already uses (see PlayWatchSidebar.jsx). Nothing scenario-specific
+  // lives in the tool itself — a watch is just a query the scenario author
+  // wrote, the same way a rule or an action is. Read fresh from disk on
+  // every call (not cached on the session) so a watch created or deleted
+  // mid-session shows up on the next poll without a session reset.
   //
-  // `tickBound`, when set on a view, pre-binds that query variable to the
+  // `tickBound`, when set on a watch, pre-binds that query variable to the
   // session's current tick — e.g. `{ query: "judged(?J, ?O) [when: ?t]",
   // tickBound: "t" }` becomes "judged this tick, exactly," not "ever judged."
   // Plain pass-through into engine.query()'s existing partialBinding
   // mechanism (runQueryForEngine), not a new query feature.
-  runViews() {
-    const views = this.tickPlanConfig.views ?? [];
-    const tick  = this.engine.world.tickTracker.currentTick;
-    return views.map(view => {
-      const partialBinding = view.tickBound ? { [view.tickBound]: tick } : {};
+  runWatches() {
+    const watches = loadWatches(this.scenarioName);
+    const tick    = this.engine.world.tickTracker.currentTick;
+    return watches.map(watch => {
+      const partialBinding = watch.tickBound ? { [watch.tickBound]: tick } : {};
       // label/query/kind pass straight through from the config — the client
-      // needs `query` itself (PinnedView derives the predicate name from it
-      // to render each row) and `kind` (routes 'judgements' views to the
+      // needs `query` itself (WatchCard derives the predicate name from it
+      // to render each row) and `kind` (routes 'judgements' watches to the
       // rollup component), not just this run's results.
       return {
-        label: view.label, query: view.query, kind: view.kind ?? null,
-        details: view.details,
-        ...runQueryForEngine(this.engine, view.query, null, partialBinding),
+        label: watch.label, query: watch.query, kind: watch.kind ?? null,
+        details: watch.details,
+        ...runQueryForEngine(this.engine, watch.query, null, partialBinding),
       };
     });
   }
@@ -380,8 +397,8 @@ class PlaySession {
 // (synchronous) constructor: starting a session is the one explicit,
 // user-initiated action in this module that warrants it (see
 // registerScenarioJSHooks in scenario.js for the full reasoning).
-export async function startPlaySession(scenarioName, controlled) {
-  const session = new PlaySession(scenarioName);
+export async function startPlaySession(scenarioName, planName, controlled) {
+  const session = new PlaySession(scenarioName, planName);
   await registerScenarioJSHooks(session.engine, session.paths.hooks);
   if (controlled) session.setControlled(controlled);
   sessions.set(scenarioName, session);

@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { Engine } from '../src/Engine.js';
+import { World } from '../src/World.js';
+import { PredicateSchema } from '../src/PredicateSchema.js';
+import { Fact } from '../src/Fact.js';
+import { FactPredicate } from '../src/predicates/FactPredicate.js';
+import { LogicalVariable } from '../src/LogicalVariable.js';
+import { Binding } from '../src/Binding.js';
+import { StateOperation } from '../src/stateOperations/StateOperation.js';
+import { Action } from '../src/Action.js';
+import { proofNodeForFact } from '../src/provenance/ProofTree.js';
 
 const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'proof');
 
@@ -44,11 +53,15 @@ describe('Proof trees (engine.explain)', () => {
     assert.equal(respected.support[0].via, 'given');
   });
 
-  it('represents a negation-as-failure premise as an absence', () => {
+  it('represents a negation-as-failure premise as an absence, not flagged as an anomaly', () => {
     const node = engine.explain('ally(alice, bob)');
     const absent = node.support.find(c => c.via === 'absent');
     assert.ok(absent, 'expected an absence justification');
-    assert.equal(absent.present, false);
+    // Satisfied, not surprising — the rule already fired because this premise
+    // held. present:false (and the ✗ it renders as) is reserved for the
+    // genuinely notable kind of absence: explaining a fact that turns out to
+    // have no current reasons at all, or an unresolvable reference.
+    assert.equal(absent.present, true);
     assert.match(absent.statement, /not rival/);
   });
 
@@ -84,7 +97,9 @@ describe('Proof trees (engine.explain)', () => {
     const text = engine.explain('ally(alice, bob)').render();
     assert.match(text, /ally\(alice, bob\)/);
     assert.match(text, /\[rule: allies through mutual respect/);
-    assert.match(text, /✗ not rival\(alice, bob\)/);
+    // a satisfied negation-as-failure premise is not marked with the ✗ anomaly flag
+    assert.match(text, /not rival\(alice, bob\)/);
+    assert.doesNotMatch(text, /✗ not rival/);
     // children are indented beneath the root
     assert.match(text, /\n {2}respected\(/);
   });
@@ -133,5 +148,44 @@ describe('Proof trees — scopedTo resolves the numeric branch too', () => {
   it('explain() with scopedTo builds the proof tree from that owner\'s own record', () => {
     const node = engine.explain('friendship(bob, carol)', { scopedTo: 'alice' });
     assert.match(node.statement, /= 77$/);
+  });
+});
+
+// An action-effect proof node lists the executing action's variable bindings
+// as its own support nodes. ActionRecord.binding is a Binding instance (an
+// {assignments: Map} wrapper, not a plain object) — regression coverage for a
+// bug where iterating it with Object.entries() picked up the wrapper's own
+// `assignments` field instead of the variable/value pairs inside it,
+// rendering as the single line "?assignments = [object Map]".
+describe('Proof trees — action-effect binding nodes', () => {
+  it('lists each bound variable by name, resolving entity values to their name', () => {
+    const schema = new PredicateSchema({
+      predicates: {
+        hasMessage: { type: 'boolean', args: ['agent'] },
+        delivered:  { type: 'boolean', args: ['agent', 'agent'] },
+      },
+    });
+    const world = new World(schema);
+    const alice = { name: 'alice' };
+    world.addEntity('agent', alice);
+    world.addEntity('agent', { name: 'bob' });
+    world.factStore.assert(new Fact('hasMessage', 'alice'));
+
+    const A = new LogicalVariable('A');
+    const B = new LogicalVariable('B');
+    const deliverAction = new Action('deliver', {
+      preconditions: [{ predicate: new FactPredicate('hasMessage', A) }],
+      effects: [new StateOperation('assert', 'delivered', [A, B])],
+    });
+    // A is bound to the registered entity object (as a planner or evaluator
+    // would bind it), B to a plain name — both must resolve to their name.
+    const binding = new Binding().extend(A, alice).extend(B, 'bob');
+    deliverAction.execute(binding, world.queryHandlers, null, { world });
+
+    const node = proofNodeForFact('delivered', ['alice', 'bob'], world.createEvaluationContext());
+    assert.equal(node.via, 'action');
+
+    const bindingNodes = node.support.filter(c => c.via === 'binding');
+    assert.deepEqual(bindingNodes.map(c => c.statement).sort(), ['?A = alice', '?B = bob']);
   });
 });

@@ -8,7 +8,7 @@ import { useDebounced } from '../hooks.js';
 // a rule matches if it structurally contains every typed predicate (co-reference
 // aware), variable names aside. Edit loads the rule into the Add rule tab
 // (see App.jsx's onEdit) rather than opening a popup.
-export default function InspectTab({ scenario, data, highlighter, onChanged, onEdit, query, onQueryChange, nameQuery, onNameQueryChange }) {
+export default function InspectTab({ scenario, data, highlighter, onChanged, onEdit, query, onQueryChange, nameQuery, onNameQueryChange, focusRuleset }) {
   const allRulesetNames = data.rulesets.map(rs => rs.name);
   const [selected, setSelected] = useState(allRulesetNames);
   const setQuery = onQueryChange;
@@ -21,6 +21,12 @@ export default function InspectTab({ scenario, data, highlighter, onChanged, onE
   const debQuery = useDebounced(query, 250);
 
   useEffect(() => { setSelected(allRulesetNames); }, [scenario]);
+
+  // "Open in Rules" from elsewhere (a ruleset dropdown in Flow) — narrow the
+  // checkbox filter to just that ruleset. Runs once per mount: this tab
+  // unmounts whenever the user navigates away, so the next arrival always
+  // sees whatever was most recently requested (or none, for a plain tab click).
+  useEffect(() => { if (focusRuleset) setSelected([focusRuleset]); }, [focusRuleset]);
 
   useEffect(() => {
     let cancelled = false;

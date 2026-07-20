@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.2",
     "express": "^4.19.2"
   },
   "devDependencies": {

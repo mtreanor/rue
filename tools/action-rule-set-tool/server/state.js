@@ -280,8 +280,8 @@ export function explainFact(scenario, fact) {
 // Run a query (predicate conjunction, with variables and any time brackets),
 // optionally scoped to an owner's private store. Returns the free-variable
 // names and one row of bindings per satisfying combination. `partialBinding`
-// pre-binds variables (e.g. a pinned view's `[when: ?tick]` variable to the
-// session's current tick — see PlaySession.runViews) the same way any other
+// pre-binds variables (e.g. a pinned watch's `[when: ?tick]` variable to the
+// session's current tick — see PlaySession.runWatches) the same way any other
 // engine.query() caller pre-binds a role variable; it's plain pass-through,
 // not a new query mechanism.
 export function runQueryForEngine(engine, text, scopedTo = null, partialBinding = {}) {

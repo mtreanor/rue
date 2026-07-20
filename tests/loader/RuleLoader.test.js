@@ -543,6 +543,31 @@ describe('RuleLoader', () => {
       }])));
       assert.strictEqual(warnings.length, 0);
     });
+
+    it('does not warn when the variable is named in a [given ...] header annotation', () => {
+      const warnings = captureWarnings(() => loader.load(rulesetOf([{
+        name: 'scoped',
+        given: ['SELF'],
+        predicates: [
+          { type: 'negation', predicate: { type: 'fact', name: 'grouped', args: ['?SELF'] } },
+        ],
+        effects: [{ type: 'adjust-numeric', name: 'ticksAlone', args: ['?SELF'], delta: 1.0 }],
+      }])));
+      assert.strictEqual(warnings.length, 0);
+    });
+
+    it('still warns for a variable [given ...] does not cover', () => {
+      const warnings = captureWarnings(() => loader.load(rulesetOf([{
+        name: 'partially-scoped',
+        given: ['SELF'],
+        predicates: [
+          { type: 'negation', predicate: { type: 'fact', name: 'feuding', args: ['?SELF', '?OTHER'] } },
+        ],
+        effects: [{ type: 'adjust-numeric', name: 'tension', args: ['?SELF', '?OTHER'], delta: 1.0 }],
+      }])));
+      assert.ok(warnings.some(w => w.includes('?OTHER')));
+      assert.ok(!warnings.some(w => w.includes('?SELF')));
+    });
   });
 
   // Regression coverage for two real bugs found together: (1) a predicate

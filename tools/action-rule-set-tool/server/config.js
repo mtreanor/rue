@@ -99,6 +99,7 @@ export function resolveScenarioPaths(scenario) {
     definitions: sub('definitions.klugh'),
     actionGraphs:   sub('actiongraphs'),
     hooks:       sub('hooks'),
-    play:        sub('tick-plan.json'),
+    tickPlans:   sub('tickplans'),
+    tool:        sub('tool'),
   };
 }

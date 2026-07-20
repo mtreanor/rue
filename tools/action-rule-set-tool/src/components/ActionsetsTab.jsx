@@ -8,7 +8,7 @@ import { api } from '../api.js';
 // mirroring the non-structural parts of the rulesets Inspect tab. Edit
 // loads the action into the Add action tab (see App.jsx's onEdit) rather than
 // opening a popup.
-export default function ActionsetsTab({ scenario, data, highlighter, onChanged, onEdit, nameQuery, onNameQueryChange }) {
+export default function ActionsetsTab({ scenario, data, highlighter, onChanged, onEdit, nameQuery, onNameQueryChange, focusActionset }) {
   const allActionsetNames = data.actionsets.map(as => as.name);
   const [selected, setSelected] = useState(allActionsetNames);
   const setNameQuery = onNameQueryChange;
@@ -16,6 +16,11 @@ export default function ActionsetsTab({ scenario, data, highlighter, onChanged, 
   const [dir, setDir] = useState('asc');
 
   useEffect(() => { setSelected(allActionsetNames); }, [scenario]);
+
+  // "Open in Actions" from elsewhere (an actionset dropdown in Flow) —
+  // narrow the checkbox filter to just that actionset. See InspectTab's
+  // matching effect for why a plain prop (not consumed-and-cleared) is safe.
+  useEffect(() => { if (focusActionset) setSelected([focusActionset]); }, [focusActionset]);
 
   const actions = useMemo(() => {
     const selSet = new Set(selected);

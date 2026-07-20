@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { loadScenarioContext, listScenarios, schemaForClient, loadRulesets, loadActionsets, loadJSHooks, findSetFile } from './scenario.js';
 import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
@@ -9,6 +9,8 @@ import { appendAction, replaceAction, deleteAction } from './actionFile.js';
 import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines, stateTick, stateDegree, stateRulesets, stateRules, stateActionsets, stateActions, stateRun, stateScore, stateSelect } from './state.js';
 import { startPlaySession, getPlaySession, peekPlaySession, resetPlaySession, previewPlayInfo } from './play.js';
 import { listActionGraphs, saveActionGraph, deleteActionGraph } from './actiongraphs.js';
+import { listTickPlans, loadTickPlan, saveTickPlan, createTickPlan } from './tickplans.js';
+import { listWatches, createWatch, updateWatch, deleteWatch } from './watch.js';
 import {
   listEntityTypes, addEntityType, editEntityType, deleteEntityType,
   addEntityInstance, renameEntityInstance, deleteEntityInstance,
@@ -16,7 +18,7 @@ import {
 import { addPredicate, editPredicate, deletePredicate, defineTextByPredicate } from './predicates.js';
 import { pendingChanges, saveToFile, discardShadow, workingPath } from './workspace.js';
 import { createSet, createScenario } from './sets.js';
-import { repoRoot, loadProjectConfig, resolveScenarioPaths } from './config.js';
+import { repoRoot } from './config.js';
 
 export const router = Router();
 
@@ -73,64 +75,49 @@ router.post('/scenario/:name/set', h((req, res) => {
   res.json(createSet(req.params.name, req.body.kind, req.body.name));
 }));
 
-// ── tick-plan.json ────────────────────────────────────────────────────────────────
+// ── Tick plans ────────────────────────────────────────────────────────────────
+// A scenario can have several named tick plans (data/<scenario>/tickplans/*.json,
+// each { entityType, phases }) — Flow edits them, Play picks which one a
+// session runs.
 
-// Read the scenario's tick-plan.json (null when absent).
-router.get('/scenario/:name/play-config', h((req, res) => {
-  const cfg = loadProjectConfig();
-  const s   = cfg.scenarios[req.params.name];
-  if (!s) throw new Error(`Unknown scenario "${req.params.name}"`);
-  const paths = resolveScenarioPaths(s);
-  const content = existsSync(paths.play) ? JSON.parse(readFileSync(paths.play, 'utf-8')) : null;
-  res.json({ exists: !!content, content });
+// Every tick plan for a scenario, full content included — the Flow tab's
+// dropdown and canvas both work off this one call.
+router.get('/scenario/:name/tickplans', h((req, res) => {
+  res.json({ tickPlans: listTickPlans(req.params.name) });
 }));
 
-// Write (create or overwrite) the scenario's tick-plan.json.
-router.put('/scenario/:name/play-config', h((req, res) => {
-  const cfg = loadProjectConfig();
-  const s   = cfg.scenarios[req.params.name];
-  if (!s) throw new Error(`Unknown scenario "${req.params.name}"`);
-  const paths = resolveScenarioPaths(s);
-  writeFileSync(paths.play, JSON.stringify(req.body, null, 2) + '\n');
-  res.json({ ok: true });
+// One named tick plan's content.
+router.get('/scenario/:name/tickplan/:planName', h((req, res) => {
+  res.json({ name: req.params.planName, ...loadTickPlan(req.params.name, req.params.planName) });
 }));
 
-// Bootstrap a minimal tick-plan.json + actionGraph when neither exists yet.
-router.post('/scenario/:name/play-config/bootstrap', h((req, res) => {
-  const cfg = loadProjectConfig();
-  const s   = cfg.scenarios[req.params.name];
-  if (!s) throw new Error(`Unknown scenario "${req.params.name}"`);
-  const paths = resolveScenarioPaths(s);
-  if (existsSync(paths.play)) { res.json({ ok: true, created: false }); return; }
+// Write (create or overwrite) a named tick plan. Body: { entityType, phases }.
+router.put('/scenario/:name/tickplan/:planName', h((req, res) => {
+  res.json({ tickPlans: saveTickPlan(req.params.name, req.params.planName, req.body) });
+}));
 
-  // Pick the first entity type as the loop subject, fall back to 'agent'.
-  let entityType = 'agent';
-  try {
-    const ents = JSON.parse(readFileSync(paths.entities, 'utf-8'));
-    const first = Object.keys(ents)[0];
-    if (first) entityType = first;
-  } catch { /* entities missing or empty — keep default */ }
+// Create a brand-new, empty tick plan. Body: { name }.
+router.post('/scenario/:name/tickplan', h((req, res) => {
+  res.json({ tickPlans: createTickPlan(req.params.name, req.body.name) });
+}));
 
-  // Minimal actionGraph.
-  const actionGraphName = 'main';
-  mkdirSync(paths.actionGraphs, { recursive: true });
-  const actionGraphPath = join(paths.actionGraphs, `${actionGraphName}.json`);
-  if (!existsSync(actionGraphPath)) {
-    writeFileSync(actionGraphPath, JSON.stringify({
-      name: actionGraphName,
-      entry: 'main',
-      selectionStrategy: 'highestUtility',
-      stages: { main: { actionset: '', routing: 'branch' } },
-    }, null, 2) + '\n');
-  }
-
-  // Minimal tick-plan.json.
-  writeFileSync(paths.play, JSON.stringify({
-    entityType,
-    phases: [{ actionGraph: actionGraphName, loop: ['SELF'] }],
-  }, null, 2) + '\n');
-
-  res.json({ ok: true, created: true, entityType, actionGraph: actionGraphName });
+// ── Watch (Play's pinned queries) ───────────────────────────────────────────
+// Scenario-wide, not per-tick-plan (data/<scenario>/tool/watches.json) — the
+// same named query set shows in Play's sidebar regardless of which tick plan
+// a session is running. CRUD mirrors entity-type's shape: mutating verbs key
+// off `label` (an update carries `oldLabel` too), and every call responds
+// with the full resulting list.
+router.get('/scenario/:name/watches', h((req, res) => {
+  res.json({ watches: listWatches(req.params.name) });
+}));
+router.post('/scenario/:name/watches', h((req, res) => {
+  res.json({ watches: createWatch(req.params.name, req.body) });
+}));
+router.put('/scenario/:name/watches', h((req, res) => {
+  res.json({ watches: updateWatch(req.params.name, req.body) });
+}));
+router.delete('/scenario/:name/watches', h((req, res) => {
+  res.json({ watches: deleteWatch(req.params.name, req.body) });
 }));
 
 // ── Play ─────────────────────────────────────────────────────────────────────
@@ -138,22 +125,23 @@ router.post('/scenario/:name/play-config/bootstrap', h((req, res) => {
 // trace, take over selections. See play.js.
 
 // Session status (exists: false when none is running yet — still carries
-// actionGraphRoles/entitiesByType/entityType so the plan editor's free/fixed/loop
-// role picker works before Start Session, not just after). Scenarios with no
-// tick-plan.json yet have nothing to preview — the client's own play-config check
-// already drives the "bootstrap" prompt for that case, so this just omits
-// the preview fields rather than erroring.
+// actionGraphRoles/entitiesByType/entityType, previewed against the named
+// plan, so pre-session UI can offer the same typed picker Start would run
+// with). `?plan=<name>` picks which tick plan to preview; omitted means the
+// scenario's default. Scenarios with no tick plans yet have nothing to
+// preview — this just omits the preview fields rather than erroring.
 router.get('/play/:scenario/session', h((req, res) => {
   const session = peekPlaySession(req.params.scenario);
   if (session) { res.json({ exists: true, ...session.info() }); return; }
   let preview = {};
-  try { preview = previewPlayInfo(req.params.scenario); } catch { /* no tick-plan.json yet */ }
+  try { preview = previewPlayInfo(req.params.scenario, req.query.plan || null); } catch { /* no tick plans yet */ }
   res.json({ exists: false, ...preview });
 }));
 
-// Start (or restart) a session. Body: { controlled: { agents: [], stages: [] } }.
+// Start (or restart) a session. Body: { planName, controlled: { agents: [], stages: [] } }.
+// planName null/omitted uses the scenario's default tick plan.
 router.post('/play/:scenario/start', h(async (req, res) => {
-  const session = await startPlaySession(req.params.scenario, req.body?.controlled);
+  const session = await startPlaySession(req.params.scenario, req.body?.planName ?? null, req.body?.controlled);
   res.json(session.info());
 }));
 
@@ -219,11 +207,11 @@ router.get('/play/:scenario/entities', h((req, res) => {
 router.post('/play/:scenario/query', h((req, res) => {
   res.json(getPlaySession(req.params.scenario).runQuery(req.body.text, req.body.scopedTo ?? null));
 }));
-// The scenario's declared tick-plan.json `views`, re-run against the session's
-// current state — GET, not POST, since it takes no input beyond the running
-// session itself; called after Start and after every Step/Choose.
-router.get('/play/:scenario/views', h((req, res) => {
-  res.json({ views: getPlaySession(req.params.scenario).runViews() });
+// The scenario's declared watches (tool/watches.json), re-run against the
+// session's current state — GET, not POST, since it takes no input beyond
+// the running session itself; called after Start and after every Step/Choose.
+router.get('/play/:scenario/watches', h((req, res) => {
+  res.json({ watches: getPlaySession(req.params.scenario).runWatches() });
 }));
 // Provenance of a fact. Body: { name, args, owner } — the same shape the
 // State viewer's /why and /explain take, not a pre-rendered text string.
@@ -232,6 +220,13 @@ router.post('/play/:scenario/why', h((req, res) => {
 }));
 router.post('/play/:scenario/explain', h((req, res) => {
   res.json(getPlaySession(req.params.scenario).explainFact(req.body));
+}));
+// One level of the provenance inspector's backward walk. Body is a typed node
+// address ({ kind:'predicate'|'assertion-source'|'adjustment-source', ... });
+// returns { node } with drill addresses embedded on its sub-elements. Lazy by
+// design — one hop per request, never the whole (unbounded) tree.
+router.post('/play/:scenario/resolve', h((req, res) => {
+  res.json(getPlaySession(req.params.scenario).resolveProvenance(req.body));
 }));
 router.post('/play/:scenario/assert', h((req, res) => {
   res.json({ facts: getPlaySession(req.params.scenario).assertFact(req.body.text) });

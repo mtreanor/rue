@@ -134,6 +134,7 @@ export function serializeCandidate(candidate, historyRegistry = null) {
     stageName:     candidate._stageName,
     actionName:    candidate.action.name,
     label:         candidate.label,
+    labelSegments: candidate.labelSegments,
     score:         candidate.score,
     belowFloor:    candidate.belowFloor,
     binding:       serializeBinding(candidate.binding),
@@ -192,11 +193,16 @@ function serializeApplications(applications) {
 // temporal chains, sensors, closures) fall back to description-only —
 // displayed as text, not explainable — rather than guessing at a shape that
 // would misrepresent them.
-function serializePremise(predicate, binding) {
+// Exported for the provenance resolver (provenanceResolver.js), which structures
+// an action's preconditions / a rule's premises the identical way a trace does —
+// so a premise that's explainable in the utility breakdown is drillable in the
+// inspector on the same terms, and the careful negation/private-scope handling
+// in structuredPredicateInfo lives in exactly one place.
+export function serializePremise(predicate, binding) {
   return { description: safeDescribe(predicate, binding), ...structuredPredicateInfo(predicate, binding) };
 }
 
-function serializeEffect(operation, binding) {
+export function serializeEffect(operation, binding) {
   return { description: safeDescribe(operation, binding), ...structuredEffectInfo(operation, binding) };
 }
 
@@ -250,7 +256,11 @@ function structuredPredicateInfo(predicate, binding) {
 // Mirrors the scoreWithBreakdown shapes each UtilitySource produces. The
 // 'predicate' case is the interesting one: it carries the NumericRecord, whose
 // event history is the full provenance of the number the utility read.
-function serializeBreakdown(node, historyRegistry) {
+// Exported for the provenance resolver (provenanceResolver.js), which re-scores
+// an action to show the same utility breakdown the inline trace does — its
+// predicate leaves drill into the numeric whose adjustments are the priming
+// rules that set it.
+export function serializeBreakdown(node, historyRegistry) {
   switch (node.type) {
     case 'rule':
       return {

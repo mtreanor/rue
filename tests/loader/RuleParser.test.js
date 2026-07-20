@@ -769,6 +769,35 @@ describe('RuleParser', () => {
     });
   });
 
+  describe('rule-header [given ...] annotation', () => {
+    it('defaults to an empty given list when absent', () => {
+      const rules = parseRules(`
+        rule "R1"
+          knows(?SELF, ?Y)
+          => exploitative(?SELF, ?Y) += 3.0
+      `);
+      assert.deepEqual(rules[0].given, []);
+    });
+
+    it('parses a single [given ?SELF]', () => {
+      const rules = parseRules(`
+        rule "R1" [given ?SELF]
+          not grouped(?SELF)
+          => ticksAlone(?SELF) += 1
+      `);
+      assert.deepEqual(rules[0].given, ['SELF']);
+    });
+
+    it('parses multiple names in one [given ...]', () => {
+      const rules = parseRules(`
+        rule "R1" [given ?SELF, ?OTHER]
+          not feuding(?SELF, ?OTHER)
+          => tension(?SELF, ?OTHER) += 1.0
+      `);
+      assert.deepEqual(rules[0].given, ['SELF', 'OTHER']);
+    });
+  });
+
   describe('count predicates (bare |...| — sugar for count|...|)', () => {
     it('parses |pred| > N as an aggregate (fn: count) predicate', () => {
       const rules = parseRules(`

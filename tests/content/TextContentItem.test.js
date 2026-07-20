@@ -49,4 +49,37 @@ describe('TextContentItem', () => {
     const item = new TextContentItem('?x is not a variable');
     assert.equal(item.render(binding()), '?x is not a variable');
   });
+
+  describe('renderSegments', () => {
+    it('splits literal text and substituted variables into segments', () => {
+      const item = new TextContentItem('?SELF greets ?Y warmly');
+      assert.deepEqual(item.renderSegments(binding()), [
+        { text: 'alice', templated: true },
+        { text: ' greets ', templated: false },
+        { text: 'bob', templated: true },
+        { text: ' warmly', templated: false },
+      ]);
+    });
+
+    it('marks an unbound variable as literal, not templated', () => {
+      const item = new TextContentItem('hello ?STRANGER');
+      assert.deepEqual(item.renderSegments(new Binding()), [
+        { text: 'hello ', templated: false },
+        { text: '?STRANGER', templated: false },
+      ]);
+    });
+
+    it('a template with no variables is a single literal segment', () => {
+      const item = new TextContentItem('no variables here');
+      assert.deepEqual(item.renderSegments(new Binding()), [
+        { text: 'no variables here', templated: false },
+      ]);
+    });
+
+    it('joining segment text reproduces render()\'s output', () => {
+      const item = new TextContentItem('?SELF says hello to ?Y and ?Y waves back');
+      const joined = item.renderSegments(binding()).map(s => s.text).join('');
+      assert.equal(joined, item.render(binding()));
+    });
+  });
 });

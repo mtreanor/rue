@@ -397,7 +397,11 @@ export class Engine {
         if (!action.arePreconditionsMet(binding, ctx)) continue;
         const { score, breakdown } = action.scoreWithBreakdown(binding, this.world.entityRegistry, ctx);
         if (score < minimumScore) continue;
-        candidates.push({ action, binding, score, breakdown, label: this._actionLabel(action, binding) });
+        candidates.push({
+          action, binding, score, breakdown,
+          label:         this._actionLabel(action, binding),
+          labelSegments: this._actionLabelSegments(action, binding),
+        });
       }
     }
 
@@ -532,6 +536,14 @@ export class Engine {
   // action's name when it declares no content.
   _actionLabel(action, binding) {
     return action.content ? action.content.render(binding) : action.name;
+  }
+
+  // Like _actionLabel, but as renderSegments() output — which spans of the
+  // label came from the binding — for UIs that want to show the two
+  // differently. An action with no content has no template to speak of, so
+  // its "segments" are just its name, untemplated.
+  _actionLabelSegments(action, binding) {
+    return action.content ? action.content.renderSegments(binding) : [{ text: action.name, templated: false }];
   }
 
   // Parses a goal conjunction (DSL text) into the Predicate[] the planner expects.

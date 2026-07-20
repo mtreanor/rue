@@ -391,41 +391,7 @@ input.dsl-input-highlighted {
 .pred-tier-row { display: grid; grid-template-columns: 1fr 80px 80px auto; gap: 6px; margin-top: 4px; }
 .pred-modal .ent-field > .btn.tiny { align-self: flex-start; margin-top: 6px; }
 
-/* ── Graphs tab ─────────────────────────────────────────────────────────── */
-.actionGraph-tab { display: flex; flex-direction: column; gap: 0; }
-
-.actionGraph-toolbar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 0 12px; border-bottom: 1px solid var(--border);
-}
-.actionGraph-pick { display: flex; align-items: center; gap: 8px; color: var(--dim); }
-
-/* Flex row: scrollable canvas + fixed-width detail panel */
-.actionGraph-main { display: flex; align-items: flex-start; gap: 0; margin-top: 16px; }
-
-/* Canvas wrap: grows to fill, relative so the pinned button positions against it */
-.actionGraph-canvas-wrap {
-  flex: 1; min-width: 0; position: relative;
-}
-
-/* Scrollable canvas — grows to fit its content.
-   Flex-center so the stage graph is centered in the available space; when the
-   graph is wider than the container it overflows and both scroll directions work. */
-.actionGraph-canvas-scroll {
-  width: 100%; min-height: 200px; overflow: auto;
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: 8px 0 0 8px;
-  display: flex; justify-content: center; align-items: flex-start;
-}
-
-/* "+ stage" button pinned to bottom-right of the canvas wrap, always in view */
-.stage-add-pin {
-  position: absolute; bottom: 14px; right: 14px; z-index: 2;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-}
-
-/* The absolute-positioned stage graph inside the scroll area */
-.stage-graph { position: relative; cursor: default; padding: 8px; }
+/* ── Stage node (shared by the Flow tab's nested stage graphs) ────────────── */
 
 /* Stage nodes — three-section design (pre-hooks / stage / post-hooks) */
 .stage-node {
@@ -534,6 +500,12 @@ input.dsl-input-highlighted {
 .detail-field input[type=text] { width: 100%; height: 30px; box-sizing: border-box; }
 .detail-field.stacked { gap: 6px; }
 
+/* A field whose control shares its row with something else (here: the
+   actionset select's "open in Actions" goto-btn) — select still fills the
+   row, goto-btn stays its own natural width. */
+.detail-field-inline { display: flex; gap: 6px; align-items: center; }
+.detail-field-inline select { width: auto; flex: 1; }
+
 /* Two side-by-side fields in one row */
 .detail-field-row { display: flex; gap: 10px; }
 .detail-field.half { flex: 1; }
@@ -579,6 +551,12 @@ input.dsl-input-highlighted {
 .hook-name-row select { flex: 1; font-size: 12px; min-width: 0; }
 .hook-requires { width: 110px; font-size: 12px; flex-shrink: 0; }
 .hook-swap-pair { display: flex; align-items: center; gap: 6px; }
+
+/* "Open in Rules"/"Open in Actions" — jumps from a ruleset/actionset
+   dropdown straight to that item, pre-filtered (see App.jsx's
+   goToRuleset/goToActionset). Always its natural width, never squeezed by
+   the select it sits beside. */
+.goto-btn { flex-shrink: 0; padding: 3px 6px; }
 .hook-swap-pair select { flex: 1; font-size: 12px; min-width: 0; }
 .hook-swap-arrow { flex-shrink: 0; font-size: 12px; }
 .hooks-add { font-size: 12px; align-self: flex-start; padding: 3px 8px; margin-top: 2px; }
@@ -591,16 +569,32 @@ input.dsl-input-highlighted {
 
 .banner.warn { background: #3a3320; color: var(--warn); border: 1px solid #5a4d28; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
 
-.play-views { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.play-view {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-  padding: 10px 14px; min-width: 180px; flex: 1;
+/* Play's left watch sidebar — a wider variant of the generic .sidebar (query
+   text and result rows run longer than the predicate/entity names the base
+   width was tuned for), watches stacked one per .play-watch card. */
+.play-watch-sidebar.open { width: 360px; }
+.play-watch {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 10px;
 }
-.play-view-label { font-weight: 600; margin-bottom: 6px; }
-.play-view-rows { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.play-watch-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.play-watch-label { font-weight: 600; }
+.watch-card-actions { display: flex; gap: 2px; }
+.play-watch-rows {
+  display: flex; flex-direction: column; gap: 3px; font-size: 13px;
+  /* ~10 single-line rows (padding 4+4 + line) before the list scrolls */
+  max-height: calc(10 * (1.4em + 8px) + 9 * 3px);
+  overflow-y: auto;
+}
 .play-judgement-occurrence { margin-bottom: 6px; }
 .play-judgement-occurrence summary { cursor: pointer; font-size: 13px; }
-.play-judgement-occurrence .play-view-rows { margin: 4px 0 4px 14px; }
+.play-judgement-occurrence .play-watch-rows { margin: 4px 0 4px 14px; }
+
+.watch-form {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 10px;
+}
 
 .play-control-config { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
 .play-chip-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 3px 0; }
@@ -625,20 +619,28 @@ input.dsl-input-highlighted {
 .play-phase-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; cursor: default; }
 .play-phase details > summary { cursor: pointer; list-style-position: outside; }
 
-.play-run { border-top: 1px solid var(--border); padding: 5px 0; }
-.play-run > summary { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 3px 4px; border-radius: 6px; }
-.play-run > summary:hover { background: var(--panel-2); }
-.play-run[open] > summary { color: var(--accent); }
-.play-chain { color: var(--dim); font-size: 12.5px; }
+.play-story-run { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; margin-bottom: 10px; }
+.play-story-run-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+summary.play-story-run-head { border-radius: 6px; padding: 2px 4px; }
+summary.play-story-run-head:hover { background: var(--panel-2); }
+.play-story-run-hooks-tag { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--dim); opacity: 0.25; }
+summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
+.play-story-empty { padding: 2px 0 2px 4px; }
+.play-story-line { border-top: 1px solid var(--border); padding: 4px 0; }
+.play-story-line:first-of-type { border-top: none; }
+.play-story-line > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+.play-story-line > summary:hover { background: var(--panel-2); }
+.story-actionname { flex: 0 0 150px; text-align: left; color: var(--text); font-weight: 600; font-size: 12px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.story-score { flex: 0 0 44px; text-align: right; font-family: var(--mono); font-size: 12.5px; color: var(--warn); margin-left: auto; }
+.story-content { font-size: 13.5px; flex: 1 1 auto; min-width: 0; }
+.story-content-templated { color: var(--accent); font-weight: 600; }
 
-.play-eval { border-left: 2px solid var(--border); padding: 6px 0 6px 12px; margin: 8px 0; }
-.play-eval-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.stage-prefix { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); opacity: 0.6; margin-right: 5px; }
-.stage-name { font-weight: 600; font-size: 13px; color: var(--accent); }
-.play-stage-detail { margin: 2px 0; }
+.play-story-hooks { margin: 4px 8px 8px 22px; padding: 2px 0 4px 10px; border-left: 2px solid var(--border); }
 
 .play-section-label { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); opacity: 0.6; padding: 4px 6px 2px; }
-.play-effects-label { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); opacity: 0.6; margin-right: 2px; align-self: center; }
+.play-other-candidates { margin: 4px 8px 8px 22px; }
+.play-other-candidates > summary { font-size: 12px; color: var(--dim); padding: 2px 6px; border-radius: 6px; }
+.play-other-candidates > summary:hover { background: var(--panel-2); }
 .play-candidates { margin: 6px 0; }
 .play-cand { border-radius: 6px; }
 .play-cand:nth-child(even) { background: rgba(255,255,255,0.025); }
@@ -649,12 +651,10 @@ input.dsl-input-highlighted {
 .cand-mark { width: 14px; display: inline-block; color: var(--ok); }
 .cand-label { }
 .score { margin-left: auto; font-family: var(--mono); font-size: 12.5px; color: var(--warn); }
-.play-cand-body { padding: 4px 8px 8px 22px; border-left: 1px dotted var(--border); margin-left: 8px; }
-.play-cand-group { border-left: 2px solid var(--border); padding: 3px 0 3px 10px; margin: 2px 0 8px; }
+.play-cand-body { padding: 2px 0 4px; }
+.play-cand-group { padding: 3px 0 3px 10px; margin: 2px 0 8px; }
+.play-cand-action-name { font-weight: 600; font-family: var(--mono); font-size: 13px; padding: 2px 6px 2px; }
 .play-cand-action-label { font-style: italic; color: var(--dim); font-size: 12px; padding: 1px 0 5px; }
-.play-other-candidates > summary { cursor: pointer; padding: 3px 6px; font-size: 12px; color: var(--dim); list-style: none; }
-.play-other-candidates > summary::-webkit-details-marker { display: none; }
-.play-other-candidates > summary:hover { color: var(--text); }
 
 .bd-node { font-size: 12.5px; padding: 1px 0; }
 .bd-node > details > summary { cursor: pointer; display: flex; align-items: center; gap: 6px; }
@@ -666,11 +666,7 @@ input.dsl-input-highlighted {
 .bd-rule-matches { padding: 4px 0 4px 18px; }
 .bd-rule-match { border-left: 2px solid var(--border); padding: 3px 0 3px 10px; margin: 5px 0; }
 
-.play-winner { border: 1px solid var(--border); border-left: 2px solid var(--ok); border-radius: 8px; background: var(--panel-2); padding: 6px 10px; margin: 6px 0; }
-.play-winner-head { display: flex; align-items: center; gap: 8px; }
-.play-effects { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 0 2px; }
 .badge.occ { background: #2a3a2f; color: var(--ok); }
-.route-arrow { color: var(--dim); font-size: 12.5px; margin-left: auto; }
 .effect-chip { font-size: 11.5px; font-family: var(--mono); background: var(--panel); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; }
 
 .play-hooks { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 12px; padding: 2px 0; }
@@ -701,19 +697,8 @@ input.dsl-input-highlighted {
 .play-state-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
 .play-state-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 
-/* ── Play — tick plan editor ───────────────────────────────────────────── */
+/* ── Play — inline phase-invocation editor (PhaseRoleFields, shared with Flow) ── */
 
-.play-plan-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
-.play-plan-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.play-plan-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.play-plan-row { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12.5px; }
-.plan-index { width: 16px; text-align: right; font-family: var(--mono); }
-.play-plan-row .row-x { opacity: 0.7; }
-.play-plan-row .row-x:hover { opacity: 1; }
-.play-plan-row.editing { border-color: var(--ok); }
-.play-plan-editing-label { font-size: 12px; }
-.play-plan-add { display: flex; flex-direction: column; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
-.play-plan-add-row { display: flex; align-items: center; gap: 8px; }
 .play-plan-roles { display: flex; flex-direction: column; gap: 6px; padding-left: 4px; border-left: 2px solid var(--border); margin-left: 4px; }
 .play-plan-role-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 .play-plan-count { font-size: 12px; }
@@ -769,6 +754,59 @@ input.dsl-input-highlighted {
 }
 .interp-field::placeholder { color: var(--dim); }
 
+/* Provenance inspector — a right slide-over, stack-navigated (ProvenanceInspector.jsx) */
+.prov-insp-backdrop { position: fixed; inset: 0; z-index: 51; background: rgba(0, 0, 0, 0.35); }
+.prov-insp-panel {
+  position: fixed; top: 0; right: 0;
+  width: 540px; max-width: 92vw; height: 100vh; z-index: 52;
+  background: var(--bg); border-left: 1px solid var(--border);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.5);
+  display: flex; flex-direction: column;
+}
+.prov-insp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.prov-insp-title { font-size: 13px; color: var(--dim); letter-spacing: 0.04em; text-transform: uppercase; }
+.prov-insp-crumbs {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.prov-insp-crumb {
+  background: transparent; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 11.5px; color: var(--accent);
+  padding: 1px 5px; border-radius: 5px; max-width: 220px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.prov-insp-crumb:hover { background: var(--panel-2); }
+.prov-insp-crumb.current { color: var(--text); font-weight: 600; cursor: default; }
+.prov-insp-sep { color: var(--dim); font-size: 11px; }
+.prov-insp-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.prov-insp-node { display: flex; flex-direction: column; }
+.prov-insp-pred-head, .prov-insp-firing-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.prov-insp-name { font-family: var(--mono); font-size: 13.5px; color: var(--text); font-weight: 600; }
+.prov-insp-panel .predicate-expr { display: inline; margin: 0; padding: 0; background: none; border: none; white-space: pre-wrap; font-family: var(--mono); font-size: 13px; }
+.prov-insp-binding { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.prov-insp-binding.inline { display: inline-flex; margin: 0 0 0 4px; vertical-align: baseline; }
+.prov-insp-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.prov-insp-row {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
+  padding: 3px 6px; border-radius: 6px; font-size: 12.5px; box-sizing: border-box;
+}
+.prov-insp-row.link { background: transparent; border: 1px solid transparent; cursor: pointer; color: var(--text); }
+.prov-insp-row.link:hover { background: var(--panel-2); border-color: var(--border); }
+.prov-insp-row.terminal { color: var(--dim); cursor: default; }
+.prov-insp-arrow { margin-left: auto; color: var(--accent); opacity: 0; }
+.prov-insp-row.link:hover .prov-insp-arrow { opacity: 0.8; }
+.prov-insp-tick { font-family: var(--mono); font-size: 11px; color: var(--dim); flex-shrink: 0; }
+.prov-insp-delta { font-family: var(--mono); font-size: 12px; color: var(--warn); flex-shrink: 0; }
+.prov-insp-via { color: var(--dim); font-size: 12px; }
+.prov-insp-desc { font-family: var(--mono); }
+.prov-insp-leaf { color: var(--dim); font-size: 12.5px; padding: 4px 0; }
+.prov-insp-error { color: var(--err); font-size: 12.5px; }
+.badge.action { background: #2a3a2f; color: var(--ok); }
+.badge.rule { background: #2a2f3a; color: var(--accent); }
+
 /* Explain Button Hover Logic */
 .explain-btn {
   padding: 0 4px;
@@ -789,8 +827,14 @@ input.dsl-input-highlighted {
 /* Show explain button when hovering its containing row or predicate view */
 .predicate-view:hover .explain-btn,
 .prov-head:hover .explain-btn,
-.play-view-row:hover .explain-btn,
-.play-detail-item:hover .explain-btn {
+.play-watch-row:hover .explain-btn,
+.play-detail-item:hover .explain-btn,
+.play-story-line-head:hover .explain-btn,
+.play-cand > summary:hover .explain-btn,
+.play-rule-exec-summary:hover .explain-btn,
+.play-app-head:hover .explain-btn,
+.play-cand-action-name:hover .explain-btn,
+.bd-node:hover .explain-btn {
   opacity: 0.7;
 }
 .explain-btn:hover {
@@ -809,4 +853,142 @@ input.dsl-input-highlighted {
 .play-app-instance { padding: 4px 0; }
 .play-app-instance + .play-app-instance { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
 .hook-firing.skipped { opacity: 0.75; }
+
+/* ── Tick-plan flow view ──────────────────────────────────────────────────── */
+.tickplan-flow { display: flex; flex-direction: column; height: calc(100vh - 90px); padding: 0 20px; }
+
+/* Tick-plan picker — which named plan (data/<scenario>/tickplans/*.json)
+   this canvas is showing and editing. */
+.tickplan-flow-toolbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0 0; flex-shrink: 0;
+}
+
+.tickplan-flow-main { flex: 1; min-height: 0; display: flex; align-items: stretch; gap: 0; margin-top: 12px; }
+.tickplan-flow-canvas { flex: 1; min-width: 0; position: relative; border-radius: 10px 0 0 10px; overflow: hidden; border: 1px solid var(--border); }
+/* Full rounding when nothing's selected and the side panel isn't rendered
+   at all (see TickPlanFlowTab.jsx) — the canvas is then the only child of
+   .tickplan-flow-main, so :last-child picks that up without threading
+   selection state into a className just for this. */
+.tickplan-flow-canvas:has(.empty),
+.tickplan-flow-main > .tickplan-flow-canvas:last-child { border-radius: 10px; }
+
+/* The right-side editing panel (ActionGraphSettings / StagePanel / HooksPanel
+   / ActionRoutesPanel from actionGraphEditing.jsx). Needs its
+   own scroll: the flow view is a fixed-height flex column (ReactFlow needs a
+   bounded container), not a naturally page-scrolling one. */
+.tickplan-flow-panel {
+  width: 360px; flex-shrink: 0; overflow-y: auto;
+  border: 1px solid var(--border); border-left: none; border-radius: 0 10px 10px 0;
+  background: var(--panel);
+}
+
+/* +Phase — floating over the bottom-right of the canvas, always visible
+   regardless of pan/zoom (a sibling of <ReactFlow>, not a node inside it).
+   Column layout: the kind/name/Add row, then (once an actionGraph or
+   ruleset is picked) the same role-config fields used to edit an
+   already-added phase, so a new phase can be fully configured before it's
+   even created. */
+.tickplan-flow-add-pin {
+  position: absolute; bottom: 14px; right: 14px; z-index: 5;
+  display: flex; flex-direction: column; gap: 8px; width: 340px; max-width: calc(100% - 28px);
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.tickplan-flow-add-row { display: flex; align-items: center; gap: 6px; }
+.tickplan-flow-add-row select { min-width: 0; flex: 1; }
+/* elementsSelectable={false} on <ReactFlow> makes it set pointer-events:none
+   on every node wrapper (so non-selectable nodes don't block pane panning)
+   — but our nodes have their own click handlers (phase controls, "open in
+   Graphs" on stages) that never asked for ReactFlow's selection machinery
+   in the first place. Force clicks back on for the node wrappers; the pane
+   itself (for panning) is untouched, so dragging empty canvas still works. */
+/* ReactFlow sets this inline (style="pointer-events: none"), which beats a
+   plain stylesheet rule regardless of selector specificity — !important is
+   the only way to win against an inline style from outside the library. */
+.tickplan-flow-canvas .react-flow__node { pointer-events: auto !important; }
+
+.flow-phase-group, .flow-ruleset-phase {
+  width: 100%; height: 100%; border: 1.5px solid var(--border); border-radius: 10px;
+  background: rgba(35, 40, 51, 0.55); position: relative; cursor: default;
+}
+.flow-phase-group.missing { border-color: var(--err); border-style: dashed; }
+.flow-phase-group.selected { border-color: var(--accent); }
+/* Dim until the pointer is over the phase — a permanently bright button in
+   every phase's corner was more visual noise than the "add a stage" action
+   deserves given how rarely it's used relative to just looking at the
+   graph. */
+.flow-stage-add-pin {
+  position: absolute; bottom: 8px; right: 8px; z-index: 2;
+  font-size: 11px; padding: 3px 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  opacity: 0.32; transition: opacity 0.12s;
+}
+.flow-phase-group:hover .flow-stage-add-pin,
+.flow-stage-add-pin:focus-visible { opacity: 1; }
+/* No overflow:hidden here on purpose: layout.js's estimateHeaderWidth sizes
+   the container to fit this row, but if that estimate ever undershoots (an
+   unusually long actionGraph name), the safe failure is a header that
+   visibly pokes past its card border — not one that silently clips the
+   move/remove controls into an invisible, unclickable region past the edge. */
+/* The whole header is the click target for the inline invocation editor
+   (PhaseRoleFields) below it — not just the "loop: X" hint at its end. Its
+   own actionGraph settings moved to the ⚙ in .flow-phase-controls, which
+   stops propagation so it doesn't also toggle the header. */
+.flow-phase-header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12.5px; flex-wrap: nowrap; white-space: nowrap; cursor: pointer; transition: background 0.1s; }
+.flow-phase-header:hover { background: rgba(255,255,255,0.04); }
+.flow-phase-header.open { background: rgba(110,168,254,0.10); }
+.flow-phase-header.missing { cursor: default; }
+.flow-phase-header.missing:hover { background: none; }
+.flow-phase-index {
+  display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--panel-2); color: var(--dim); font-size: 10.5px; flex-shrink: 0;
+}
+.flow-phase-name { color: var(--text); font-weight: 600; font-size: 13px; }
+.flow-phase-name.missing { color: var(--dim); }
+.flow-phase-controls { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.flow-phase-controls .btn.on { color: var(--accent); border-color: var(--accent); }
+.flow-phase-missing-note { padding: 0 10px; color: var(--err); font-size: 11.5px; }
+
+/* The "loop: X" / "configure" hint at the end of the header — no longer its
+   own click target (the whole header is), just a label for what clicking
+   here does and the open/closed caret. */
+.flow-phase-expand-hint {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px;
+  padding: 1px 7px; font-size: 11px; color: var(--dim);
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.flow-phase-header:hover .flow-phase-expand-hint { color: var(--text); border-color: var(--accent); }
+.flow-phase-header.open .flow-phase-expand-hint { color: var(--accent); border-color: var(--accent); }
+.flow-phase-expand-caret { font-size: 9px; }
+
+.flow-ruleset-phase { display: flex; flex-direction: column; padding: 8px 10px; gap: 6px; text-align: left; cursor: pointer; }
+.flow-ruleset-phase:hover { border-color: var(--accent); }
+.flow-ruleset-phase .flow-phase-index { position: absolute; top: 8px; left: 8px; }
+.flow-ruleset-phase .flow-phase-controls { position: absolute; top: 6px; right: 6px; }
+.flow-ruleset-body { display: flex; align-items: center; gap: 6px; padding: 0 66px 0 26px; min-height: 20px; flex-wrap: wrap; }
+.flow-ruleset-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Stage nodes inside a phase reuse .stage-node/.stage-section/etc. as-is
+   (see actionGraphEditing.jsx's StageNodeSections, shared with the Graphs
+   tab) — no flow-specific stage styling needed here. */
+
+/* PhaseRoleFields/RulesetPhaseFields reuse PlayTab's .play-plan-roles /
+   .play-plan-role-row classes for a consistent look — but those boxes are
+   PlayTab's own comfortably-wide sidebar; a phase node here can be much
+   narrower, so keep selects from forcing the row wider than the card. */
+.flow-phase-group .play-plan-roles,
+.flow-ruleset-phase .play-plan-roles,
+.tickplan-flow-add-pin .play-plan-roles { padding: 0 10px 8px; margin: 0; border-left: none; }
+.flow-phase-group .play-plan-role-row select,
+.flow-ruleset-phase .play-plan-role-row select,
+.tickplan-flow-add-pin .play-plan-role-row select { min-width: 0; flex: 1; }
+
+.flow-handle { background: var(--border) !important; border: none !important; width: 6px !important; height: 6px !important; }
+.flow-handle.loop { opacity: 0; pointer-events: none; }
+
+.flow-edge-sequence path { stroke: var(--accent); stroke-width: 2; }
+.flow-edge-loop path { stroke: var(--dim); stroke-dasharray: 4 3; }
+.flow-edge-route path { stroke: var(--dim); stroke-width: 1.5; }
+
+.tickplan-flow .react-flow__attribution { display: none; }
 
