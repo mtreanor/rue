@@ -63,7 +63,7 @@ rule "urgency when very close"
 
 ## LLM Sensors (`type: "sensor-llm" / "sensor-llm-numeric"`)
 
-LLM sensors compute truth values or numeric scores dynamically by querying a Large Language Model (such as Gemini, OpenAI, or Claude). 
+LLM sensors compute truth values or numeric scores dynamically by querying a Large Language Model (such as Gemini, OpenAI, or Claude). See the [LLM Configuration Guide](llm.md) for connection setup instructions.
 
 Like code-based sensors, they are stateless and never persisted in a fact store. However, they are defined by a standalone JavaScript logic file that structures prompt generation and response parsing.
 
