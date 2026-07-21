@@ -73,6 +73,13 @@
       "minValue": 0,
       "maxValue": 20,
       "default": 10
+    },
+    "mainCharacterInMovie": {
+      "type": "sensor-llm",
+      "args": [
+        "agent"
+      ],
+      "sensorFile": "mainCharacterInMovie.js"
     }
   }
 }

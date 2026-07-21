@@ -5,10 +5,12 @@ import PredicateModal from './PredicateModal.jsx';
 import ConfirmDelete from './ConfirmDelete.jsx';
 
 // Order predicate groups the way the schema thinks about them.
-const TYPE_ORDER = ['boolean', 'numeric', 'derived', 'sensor', 'sensor-numeric'];
+const TYPE_ORDER = ['boolean', 'numeric', 'derived', 'sensor', 'sensor-numeric', 'sensor-llm', 'sensor-llm-numeric'];
 const TYPE_LABEL = {
   boolean: 'boolean', numeric: 'numeric', derived: 'derived',
-  sensor: 'sensor', 'sensor-numeric': 'sensor · numeric', ephemeral: 'ephemeral',
+  sensor: 'sensor', 'sensor-numeric': 'sensor · numeric',
+  'sensor-llm': 'sensor · llm', 'sensor-llm-numeric': 'sensor · llm · numeric',
+  ephemeral: 'ephemeral',
 };
 
 // Collapsible left panel listing every predicate. Clicking one inserts it into
@@ -17,7 +19,7 @@ const TYPE_LABEL = {
 // handlers are supplied, predicates can be added/edited/deleted (durably).
 export default function PredicateSidebar({
   predicates = [], entityTypeNames = [], entityNames = [], highlighter,
-  onAdd, onEdit, onDelete,
+  onAdd, onEdit, onDelete, llmEnabled = false,
 }) {
   const insertCtx = useInsert();
   const [open, setOpen] = useState(true);
@@ -131,6 +133,7 @@ export default function PredicateSidebar({
           onSubmit={(payload) => modal.initial
             ? onEdit(modal.initial.name, payload)
             : onAdd(payload)}
+          llmEnabled={llmEnabled}
         />
       )}
     </aside>

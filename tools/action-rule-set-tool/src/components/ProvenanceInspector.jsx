@@ -105,11 +105,23 @@ function NodeView({ node, onDrill, highlighter }) {
     case 'predicate-numeric': return <NumericView node={node} onDrill={onDrill} highlighter={highlighter} />;
     case 'predicate-boolean': return <BooleanView node={node} onDrill={onDrill} highlighter={highlighter} />;
     case 'predicate-derived': return <DerivedView node={node} onDrill={onDrill} highlighter={highlighter} />;
+    case 'predicate-sensor-llm': return <SensorLlmView node={node} highlighter={highlighter} />;
     case 'action':            return <FiringView node={node} onDrill={onDrill} highlighter={highlighter} kind="action" />;
     case 'rule':
     case 'derived-rule':      return <FiringView node={node} onDrill={onDrill} highlighter={highlighter} kind="rule" />;
     case 'given':             return <div className="prov-insp-leaf">given / authored — no earlier cause</div>;
     case 'sensor':            return <div className="prov-insp-leaf">sensor{node.name ? `: ${node.name}` : ''}{node.detail ? ` — ${node.detail}` : ''}</div>;
+    case 'sensor-llm':
+      return (
+        <div className="prov-insp-leaf" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div>sensor-llm{node.name ? `: ${node.name}` : ''}{node.detail ? ` — ${node.detail}` : ''}</div>
+          {node.prompt && (
+            <div className="prompt-display" style={{ fontSize: '0.85em', color: '#888', fontStyle: 'italic', background: 'rgba(0,0,0,0.1)', padding: '6px', borderRadius: '4px', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
+              <strong>Prompt:</strong> {node.prompt}
+            </div>
+          )}
+        </div>
+      );
     default:                  return <div className="prov-insp-leaf dim">{node.type}</div>;
   }
 }
@@ -150,6 +162,23 @@ function BooleanView({ node, onDrill, highlighter }) {
             <BindingChips binding={r.binding} inline />
           </DrillRow>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function SensorLlmView({ node, highlighter }) {
+  return (
+    <div className="prov-insp-node">
+      <PredicateHead node={node} highlighter={highlighter} />
+      <div className="play-section-label">evaluated by LLM</div>
+      <div className="prov-insp-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px' }}>
+        {node.detail && <div style={{ fontWeight: '500' }}>{node.detail}</div>}
+        {node.prompt && (
+          <div className="prompt-display" style={{ fontSize: '0.9em', color: '#ccc', fontStyle: 'italic', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '4px', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
+            <strong>Prompt:</strong> {node.prompt}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -329,12 +358,14 @@ function crumbLabel(frame) {
   switch (n.type) {
     case 'predicate-numeric':
     case 'predicate-boolean':
-    case 'predicate-derived': return `${n.name}(${(n.args ?? []).join(',')})`;
+    case 'predicate-derived':
+    case 'predicate-sensor-llm': return `${n.name}(${(n.args ?? []).join(',')})`;
     case 'action':            return `⚙ ${n.name}`;
     case 'rule':
     case 'derived-rule':      return `▸ ${n.name}`;
     case 'given':             return 'given';
     case 'sensor':            return `sensor ${n.name ?? ''}`;
+    case 'sensor-llm':        return `sensor-llm ${n.name ?? ''}`;
     default:                  return n.type;
   }
 }

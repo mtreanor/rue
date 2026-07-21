@@ -42,6 +42,8 @@ Predicate names must not collide with entity type names or entity instance names
 | `numeric` | A continuous value in `[minValue, maxValue]`, queryable by named tier or direct comparison. |
 | `sensor` | Boolean truth computed on demand by application-layer code. Never stored. |
 | `sensor-numeric` | Numeric value computed on demand by application-layer code. Never stored. Queryable by tier and comparison. |
+| `sensor-llm` | Boolean truth evaluated by an LLM prompt. Never stored. Prompt/response history captured in provenance. |
+| `sensor-llm-numeric` | Numeric value evaluated by an LLM prompt. Never stored. Queryable by tier/comparison. Prompt/response history captured in provenance. |
 
 ### `annotations`
 

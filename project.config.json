@@ -1,5 +1,9 @@
 {
   "active": "demo",
+"llm": {
+    "provider": "gemini",
+    "model": "gemini-3.1-flash-lite"
+  },
   "scenarios": {
     "landing-page-demo": "data/landing-page-demo",
     "quickstart": "data/quickstart",

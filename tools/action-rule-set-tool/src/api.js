@@ -98,7 +98,12 @@ export const api = {
   stateActions: (name, actionsetName) => req('GET', `/api/state/${encodeURIComponent(name)}/actionset/${encodeURIComponent(actionsetName)}`).then(r => r.data),
   stateRun: (name, rulesetName, bindings = {}) => req('POST', `/api/state/${encodeURIComponent(name)}/run`, { name: rulesetName, bindings }).then(r => r.data),
   stateScore: (name, actionsetName, bindings = {}) => req('POST', `/api/state/${encodeURIComponent(name)}/score`, { name: actionsetName, bindings }).then(r => r.data),
-  stateSelect: (name, actionsetName, bindings = {}) => req('POST', `/api/state/${encodeURIComponent(name)}/select`, { name: actionsetName, bindings }).then(r => r.data),
+  stateSelect: (name, payload) => req('POST', `/api/state/${encodeURIComponent(name)}/select`, payload).then(r => r.data),
+
+  llmStatus: () => req('GET', '/api/llm/status').then(r => r.data),
+  llmSensors: () => req('GET', '/api/llm/sensors').then(r => r.data),
+  suggestRuleName: (scenario, body, comment) => req('POST', '/api/llm/suggest-rule-name', { scenario, body, comment }).then(r => r.data),
+  suggestActionContent: (scenario, name, roles, preconditions, effects, utility) => req('POST', '/api/llm/suggest-action-content', { scenario, name, roles, preconditions, effects, utility }).then(r => r.data),
 
   entityTypes: (name) => req('GET', `/api/state/${encodeURIComponent(name)}/entity-types`).then(r => r.data.types ?? []),
   addEntityType: (name, body) => req('POST', `/api/state/${encodeURIComponent(name)}/entity-type`, body).then(r => r.data.types ?? []),

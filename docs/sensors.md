@@ -61,7 +61,50 @@ rule "urgency when very close"
 
 ---
 
-## Implementing a sensor
+## LLM Sensors (`type: "sensor-llm" / "sensor-llm-numeric"`)
+
+LLM sensors compute truth values or numeric scores dynamically by querying a Large Language Model (such as Gemini, OpenAI, or Claude). 
+
+Like code-based sensors, they are stateless and never persisted in a fact store. However, they are defined by a standalone JavaScript logic file that structures prompt generation and response parsing.
+
+### Schema declaration
+The schema must specify the `sensorFile` annotation pointing to the sensor's implementation file under `data/sensors/llm/`.
+
+```json
+"mainCharacterInMovie": {
+  "type": "sensor-llm",
+  "args": ["agent"],
+  "sensorFile": "mainCharacterInMovie.js"
+}
+```
+
+### Implementing an LLM sensor file
+LLM sensor logic is authored in a standalone JavaScript file within the `data/sensors/llm/` directory. The file must export:
+1. `sensorName`: The name of the sensor.
+2. `generatePrompt(args, evaluationContext)`: A function that takes resolved arguments and returns the text prompt for the LLM.
+3. `parseResponse(response)`: A function that parses the LLM text response and returns a boolean value (for `sensor-llm`) or a number (for `sensor-llm-numeric`).
+
+Example logic file (`data/sensors/llm/mainCharacterInMovie.js`):
+```javascript
+export const sensorName = "mainCharacterInMovie";
+
+export function generatePrompt(args) {
+  const [character] = args;
+  return `Was the character "${character}" the main character in a movie? Answer with ONLY "yes" or "no".`;
+}
+
+export function parseResponse(response) {
+  const clean = response.trim().toLowerCase();
+  return clean.includes('yes') || clean.startsWith('y');
+}
+```
+
+### Prompt Provenance
+A key feature of LLM sensors is that **the exact prompt and response** are stored at evaluation time. When rules fail or fire in Play Mode, you can inspect the evaluation tree in the **Provenance Inspector** to see the full LLM prompt and returned response.
+
+---
+
+## Implementing a code-based sensor
 
 Sensors are implemented in application-layer code by extending the appropriate base class:
 

@@ -10,6 +10,10 @@ export { LogicalVariable } from './LogicalVariable.js';
 export { Sensor } from './Sensor.js';
 export { NumericSensor } from './NumericSensor.js';
 export { SensorQueryHandler } from './queryHandlers/SensorQueryHandler.js';
+export { SensorLLMQueryHandler } from './queryHandlers/SensorLLMQueryHandler.js';
+export { SensorLLMPredicate } from './predicates/SensorLLMPredicate.js';
+export { SensorLLMNumericComparisonPredicate } from './predicates/SensorLLMNumericComparisonPredicate.js';
+export { SensorLLMNumericTierPredicate } from './predicates/SensorLLMNumericTierPredicate.js';
 
 // Derived predicate code handlers
 export { DerivedFactQueryHandler } from './queryHandlers/DerivedFactQueryHandler.js';
@@ -21,6 +25,7 @@ export { StateChangeQueue } from './stateOperations/StateChangeQueue.js';
 // Provenance / proof trees
 export { ProofNode } from './provenance/ProofTree.js';
 export { Justification } from './provenance/justifyPremise.js';
+export { LLMSensorProvenance } from './provenance/LLMSensorProvenance.js';
 
 // Snapshot (save / restore world state)
 export { save, saveToFile, restore, restoreFromFile } from './Snapshot.js';

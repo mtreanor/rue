@@ -1,3 +1,5 @@
 world
   trainingPartners(ryu, ken)
   defeated(blanka, ryu)
+  friendly(ken, ryu) = 15
+  friendly(ryu, ken) = 15

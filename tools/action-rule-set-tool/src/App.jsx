@@ -103,8 +103,11 @@ export default function App() {
     insert: (template, shift) => inserterRef.current?.(template, shift),
   }), []);
 
+  const [llmEnabled, setLlmEnabled] = useState(false);
+
   useEffect(() => {
     api.grammar().then(g => setHighlighter(compileGrammar(g))).catch(() => {});
+    api.llmStatus().then(r => setLlmEnabled(r.enabled)).catch(() => {});
   }, []);
 
   const refreshScenarios = () => api.scenarios().then(list => { setScenarios(list); return list; });
@@ -260,6 +263,7 @@ export default function App() {
               onAdd={(payload) => predOp(() => api.addPredicate(scenario, payload))}
               onEdit={(oldName, payload) => predOp(() => api.editPredicate(scenario, { oldName, ...payload }))}
               onDelete={(name) => predOp(() => api.deletePredicate(scenario, { name }))}
+              llmEnabled={llmEnabled}
             />
             <main className="content">
               {!data && !error && <div className="empty">Loading…</div>}
@@ -279,6 +283,7 @@ export default function App() {
                   editingRule={editingRule}
                   onExitEdit={exitRuleEditor}
                   highlighter={highlighter}
+                  llmEnabled={llmEnabled}
                 />
               )}
               {data && tab === 'actionsets' && (
@@ -295,6 +300,7 @@ export default function App() {
                   onChanged={() => reload()}
                   editingAction={editingAction}
                   onExitEdit={exitActionEditor}
+                  llmEnabled={llmEnabled}
                 />
               )}
               {data && tab === 'state' && (

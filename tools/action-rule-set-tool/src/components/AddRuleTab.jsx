@@ -4,7 +4,7 @@ import RuleEditor from './RuleEditor.jsx';
 // Doubles as the edit surface: when `editingRule` is set (Edit clicked on a
 // card in InspectTab), the form preloads that rule and Save reads "Update
 // rule" instead of "Add rule" — no popup, just this tab in a different mode.
-export default function AddRuleTab({ scenario, data, onChanged, editingRule, onExitEdit, highlighter }) {
+export default function AddRuleTab({ scenario, data, onChanged, editingRule, onExitEdit, highlighter, llmEnabled }) {
   const [key, setKey] = useState(0); // remount to reset the form after a successful add
   const [flash, setFlash] = useState(null);
 
@@ -32,6 +32,7 @@ export default function AddRuleTab({ scenario, data, onChanged, editingRule, onE
         highlighter={highlighter}
         mode={mode}
         initial={initial}
+        llmEnabled={llmEnabled}
         onSaved={() => {
           onChanged();
           if (mode === 'edit') {

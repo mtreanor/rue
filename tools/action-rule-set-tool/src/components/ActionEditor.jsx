@@ -16,11 +16,12 @@ const emptyRole = (entityTypeNames = []) => ({ variable: '', type: entityTypeNam
 // valid.
 export default function ActionEditor({
   scenario, actionsets, predicates, entityNames, entityTypeNames = [], highlighter = null,
-  mode = 'add', initial = {}, onSaved, onCancel,
+  mode = 'add', initial = {}, onSaved, onCancel, llmEnabled = false,
 }) {
   const [actionset, setActionset] = useState(initial.actionset ?? actionsets[0]?.name ?? '');
   const [name, setName] = useState(initial.name ?? '');
   const [comment, setComment] = useState(initial.comment ?? '');
+  const [suggestingContent, setSuggestingContent] = useState(false);
   const [roles, setRoles] = useState(initial.roles?.length ? initial.roles.map(r => ({ ...r })) : [emptyRole(entityTypeNames)]);
   const [info, setInfo] = useState(initial.infoText ?? '');
   const [preconditions, setPreconditions] = useState(initial.preconditionsText ?? '');
@@ -154,10 +155,38 @@ export default function ActionEditor({
 
       <label className="field">
         <span>Content template <em>(optional — spoken/text content)</em></span>
-        <input
-          type="text" value={content} onChange={e => setContent(e.target.value)}
-          placeholder="e.g. {?SELF} praises {?TARGET}"
-        />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            type="text" value={content} onChange={e => setContent(e.target.value)}
+            placeholder="e.g. {?SELF} praises {?TARGET}"
+            style={{ flexGrow: 1 }}
+          />
+          {llmEnabled && (
+            <button
+              type="button"
+              className="btn tiny"
+              disabled={suggestingContent || !name.trim()}
+              title="Suggest content template using LLM"
+              onClick={async () => {
+                setSuggestingContent(true);
+                try {
+                  const res = await api.suggestActionContent(
+                    scenario, name, roles, preconditions, effects, utility
+                  );
+                  console.log('Action Content Suggestion Prompt:', res.prompt);
+                  console.log('Action Content Suggestion Response:', res.rawResponse);
+                  if (res.suggestion) setContent(res.suggestion);
+                } catch (e) {
+                  alert(e.message);
+                } finally {
+                  setSuggestingContent(false);
+                }
+              }}
+            >
+              {suggestingContent ? 'Suggesting…' : '✨ Suggest'}
+            </button>
+          )}
+        </div>
       </label>
 
       <label className="field">

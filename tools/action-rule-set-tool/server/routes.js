@@ -19,6 +19,9 @@ import { addPredicate, editPredicate, deletePredicate, defineTextByPredicate } f
 import { pendingChanges, saveToFile, discardShadow, workingPath } from './workspace.js';
 import { createSet, createScenario } from './sets.js';
 import { repoRoot } from './config.js';
+import { readdirSync, existsSync } from 'fs';
+import { isLlmEnabled, callLlm } from '../../../src/llm.js';
+import { onReload } from './state.js';
 
 export const router = Router();
 
@@ -500,3 +503,107 @@ function requireActionsetPath(ctx, actionset) {
   if (!path) throw new Error(`Scenario "${ctx.name}" has no actionset named "${actionset}"`);
   return path;
 }
+
+// ── LLM Integration ─────────────────────────────────────────────────────────
+
+const examplesCache = new Map(); // scenarioName -> { rules: string[], actions: string[] }
+
+function getScenarioExamples(scenarioName) {
+  if (examplesCache.has(scenarioName)) {
+    return examplesCache.get(scenarioName);
+  }
+  const ctx = loadScenarioContext(scenarioName);
+  const rules = [];
+  for (const rs of loadRulesets(ctx)) {
+    for (const rule of rs.rules) {
+      if (rule.name) rules.push(rule.name);
+    }
+  }
+  const actions = [];
+  for (const as of loadActionsets(ctx)) {
+    for (const action of as.actions) {
+      if (action.parsed?.content?.template) {
+        actions.push(action.parsed.content.template);
+      }
+    }
+  }
+  const entry = { rules, actions };
+  examplesCache.set(scenarioName, entry);
+  return entry;
+}
+
+onReload((scenarioName) => {
+  examplesCache.delete(scenarioName);
+});
+
+router.get('/llm/status', h((req, res) => {
+  res.json({ enabled: isLlmEnabled() });
+}));
+
+router.get('/llm/sensors', h((req, res) => {
+  const sensorsDir = join(repoRoot, 'data', 'sensors', 'llm');
+  if (!existsSync(sensorsDir)) {
+    return res.json({ files: [] });
+  }
+  try {
+    const files = readdirSync(sensorsDir).filter(f => f.endsWith('.js'));
+    res.json({ files });
+  } catch (e) {
+    res.json({ files: [] });
+  }
+}));
+
+router.post('/llm/suggest-rule-name', h(async (req, res) => {
+  const { scenario, body, comment } = req.body;
+  const examples = getScenarioExamples(scenario).rules;
+  
+  const systemPrompt = `You are a helper that generates names for rules in a symbolic logic engine.
+The names should match the style and naming convention of existing rules in the project.
+
+Existing rule names for inspiration:
+${examples.slice(0, 30).map(name => `- ${name}`).join('\n')}
+
+Generate a short, descriptive name (usually 2-5 words, lowercase, kebab-case or space separated) for the following rule:
+${body}
+${comment ? `Comment: ${comment}` : ''}
+
+Output ONLY the rule name, nothing else.`;
+
+  const suggestion = await callLlm(systemPrompt);
+  res.json({
+    suggestion: suggestion.replace(/^["']|["']$/g, '').trim(),
+    prompt: systemPrompt,
+    rawResponse: suggestion
+  });
+}));
+
+router.post('/llm/suggest-action-content', h(async (req, res) => {
+  const { scenario, name, roles, preconditions, effects, utility } = req.body;
+  const examples = getScenarioExamples(scenario).actions;
+
+  const systemPrompt = `You are a helper that generates the content template (the spoken or text representation) for an action in a symbolic logic engine.
+The content templates must describe the action using the bound variables of the roles, wrapping variables in curly braces:
+- "{?X} tells {?Y}: I am going to exploit you"
+- "{?X} apologizes to {?Y}"
+
+Existing action content templates for inspiration:
+${examples.slice(0, 30).map(tmpl => `- ${tmpl}`).join('\n')}
+
+Generate a content template for the following action:
+Action Name: ${name}
+Roles: ${JSON.stringify(roles)}
+Preconditions: ${preconditions}
+Effects: ${effects}
+Utility: ${utility}
+
+Instructions:
+1. Always wrap variables (such as ?SELF, ?X, ?Y, ?OTHER) in curly braces, e.g. {?SELF} or {?OTHER}.
+2. Output ONLY the content template text, nothing else. Do not wrap in quotes unless the quotes are part of the template.`;
+
+  const suggestion = await callLlm(systemPrompt);
+  res.json({
+    suggestion: suggestion.replace(/^["']|["']$/g, '').trim(),
+    prompt: systemPrompt,
+    rawResponse: suggestion
+  });
+}));

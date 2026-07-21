@@ -10,6 +10,8 @@ import { Binding } from './Binding.js';
 import { RuleEffectProvenance } from './provenance/RuleEffectProvenance.js';
 import { buildPremiseJustifications } from './provenance/justifyPremise.js';
 
+import { SensorLLMQueryHandler } from './queryHandlers/SensorLLMQueryHandler.js';
+
 export class World {
   constructor(schema = null) {
     this.schema           = schema;
@@ -30,6 +32,7 @@ export class World {
     this.queryHandlers.register('factStore', new FactStoreQueryHandler(this.factStore, schema));
     this.queryHandlers.register('externalAPI', new ExternalAPIQueryHandler());
     this.queryHandlers.register('derived', new DerivedFactQueryHandler());
+    this.queryHandlers.register('sensor-llm', new SensorLLMQueryHandler());
   }
 
   createEvaluationContext() {

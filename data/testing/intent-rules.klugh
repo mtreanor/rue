@@ -7,3 +7,9 @@ ruleset "intent-rules"
   rule "challenge those with low charisma"
     charisma.low(?OTHER)
     => intent-challenge(?A, ?B) += 2
+
+  rule "respect movie stars"
+    friendly(?SELF, ?OTHER) > 10
+    ^ mainCharacterInMovie(?SELF)
+    => intent-nice(?SELF, ?OTHER) += 1
+

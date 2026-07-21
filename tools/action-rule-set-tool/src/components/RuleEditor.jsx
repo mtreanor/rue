@@ -7,7 +7,7 @@ import { useDebounced } from '../hooks.js';
 // (parse + schema + cycle detection) and only enables save when valid.
 export default function RuleEditor({
   scenario, rulesets, predicates, entityNames, highlighter,
-  mode = 'add', initial = {}, onSaved, onCancel,
+  mode = 'add', initial = {}, onSaved, onCancel, llmEnabled = false,
 }) {
   const [ruleset, setRuleset] = useState(initial.ruleset ?? rulesets[0]?.name ?? '');
   const [name, setName] = useState(initial.name ?? '');
@@ -16,6 +16,7 @@ export default function RuleEditor({
   const [result, setResult] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [suggestingName, setSuggestingName] = useState(false);
 
   const debName = useDebounced(name, 300);
   const debBody = useDebounced(body, 300);
@@ -60,7 +61,32 @@ export default function RuleEditor({
         </label>
         <label className="field grow">
           <span>Name</span>
-          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="short rule title" />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="short rule title" style={{ flexGrow: 1 }} />
+            {llmEnabled && (
+              <button
+                type="button"
+                className="btn tiny"
+                disabled={suggestingName || !body.trim()}
+                title="Suggest rule name using LLM"
+                onClick={async () => {
+                  setSuggestingName(true);
+                  try {
+                    const res = await api.suggestRuleName(scenario, body, comment);
+                    console.log('Rule Name Suggestion Prompt:', res.prompt);
+                    console.log('Rule Name Suggestion Response:', res.rawResponse);
+                    if (res.suggestion) setName(res.suggestion);
+                  } catch (e) {
+                    alert(e.message);
+                  } finally {
+                    setSuggestingName(false);
+                  }
+                }}
+              >
+                {suggestingName ? 'Suggesting…' : '✨ Suggest'}
+              </button>
+            )}
+          </div>
         </label>
       </div>
 

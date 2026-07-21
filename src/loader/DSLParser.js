@@ -662,6 +662,7 @@ export class DSLParser {
     if (schemaType === 'boolean') return 'fact';
     if (schemaType === 'derived') return 'derived';
     if (schemaType === 'sensor') return 'sensor';
+    if (schemaType === 'sensor-llm') return 'sensor-llm';
     return 'fact';
   }
 

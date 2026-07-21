@@ -5,7 +5,7 @@ import ActionEditor from './ActionEditor.jsx';
 // card in ActionsetsTab), the form preloads that action and Save reads
 // "Update action" instead of "Add action" — no popup, just this tab in a
 // different mode.
-export default function AddActionTab({ scenario, data, highlighter, onChanged, editingAction, onExitEdit }) {
+export default function AddActionTab({ scenario, data, highlighter, onChanged, editingAction, onExitEdit, llmEnabled }) {
   const [key, setKey] = useState(0); // remount to reset the form after a successful add
   const [flash, setFlash] = useState(null);
 
@@ -35,6 +35,7 @@ export default function AddActionTab({ scenario, data, highlighter, onChanged, e
         highlighter={highlighter}
         mode={mode}
         initial={initial}
+        llmEnabled={llmEnabled}
         onSaved={() => {
           onChanged();
           if (mode === 'edit') {

@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DslInput from './DslInput.jsx';
+import { api } from '../api.js';
 
-const TYPES = ['boolean', 'numeric', 'derived', 'sensor', 'sensor-numeric'];
-const NUMERIC = new Set(['numeric', 'sensor-numeric']);
+const NUMERIC = new Set(['numeric', 'sensor-numeric', 'sensor-llm-numeric']);
 const argVar = (i) => '?' + String.fromCharCode(65 + (i % 26));
 
 const tiersToRows = (t) => Object.entries(t ?? {}).map(([name, [lo, hi]]) => ({ name, lo, hi }));
@@ -43,7 +43,7 @@ function buildDefineBlock(name, arity, premisesText) {
 
 // Add/edit a predicate. `initial` is the predicate being edited, or null to add.
 // onSubmit(payload) returns a promise<boolean>; the modal closes on success.
-export default function PredicateModal({ initial, entityTypeNames = [], predicates = [], entityNames = [], highlighter, onSubmit, onClose }) {
+export default function PredicateModal({ initial, entityTypeNames = [], predicates = [], entityNames = [], highlighter, onSubmit, onClose, llmEnabled = false }) {
   const editing = !!initial;
   const [name, setName] = useState(initial?.name ?? '');
   const [type, setType] = useState(initial?.type ?? 'boolean');
@@ -56,6 +56,28 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
   const [tiers, setTiers] = useState(tiersToRows(initial?.tierRanges));
   const [premises, setPremises] = useState(extractPremises(initial?.define));
   const [busy, setBusy] = useState(false);
+
+  const [sensorFiles, setSensorFiles] = useState([]);
+  const [sensorFile, setSensorFile] = useState(initial?.sensorFile ?? '');
+
+  const typesOptions = useMemo(() => {
+    const list = ['boolean', 'numeric', 'derived', 'sensor', 'sensor-numeric'];
+    if (llmEnabled) {
+      list.push('sensor-llm', 'sensor-llm-numeric');
+    }
+    return list;
+  }, [llmEnabled]);
+
+  useEffect(() => {
+    if (llmEnabled) {
+      api.llmSensors().then(r => {
+        setSensorFiles(r.files ?? []);
+        if (!initial?.sensorFile && r.files?.[0]) {
+          setSensorFile(r.files[0]);
+        }
+      }).catch(() => {});
+    }
+  }, [llmEnabled, initial]);
 
   const argOptions = useMemo(() => [...new Set([...entityTypeNames, 'string'])], [entityTypeNames]);
   const conclVars = useMemo(() => varsIn(premises).slice(0, args.length), [premises, args.length]);
@@ -71,10 +93,12 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
   const submit = async () => {
     const nm = name.trim();
     if (!nm) return;
+    const isLLM = type === 'sensor-llm' || type === 'sensor-llm-numeric';
     const payload = {
       name: nm,
       type,
       args,
+      sensorFile: isLLM ? sensorFile : undefined,
       config: {
         symmetric: type === 'boolean' && symmetric && args.length === 2,
         ...(NUMERIC.has(type) ? { minValue, maxValue, default: def, tiers: rowsToTiers(tiers), ephemeral } : {}),
@@ -100,10 +124,22 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
           <label className="ent-field">
             <span>Type</span>
             <select value={type} onChange={e => setType(e.target.value)}>
-              {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {typesOptions.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>
         </div>
+
+        {(type === 'sensor-llm' || type === 'sensor-llm-numeric') && (
+          <div className="ent-field">
+            <span>LLM Sensor Logic File</span>
+            <select value={sensorFile} onChange={e => setSensorFile(e.target.value)}>
+              {sensorFiles.length === 0 && <option value="">(No files in data/sensors/llm/)</option>}
+              {sensorFiles.map(file => (
+                <option key={file} value={file}>{file}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="ent-field">
           <span>Arguments</span>

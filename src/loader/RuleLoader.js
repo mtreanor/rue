@@ -21,6 +21,9 @@ import { NumericComparisonPredicate } from '../predicates/NumericComparisonPredi
 import { SensorPredicate } from '../predicates/SensorPredicate.js';
 import { SensorNumericTierPredicate } from '../predicates/SensorNumericTierPredicate.js';
 import { SensorNumericComparisonPredicate } from '../predicates/SensorNumericComparisonPredicate.js';
+import { SensorLLMPredicate } from '../predicates/SensorLLMPredicate.js';
+import { SensorLLMNumericTierPredicate } from '../predicates/SensorLLMNumericTierPredicate.js';
+import { SensorLLMNumericComparisonPredicate } from '../predicates/SensorLLMNumericComparisonPredicate.js';
 import { ComparisonPredicate } from '../predicates/ComparisonPredicate.js';
 import { AtTickPredicate } from '../predicates/AtTickPredicate.js';
 import { AggregatePredicate } from '../predicates/AggregatePredicate.js';
@@ -215,10 +218,15 @@ export class RuleLoader {
         return this.buildWeakNegation(data.predicate);
       case 'sensor':
         return new SensorPredicate(data.name, this.resolveArgs(data.args));
+      case 'sensor-llm':
+        return new SensorLLMPredicate(data.name, this.resolveArgs(data.args));
       case 'numeric-value': {
         const def = this.predicateSchema?.getDefinition(data.name);
         if (def?.type === 'sensor-numeric') {
           return new SensorNumericComparisonPredicate(data.name, this.resolveArgs(data.args), data.operator, data.threshold);
+        }
+        if (def?.type === 'sensor-llm-numeric') {
+          return new SensorLLMNumericComparisonPredicate(data.name, this.resolveArgs(data.args), data.operator, data.threshold);
         }
         return new NumericComparisonPredicate(data.name, this.resolveArgs(data.args), data.operator, data.threshold);
       }
@@ -226,6 +234,9 @@ export class RuleLoader {
         const def = this.predicateSchema?.getDefinition(data.name);
         if (def?.type === 'sensor-numeric') {
           return new SensorNumericTierPredicate(data.name, this.resolveArgs(data.args), data.tier);
+        }
+        if (def?.type === 'sensor-llm-numeric') {
+          return new SensorLLMNumericTierPredicate(data.name, this.resolveArgs(data.args), data.tier);
         }
         if (this.predicateSchema && !def?.tiers?.[data.tier]) {
           throw new Error(`Unknown tier "${data.tier}" for predicate "${data.name}"`);
@@ -256,7 +267,7 @@ export class RuleLoader {
       case 'pred-aggregate-comparison': {
         if (this.predicateSchema) {
           const def = this.predicateSchema.getDefinition(data.left.name);
-          if (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric')) {
+          if (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric' && def.type !== 'sensor-llm-numeric')) {
             throw new Error(`Predicate "${data.left.name}" must be numeric to appear on the left side of an aggregate comparison`);
           }
         }
@@ -314,8 +325,8 @@ export class RuleLoader {
       throw new Error(`Unknown predicate: "${name}" is not defined in the predicate schema`);
     }
     const type = this.predicateSchema?.getDefinition(name)?.type;
-    if (type === 'numeric' || type === 'sensor-numeric') return 'numeric';
-    if (type === 'boolean' || type === 'derived' || type === 'sensor') return 'boolean';
+    if (type === 'numeric' || type === 'sensor-numeric' || type === 'sensor-llm-numeric') return 'numeric';
+    if (type === 'boolean' || type === 'derived' || type === 'sensor' || type === 'sensor-llm') return 'boolean';
     throw new Error(`Predicate "${name}" (type ${type ?? 'unknown'}) cannot be used in a comparison`);
   }
 
@@ -325,7 +336,8 @@ export class RuleLoader {
   // way a whole owner-prefixed predicate would be (see
   // ComparisonPredicate/resolveOwnerScope.js).
   buildComparisonOperand(side) {
-    if ((side.ownerVar || side.ownerEntity) && this.predicateSchema?.getDefinition(side.name)?.type === 'sensor-numeric') {
+    const sideType = this.predicateSchema?.getDefinition(side.name)?.type;
+    if ((side.ownerVar || side.ownerEntity) && (sideType === 'sensor-numeric' || sideType === 'sensor-llm-numeric')) {
       // Same reasoning as the 'private' case in buildPredicate() above — a
       // sensor reads a single globally-registered handler, not a specific
       // entity's private store, so an owner prefix here would silently do
@@ -361,7 +373,7 @@ export class RuleLoader {
       const filterPredicates = rewrittenPredicates.map(pred => {
         const effective  = unwrapPrivate(pred);
         const schemaType = this.predicateSchema.getDefinition(effective.name)?.type;
-        if (effective.type === 'fact' && (schemaType === 'numeric' || schemaType === 'sensor-numeric')) {
+        if (effective.type === 'fact' && (schemaType === 'numeric' || schemaType === 'sensor-numeric' || schemaType === 'sensor-llm-numeric')) {
           throw new Error(`count|...| filters on whether predicates hold, not their value — "${effective.name}" is a bare numeric predicate reference with no comparison. Use a comparison (e.g. "${effective.name}(...) > N") instead.`);
         }
         return this.buildPredicate(pred);
@@ -379,7 +391,7 @@ export class RuleLoader {
       // (COMPARISON_SHAPED_TYPES) already resolves to a boolean — both are
       // always filters, never the aggregated numeric value, even when the
       // predicate they read is itself numeric.
-      if ((schemaType === 'numeric' || schemaType === 'sensor-numeric') && effective.type !== 'when' && !COMPARISON_SHAPED_TYPES.has(effective.type)) {
+      if ((schemaType === 'numeric' || schemaType === 'sensor-numeric' || schemaType === 'sensor-llm-numeric') && effective.type !== 'when' && !COMPARISON_SHAPED_TYPES.has(effective.type)) {
         if (valuePred !== null) {
           throw new Error(`Aggregate conjunction has more than one numeric predicate: "${valuePred.name}" and "${effective.name}"`);
         }
@@ -485,7 +497,7 @@ export class RuleLoader {
     if (rhs.kind === 'predicate') {
       if (this.predicateSchema) {
         const def = this.predicateSchema.getDefinition(rhs.name);
-        if (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric')) {
+        if (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric' && def.type !== 'sensor-llm-numeric')) {
           throw new Error(`Aggregate comparison RHS "${rhs.name}" must be a numeric predicate`);
         }
       }
@@ -508,14 +520,14 @@ export class RuleLoader {
       case 'var': return new VarRef(this.resolveArgs([node.name])[0]);
       case 'pred': {
         const def = this.predicateSchema?.getDefinition(node.name);
-        if (this.predicateSchema && (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric'))) {
+        if (this.predicateSchema && (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric' && def.type !== 'sensor-llm-numeric'))) {
           throw new Error(`"${node.name}" is not a numeric predicate and cannot appear in a numeric expression`);
         }
         return new PredRef(node.name, this.resolveArgs(node.args));
       }
       case 'ownerPred': {
         const def = this.predicateSchema?.getDefinition(node.name);
-        if (this.predicateSchema && (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric'))) {
+        if (this.predicateSchema && (!def || (def.type !== 'numeric' && def.type !== 'sensor-numeric' && def.type !== 'sensor-llm-numeric'))) {
           throw new Error(`"${node.name}" is not a numeric predicate and cannot appear in a numeric expression`);
         }
         const owner = this.resolveArgs([node.ownerVar])[0];

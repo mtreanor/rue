@@ -17,6 +17,8 @@ Every predicate is declared in the schema with a type. The type determines how t
 | `derived` | no | Computed at query time via backward chaining over `define` blocks |
 | `sensor` | no | Boolean computed by application-layer code at evaluation time |
 | `sensor-numeric` | no | Numeric computed by application-layer code at evaluation time |
+| `sensor-llm` | no | Boolean evaluated dynamically via an LLM call |
+| `sensor-llm-numeric` | no | Numeric evaluated dynamically via an LLM call |
 
 → [Schema](schema.md) · [Derived predicates](derived-predicates.md) · [Sensor predicates](sensors.md)
 

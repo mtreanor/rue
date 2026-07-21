@@ -69,7 +69,20 @@ export function resolveProvenanceNode(engine, address) {
 function resolvePredicate(engine, { name, args = [], owner = null, tick = null }) {
   const def = engine.schema.getDefinition(name);
   const type = def?.type;
-  if (type === 'numeric' || type === 'sensor-numeric') return numericNode(engine, name, args, owner, tick);
+  if (type === 'sensor-llm' || type === 'sensor-llm-numeric') {
+    const handler = engine.world.queryHandlers.getHandler('sensor-llm');
+    const entry = handler?.findHistoryEntry(name, args, tick);
+    if (entry) {
+      return {
+        type: 'predicate-sensor-llm',
+        name, args, owner, tick,
+        value: entry.value !== undefined ? String(entry.value) : (entry.result ? 'true' : 'false'),
+        prompt: entry.prompt,
+        detail: entry.detail
+      };
+    }
+  }
+  if (type === 'numeric' || type === 'sensor-numeric' || type === 'sensor-llm-numeric') return numericNode(engine, name, args, owner, tick);
   if (type === 'derived')                              return derivedNode(engine, name, args, owner, tick);
   return booleanNode(engine, name, args, owner, tick);
 }
@@ -189,6 +202,7 @@ function renderSource(engine, provenance, tick) {
     case 'rule-effect':   return ruleDetail(provenance.rule, provenance.binding, tick, 'rule');
     case 'derived-fact':  return ruleDetail(provenance.defineRule, provenance.binding, tick, 'derived-rule');
     case 'sensor':        return { type: 'sensor', name: provenance.sensorName ?? null, detail: provenance.detail ?? null };
+    case 'sensor-llm':    return { type: 'sensor-llm', name: provenance.sensorName ?? null, detail: provenance.detail ?? null, prompt: provenance.prompt ?? null };
     case 'given':
     default:              return { type: 'given', description: 'given / authored' };
   }
@@ -365,6 +379,7 @@ function provenanceKind(provenance) {
   if (provenance.type === 'rule-effect')   return { kind: 'rule',    name: provenance.rule?.name ?? null };
   if (provenance.type === 'derived-fact')  return { kind: 'derived', name: provenance.defineRule?.name ?? null };
   if (provenance.type === 'sensor')        return { kind: 'sensor',  name: provenance.sensorName ?? null };
+  if (provenance.type === 'sensor-llm')    return { kind: 'sensor-llm', name: provenance.sensorName ?? null };
   return { kind: provenance.type ?? 'unknown', name: null };
 }
 

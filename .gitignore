@@ -5,3 +5,6 @@ node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 designs/
+.env
+grants/
+test-proxy.js

@@ -169,6 +169,10 @@ function serializeProvenance(prov) {
     return { type: 'sensor', sensorName: prov.sensorName ?? null };
   }
 
+  if (prov.type === 'sensor-llm') {
+    return { type: 'sensor-llm', sensorName: prov.sensorName ?? null, prompt: prov.prompt ?? null };
+  }
+
   return { type: prov.type ?? 'unknown' };
 }
 
@@ -332,6 +336,10 @@ function deserializeProvenance(data, recordsByKey) {
 
   if (data.type === 'sensor') {
     return { type: 'sensor', sensorName: data.sensorName };
+  }
+
+  if (data.type === 'sensor-llm') {
+    return { type: 'sensor-llm', sensorName: data.sensorName, prompt: data.prompt };
   }
 
   return { type: data.type ?? 'unknown' };
