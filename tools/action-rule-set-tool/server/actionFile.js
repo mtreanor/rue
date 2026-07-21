@@ -113,10 +113,12 @@ function normalizeVariable(v) {
 // the grammar expects — in the fixed section order ActionParser.parseAction
 // reads (roles, info, preconditions, utility, content, effects). Header lines
 // (roles:/info:/etc.) are left unindented here; renderBlock's per-line pass
-// indents them to 2 spaces. Nested section bodies are pre-indented to 4 so
-// they read as nested under their header, matching hand-authored actionset
-// files — the DSL itself is whitespace-insensitive, so this is purely
-// cosmetic.
+// base-indents them to 4 spaces. Nested section bodies are pre-indented an
+// extra 2 here so they land at 6 once renderBlock adds its base — one level
+// deeper than their header, matching hand-authored actionset files. The DSL
+// itself is whitespace-insensitive, so this is purely cosmetic, but renderBlock
+// now preserves whatever relative nesting is passed in rather than flattening
+// it (see blockFile.js), so the exact indent chosen here is what ends up on disk.
 export function buildActionBody({
   roles = [], info = '', preconditions = '', utility = '', content = '', effects = '',
 }) {
@@ -130,23 +132,23 @@ export function buildActionBody({
 
   if (info.trim()) {
     lines.push('info:');
-    lines.push(...indentLines(info, 4));
+    lines.push(...indentLines(info, 2));
   }
   if (preconditions.trim()) {
     lines.push('preconditions');
-    lines.push(...indentLines(preconditions, 4));
+    lines.push(...indentLines(preconditions, 2));
   }
   if (utility.trim()) {
     lines.push('utility');
-    lines.push(...indentLines(utility, 4));
+    lines.push(...indentLines(utility, 2));
   }
   if (content.trim()) {
     lines.push('content');
-    lines.push(`    text: ${JSON.stringify(content.trim())}`);
+    lines.push(...indentLines(`text: ${JSON.stringify(content.trim())}`, 2));
   }
   if (effects.trim()) {
     lines.push('effects');
-    lines.push(...indentLines(effects, 4));
+    lines.push(...indentLines(effects, 2));
   }
 
   return lines.join('\n');

@@ -284,12 +284,21 @@ export function explainFact(scenario, fact) {
 // session's current tick — see PlaySession.runWatches) the same way any other
 // engine.query() caller pre-binds a role variable; it's plain pass-through,
 // not a new query mechanism.
-export function runQueryForEngine(engine, text, scopedTo = null, partialBinding = {}) {
-  const bindings = engine.query(text, partialBinding, { scopedTo });
+//
+// `includeValues` (opt-in, default off) additionally resolves each row's
+// top-level numeric/sensor-numeric atoms via Engine.queryValues() and attaches
+// them as `row.values` — e.g. so a watch on `friendship(?X, ?Y)` can show what
+// the number actually is, not just which pairs have one. Every other caller
+// (the State tab's ad-hoc query box, a watch's row-detail drill-down, Play's
+// scoped query panel) leaves this off and gets the exact same {vars, count,
+// rows} shape as before; only PlaySession.runWatches turns it on.
+export function runQueryForEngine(engine, text, scopedTo = null, partialBinding = {}, { includeValues = false } = {}) {
+  const results = engine.queryValues(text, partialBinding, { scopedTo });
   const vars = new Set();
-  const rows = bindings.map(b => {
+  const rows = results.map(({ binding, values }) => {
     const row = {};
-    for (const [k, v] of b.assignments) { vars.add(k); row[k] = v?.name ?? v; }
+    for (const [k, v] of binding.assignments) { vars.add(k); row[k] = v?.name ?? v; }
+    if (includeValues && values.length) row.values = values;
     return row;
   });
   return { vars: [...vars], count: rows.length, rows };

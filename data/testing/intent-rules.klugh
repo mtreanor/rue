@@ -1,0 +1,9 @@
+ruleset "intent-rules"
+
+  rule "not nice to uncharismatic "
+    charisma.low(?OTHER)
+    => intent-nice(?A, ?B) -= 2
+
+  rule "challenge those with low charisma"
+    charisma.low(?OTHER)
+    => intent-challenge(?A, ?B) += 2

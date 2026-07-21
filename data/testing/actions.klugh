@@ -1,0 +1,10 @@
+actionset "actions"
+
+  action "Insult"
+    roles: ?SELF: agent, ?OTHER: agent
+    utility
+    intent-nice(?SELF, ?OTHER)
+    content
+    text: "{?SELF} insults {?OTHER}"
+    effects
+    friendly(?OTHER, ?SELF) -= 2

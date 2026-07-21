@@ -5,6 +5,7 @@
     "quickstart": "data/quickstart",
     "demo": "data/demo-volition",
     "stress": "data/stress",
-    "simple": "data/simple"
+    "simple": "data/simple",
+    "testing": "data/testing"
   }
 }

@@ -69,7 +69,18 @@ function loadPlayContent(scenarioName, planName) {
   for (const f of actionGraphFiles) {
     if (!f.endsWith('.json')) continue;
     const name = f.slice(0, -5);
-    actionGraphs[name] = actionGraphFromJSON(JSON.parse(readFileSync(`${paths.actionGraphs}/${f}`, 'utf-8')));
+    try {
+      actionGraphs[name] = actionGraphFromJSON(JSON.parse(readFileSync(`${paths.actionGraphs}/${f}`, 'utf-8')));
+    } catch {
+      // A stage-less draft (freshly created, no entry yet) or otherwise
+      // unloadable file — not runnable, but one broken/in-progress
+      // actionGraph shouldn't blank out preview/session data for the rest
+      // of the scenario. Left out of the map; entryStageRolesPlain simply
+      // has no entry for it (client treats that the same as {} — see
+      // TickPlanFlowTab's actionGraphRolesByName fallback), and a phase
+      // that actually needs it fails with a specific error at run time
+      // instead (TickPlan._runActionGraphPhase's "no actionGraph named" check).
+    }
   }
   return { engine, actionGraphs, tickPlanConfig, paths, planName: resolvedPlanName };
 }
@@ -358,7 +369,7 @@ class PlaySession {
       return {
         label: watch.label, query: watch.query, kind: watch.kind ?? null,
         details: watch.details,
-        ...runQueryForEngine(this.engine, watch.query, null, partialBinding),
+        ...runQueryForEngine(this.engine, watch.query, null, partialBinding, { includeValues: true }),
       };
     });
   }

@@ -213,6 +213,14 @@ export default function TickPlanFlowTab({ scenario, data, onGoToRuleset, onGoToA
         const list = await api.saveActionGraph(scenario, agData);
         setActionGraphs(list);
         setError(null);
+        // A stage edit can change the entry stage's role introspection (e.g.
+        // authoring the first action into a previously-empty entry stage) —
+        // re-preview so PhaseRoleFields picks up the new roles without
+        // requiring a reload. Same call the [scenario, planName] effect
+        // above makes; harmless to repeat since it's a read-only preview.
+        if (scenario && planName) {
+          api.playSession(scenario, planName).then(setSession).catch(() => {});
+        }
       } catch (e) { setError(e.message); }
     }, 400);
   }

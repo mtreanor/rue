@@ -1,0 +1,27 @@
+{
+  "name": "take-action",
+  "notes": "",
+  "entry": "act",
+  "selectionStrategy": "highestUtility",
+  "preHooks": [],
+  "postHooks": [],
+  "stages": {
+    "act": {
+      "actionset": "actions",
+      "routing": "branch",
+      "routesTo": "end",
+      "perActionRouting": false,
+      "actionRoutes": {},
+      "primingRules": [
+        {
+          "type": "ruleset-single",
+          "name": "intent-rules"
+        }
+      ],
+      "preHooks": [],
+      "postHooks": [],
+      "salienceFloor": 0,
+      "selectionStrategy": null
+    }
+  }
+}

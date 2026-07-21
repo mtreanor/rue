@@ -1,0 +1,8 @@
+{
+  "agent": {
+    "distinct": true,
+    "ryu": {},
+    "ken": {},
+    "blanka": {}
+  }
+}

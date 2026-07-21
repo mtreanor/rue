@@ -23,6 +23,7 @@ import { proofNodeForFact, proofNodeForNumeric } from './provenance/ProofTree.js
 import { Fact } from './Fact.js';
 import { restoreFromFile } from './Snapshot.js';
 import { toFactArg } from './entityValue.js';
+import { scopeToOwner } from './predicates/resolveOwnerScope.js';
 
 function scanKlughFiles(dir) {
   const results = [];
@@ -207,17 +208,13 @@ export class Engine {
     this.world.queryHandlers.getHandler('derived').registerRules(definitions);
   }
 
-  // Parses a predicate conjunction (predicates joined by ^) and returns all
-  // satisfying bindings. partialBinding is a plain object mapping variable names
-  // (without '?') to entity name strings or concrete values — those variables
-  // are held fixed while the rest are enumerated.
-  //
-  // scopedTo: entity name string — if provided, the query is evaluated from
-  // that entity's private-store perspective (their activeStore is set).
-  //
-  // Returns Binding[]. A ground query (no variables) returns [emptyBinding] when
-  // true, [] when false.
-  query(text, partialBinding = {}, { scopedTo = null } = {}) {
+  // Shared parse-and-evaluate core behind query()/queryValues(): parses the
+  // conjunction, enumerates candidate bindings, and filters to the ones that
+  // actually satisfy every predicate. Returns the predicates and evaluation
+  // context alongside the surviving bindings so queryValues() can resolve
+  // each atom's live value against the exact same scope it was evaluated in,
+  // without re-parsing or re-enumerating.
+  _planQuery(text, partialBinding, { scopedTo = null } = {}) {
     const predAsts = this.ruleParser.parsePredicateConjunction(text, {
       entityNames: this.world.entityNames,
     });
@@ -256,10 +253,70 @@ export class Engine {
       freeVars, variableTypes, entityRegistry, startingBinding, evaluationContext, predicateEntries
     );
 
-    return candidates.filter(binding =>
+    const bindings = candidates.filter(binding =>
       bindingSatisfiesDistinctArguments(binding, predicates, this.schema, entityRegistry, this.world.entityTypeConfig) &&
       predicates.every(p => p.evaluate(binding, evaluationContext))
     );
+
+    return { predicates, bindings, evaluationContext };
+  }
+
+  // Parses a predicate conjunction (predicates joined by ^) and returns all
+  // satisfying bindings. partialBinding is a plain object mapping variable names
+  // (without '?') to entity name strings or concrete values — those variables
+  // are held fixed while the rest are enumerated.
+  //
+  // scopedTo: entity name string — if provided, the query is evaluated from
+  // that entity's private-store perspective (their activeStore is set).
+  //
+  // Returns Binding[]. A ground query (no variables) returns [emptyBinding] when
+  // true, [] when false.
+  query(text, partialBinding = {}, opts = {}) {
+    return this._planQuery(text, partialBinding, opts).bindings;
+  }
+
+  // Like query(), but alongside each satisfying binding also resolves the
+  // live value of every top-level numeric (or sensor-numeric) atom in the
+  // conjunction for that binding — e.g. `friendship(?X, ?Y)` doesn't just
+  // filter to pairs where the fact exists, it also reports what it's
+  // currently worth. An owner-prefixed atom (`?OWNER.trust(?OTHER)`) resolves
+  // against that owner's own private-store scope, exactly like evaluating it
+  // would. Atoms with no single resolvable (name, args) — a negation, an
+  // aggregate, a predicate-vs-predicate comparison — contribute no value
+  // entry rather than erroring; this is a read-only convenience for callers
+  // that want values *in addition to* filtering, not a new query dialect, so
+  // it degrades gracefully instead of demanding every atom be introspectable.
+  //
+  // Returns Array<{ binding, values: Array<{ name, args, owner, value }> }>.
+  queryValues(text, partialBinding = {}, opts = {}) {
+    const { predicates, bindings, evaluationContext } = this._planQuery(text, partialBinding, opts);
+    return bindings.map(binding => ({
+      binding,
+      values: predicates
+        .map(p => this._resolveAtomValue(p, binding, evaluationContext))
+        .filter(v => v !== null),
+    }));
+  }
+
+  // Resolves one conjunction atom's numeric value for a satisfying binding,
+  // or null if the atom isn't a single introspectable numeric/sensor-numeric
+  // predicate reference. See queryValues() for why this is best-effort.
+  _resolveAtomValue(predicate, binding, evaluationContext) {
+    let atom = predicate;
+    let owner = null;
+    let scopedContext = evaluationContext;
+    if (atom.innerPredicate !== undefined) {
+      owner = atom.resolveOwnerName(binding);
+      scopedContext = scopeToOwner(atom.owner, atom.isVariable, binding, evaluationContext);
+      atom = atom.innerPredicate;
+    }
+    if (typeof atom.name !== 'string' || !Array.isArray(atom.args)) return null;
+    const type = this.schema.getDefinition(atom.name)?.type;
+    if (type !== 'numeric' && type !== 'sensor-numeric') return null;
+
+    const args  = atom.args.map(arg => toFactArg(binding.resolve(arg)));
+    const value = scopedContext.resolveNumericValue(atom.name, args);
+    return { name: atom.name, args, owner, value };
   }
 
   // Like query(), but scores every candidate binding by weighted predicate satisfaction

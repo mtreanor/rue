@@ -81,12 +81,25 @@ export function renderBlock({ keyword, name, comment, body }) {
     }
   }
   lines.push(`  ${keyword} "${name}"`);
-  // Always indent body lines to four spaces, stripping any existing leading
-  // whitespace first so repeated edits don't compound indentation.
-  for (const raw of body.replace(/\s+$/, '').split('\n')) {
-    const line = raw.replace(/^\s+/, '').replace(/\s+$/, '');
-    if (line === '') { lines.push(''); continue; }
-    lines.push(`    ${line}`);
+  // Base-indent body lines to four spaces, dedenting by the body's own
+  // minimum indentation first (rather than stripping each line's leading
+  // whitespace individually) — this normalizes a flat rule body exactly as
+  // before (all lines share one indent level, so the dedent is a no-op) but
+  // preserves an action body's nested structure, e.g. a `preconditions`/
+  // `utility`/`effects` section's clause lines sitting one level deeper than
+  // the section header (see actionFile.js's buildActionBody). Repeated edits
+  // still can't compound indentation, since the minimum is recomputed fresh
+  // from whatever's passed in each time.
+  const bodyLines = body.replace(/\s+$/, '').split('\n');
+  const indentOf = (l) => l.match(/^[ \t]*/)[0].length;
+  const minIndent = Math.min(
+    ...bodyLines.filter(l => l.trim() !== '').map(indentOf),
+    Infinity,
+  );
+  const dedentBy = Number.isFinite(minIndent) ? minIndent : 0;
+  for (const raw of bodyLines) {
+    if (raw.trim() === '') { lines.push(''); continue; }
+    lines.push(`    ${raw.slice(dedentBy).replace(/\s+$/, '')}`);
   }
   return lines.join('\n');
 }

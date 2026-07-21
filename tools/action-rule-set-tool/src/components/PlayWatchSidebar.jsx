@@ -43,6 +43,19 @@ function detectWhenVar(query) {
   return query?.match(/\[when:\s*\?(\w+)\]/)?.[1] ?? null;
 }
 
+// A row's `values` (present when the server ran the watch with
+// includeValues — see PlaySession.runWatches) carries one entry per
+// top-level numeric/sensor-numeric atom the conjunction matched, keyed by
+// name (+ owner, for a `?OWNER.pred(...)` atom) rather than position — a
+// boolean atom in the same conjunction has no entry at all. Matched by name
+// alone when the atom isn't owner-prefixed; multiple differently-owned
+// mentions of the same predicate name in one watch would collide here, same
+// known limitation as queryPredicateName's single-predicate-per-atom
+// assumption above.
+function valueFor(row, name, owner) {
+  return row.values?.find(v => v.name === name && (owner ? v.owner === owner : !v.owner))?.value ?? null;
+}
+
 export default function PlayWatchSidebar({ scenario, hasSession, tick, highlighter, onExplain, predicates = [] }) {
   const [open, setOpen] = useState(false);
   const [defs, setDefs] = useState([]);
@@ -218,6 +231,7 @@ function WatchCard({ def, result, hasSession, scenario, highlighter, onExplain, 
                   {parsedAtoms.map((atom, ai) => {
                     let text = atom.raw;
                     for (const [key, val] of Object.entries(row)) {
+                      if (key === 'values') continue; // not a query variable — see valueFor below
                       text = text.replace(new RegExp(`\\?${key}\\b`, 'g'), val);
                     }
                     return (
@@ -227,6 +241,7 @@ function WatchCard({ def, result, hasSession, scenario, highlighter, onExplain, 
                           name={atom.name}
                           args={atom.primaryVars.map(v => row[v])}
                           owner={atom.ownerVar ? row[atom.ownerVar] : null}
+                          value={valueFor(row, atom.name, atom.ownerVar ? row[atom.ownerVar] : null)}
                           text={text}
                           highlighter={highlighter} onExplain={onExplain}
                         />

@@ -1,0 +1,78 @@
+{
+  "predicates": {
+    "trainingPartners": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "defeated": {
+      "type": "boolean",
+      "args": [
+        "agent",
+        "agent"
+      ]
+    },
+    "intent-challenge": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "intent-nice": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 100,
+      "default": 0,
+      "annotations": {
+        "ephemeral": true
+      }
+    },
+    "charisma": {
+      "type": "numeric",
+      "args": [
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 20,
+      "default": 8,
+      "tiers": {
+        "low": [
+          0,
+          10
+        ],
+        "medium": [
+          10,
+          16
+        ],
+        "high": [
+          16,
+          20
+        ]
+      }
+    },
+    "friendly": {
+      "type": "numeric",
+      "args": [
+        "agent",
+        "agent"
+      ],
+      "minValue": 0,
+      "maxValue": 20,
+      "default": 10
+    }
+  }
+}
