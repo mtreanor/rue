@@ -15,6 +15,11 @@ export { SensorLLMPredicate } from './predicates/SensorLLMPredicate.js';
 export { SensorLLMNumericComparisonPredicate } from './predicates/SensorLLMNumericComparisonPredicate.js';
 export { SensorLLMNumericTierPredicate } from './predicates/SensorLLMNumericTierPredicate.js';
 
+// Actuator base classes & handlers
+export { Actuator } from './Actuator.js';
+export { NumericActuator } from './NumericActuator.js';
+export { ActuatorQueryHandler } from './queryHandlers/ActuatorQueryHandler.js';
+
 // Derived predicate code handlers
 export { DerivedFactQueryHandler } from './queryHandlers/DerivedFactQueryHandler.js';
 

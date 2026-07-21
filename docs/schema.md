@@ -44,6 +44,8 @@ Predicate names must not collide with entity type names or entity instance names
 | `sensor-numeric` | Numeric value computed on demand by application-layer code. Never stored. Queryable by tier and comparison. |
 | `sensor-llm` | Boolean truth evaluated by an LLM prompt. Never stored. Prompt/response history captured in provenance. |
 | `sensor-llm-numeric` | Numeric value evaluated by an LLM prompt. Never stored. Queryable by tier/comparison. Prompt/response history captured in provenance. |
+| `actuator` | Boolean side-effect trigger. Never stored. Dispatches execution to application layer. |
+| `actuator-numeric` | Numeric side-effect trigger. Never stored. Dispatches value updates to application layer. |
 
 ### `annotations`
 

@@ -19,6 +19,8 @@ Every predicate is declared in the schema with a type. The type determines how t
 | `sensor-numeric` | no | Numeric computed by application-layer code at evaluation time |
 | `sensor-llm` | no | Boolean evaluated dynamically via an LLM call |
 | `sensor-llm-numeric` | no | Numeric evaluated dynamically via an LLM call |
+| `actuator` | no | Boolean side-effect trigger fired during rule/action RHS execution |
+| `actuator-numeric` | no | Numeric side-effect trigger fired during rule/action RHS execution |
 
 → [Schema](schema.md) · [Derived predicates](derived-predicates.md) · [Sensor predicates](sensors.md)
 

@@ -54,6 +54,7 @@ export default defineConfig({
           { text: 'Rules', link: '/rules' },
           { text: 'Derived predicates', link: '/derived-predicates' },
           { text: 'Sensor predicates', link: '/sensors' },
+          { text: 'Actuator predicates', link: '/actuators' },
           { text: 'LLM configuration', link: '/llm' },
           { text: 'Actions', link: '/actions' },
           { text: 'Action records', link: '/action-records' },
