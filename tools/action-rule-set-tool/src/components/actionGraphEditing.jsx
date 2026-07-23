@@ -260,6 +260,74 @@ export function RoleSelect({ value, options, onChange }) {
   );
 }
 
+// ── SelectionStrategyEditor ───────────────────────────────────────────────────
+// Edits a `selectionStrategy` field. On disk it's one of:
+//   - absent/null      — stage: inherit the actionGraph's strategy; actionGraph:
+//                         the engine default (highestUtility, no grouping)
+//   - a plain string    — e.g. "highestUtility" — the simple, ungrouped case
+//   - { type, groupBy } — one winner PER GROUP instead of one winner overall.
+//     `groupBy` is a role-variable name (one winner per distinct value), an
+//     array of names (one winner per distinct *combination* — compound
+//     group-by), or a hand-authored `{ pattern, key }` world-state lookup
+//     (shown read-only here; see docs/actiongraph-tickplan.md#selection-strategies).
+//
+// The default stays the simple case: with no group-by rows added, this reads
+// and writes the exact same plain string/null shape the field always has, so
+// authoring a strategy that never touches grouping looks no different than
+// before. Only checks == null/undefined-ness of groupBy toggles the richer
+// object shape on — one row collapses back to the bare string form
+// (groupBy: 'X'), two or more collapses to the array form.
+export function SelectionStrategyEditor({ value, allowInherit = false, roleOptions = [], onChange }) {
+  const inheriting = allowInherit && value == null;
+  const strategy   = typeof value === 'string' ? { type: value } : (value ?? { type: 'highestUtility' });
+  const type       = strategy.type ?? 'highestUtility';
+  const groupBy    = strategy.groupBy;
+  const isPattern  = groupBy != null && typeof groupBy === 'object' && !Array.isArray(groupBy);
+  const groupByVars = isPattern ? [] : (groupBy == null ? [] : [].concat(groupBy));
+
+  function emit(nextGroupByVars) {
+    if (nextGroupByVars.length === 0) {
+      onChange(type); // back to the plain-string shape — the straightforward default
+      return;
+    }
+    onChange({ type, groupBy: nextGroupByVars.length === 1 ? nextGroupByVars[0] : nextGroupByVars });
+  }
+
+  return (
+    <div className="detail-field stacked selection-strategy-editor">
+      <span>Selection strategy</span>
+      <select
+        value={inheriting ? '' : type}
+        onChange={e => onChange(e.target.value === '' ? null : e.target.value)}
+      >
+        {allowInherit && <option value="">— inherit from actionGraph —</option>}
+        <option value="highestUtility">highestUtility</option>
+      </select>
+
+      {!inheriting && isPattern && (
+        <div className="dim group-by-pattern-note">
+          Group by pattern <code>{groupBy.pattern}</code> → <code>{groupBy.key}</code> — hand-authored, edit the actionGraph JSON directly to change it.
+        </div>
+      )}
+
+      {!inheriting && !isPattern && (
+        <div className="group-by-editor">
+          <div className="group-by-label">
+            Group by <span className="dim">— one winner per {groupByVars.length > 1 ? 'combination' : 'value'}; leave empty for one winner overall</span>
+          </div>
+          {groupByVars.map((v, i) => (
+            <div key={i} className="group-by-row">
+              <RoleSelect value={v} options={roleOptions} onChange={val => emit(groupByVars.map((g, j) => j === i ? val : g))} />
+              <button className="btn tiny" onClick={() => emit(groupByVars.filter((_, j) => j !== i))}>×</button>
+            </div>
+          ))}
+          <button className="btn ghost tiny group-by-add" onClick={() => emit([...groupByVars, ''])}>+ group by</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── HooksEditor ───────────────────────────────────────────────────────────────
 // Each hook is two stacked rows — type + move/remove controls, then the
 // type-specific fields — so every field gets the panel's full width instead of
@@ -453,6 +521,7 @@ export function StagePanel({ stageName, stage, actionGraphData, onUpdate, onRena
   const rulesets   = (data?.rulesets   ?? []).map(r => r.name);
   const jsHooks    = (data?.jsHooks    ?? []).map(h => h.name);
   const actionsets = (data?.actionsets ?? []).map(a => a.name);
+  const roleOptions = collectRoleNames(data?.actionsets ?? []);
   const otherStages = Object.keys(actionGraphData.stages ?? {}).filter(n => n !== stageName);
 
   function commitRename() {
@@ -527,15 +596,12 @@ export function StagePanel({ stageName, stage, actionGraphData, onUpdate, onRena
           </div>
         </div>
 
-        <div className="detail-field">
-          <span>Selection strategy</span>
-          <select value={stage.selectionStrategy ?? ''} onChange={e => onUpdate({ selectionStrategy: e.target.value || null })}>
-            <option value="">— inherit from actionGraph —</option>
-            <option value="highestUtility">highestUtility</option>
-            <option value="proportional">proportional</option>
-            <option value="random">random</option>
-          </select>
-        </div>
+        <SelectionStrategyEditor
+          value={stage.selectionStrategy ?? null}
+          allowInherit
+          roleOptions={roleOptions}
+          onChange={v => onUpdate({ selectionStrategy: v })}
+        />
       </div>
     </div>
   );
@@ -560,14 +626,11 @@ export function ActionGraphSettings({ actionGraphData, onUpdate, onEntryChange, 
             {stages.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
-        <div className="detail-field">
-          <span>Selection strategy</span>
-          <select value={actionGraphData.selectionStrategy ?? 'highestUtility'} onChange={e => onUpdate({ selectionStrategy: e.target.value })}>
-            <option value="highestUtility">highestUtility</option>
-            <option value="proportional">proportional</option>
-            <option value="random">random</option>
-          </select>
-        </div>
+        <SelectionStrategyEditor
+          value={actionGraphData.selectionStrategy ?? 'highestUtility'}
+          roleOptions={roleOptions}
+          onChange={v => onUpdate({ selectionStrategy: v ?? 'highestUtility' })}
+        />
         <HooksEditor label="Pre-hooks"  hooks={actionGraphData.preHooks  ?? []} onChange={v => onUpdate({ preHooks:  v })} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} onGoToRuleset={onGoToRuleset} />
         <HooksEditor label="Post-hooks" hooks={actionGraphData.postHooks ?? []} onChange={v => onUpdate({ postHooks: v })} rulesets={rulesets} jsHooks={jsHooks} roleOptions={roleOptions} onGoToRuleset={onGoToRuleset} />
 

@@ -36,6 +36,7 @@ export default function PlayTab({ scenario, highlighter, hidden = false }) {
   const [showState, setShowState] = useState(false);
   const [stateSource, setStateSource] = useState('play'); // 'authored' | 'play'
   const [predsByName, setPredsByName] = useState(new Map());
+  const [entityNames, setEntityNames] = useState([]); // for the embedded StateBrowser's fact/filter autocomplete
   const [rulesets, setRulesets] = useState([]);      // this scenario's rulesets (name/path/folder/rules), for HookFirings/RulesetPhaseView rule lookups
 
   // Re-fetches session/plan-editor info (entityType, availableActionGraphs,
@@ -75,6 +76,7 @@ export default function PlayTab({ scenario, highlighter, hidden = false }) {
     // api.scenario; Play only needed it once this state panel existed.
     api.scenario(scenario).then(data => {
       setPredsByName(new Map((data?.predicates ?? []).map(p => [p.name, p])));
+      setEntityNames(data?.entityNames ?? []);
       setRulesets(data?.rulesets ?? []);
     }).catch(() => {});
   }, [scenario]);
@@ -373,7 +375,7 @@ export default function PlayTab({ scenario, highlighter, hidden = false }) {
               <div className="sidebar-list" style={{ flex: 1, padding: '12px 8px' }}>
                 <StateBrowser
                   source={stateSources[stateSource]} sourceKey={stateSourceKey}
-                  highlighter={highlighter} predsByName={predsByName}
+                  highlighter={highlighter} predsByName={predsByName} entityNames={entityNames}
                   emptyHint="No facts yet."
                 />
               </div>

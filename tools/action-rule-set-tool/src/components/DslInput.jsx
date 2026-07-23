@@ -31,6 +31,11 @@ import { scopeClass } from '../tmHighlight.js';
 // `autocomplete = false` keeps the highlight overlay but drops suggestions
 // and predicate-sidebar insert registration.
 //
+// `onKeyDown`, if given, fires after DslInput's own key handling (autocomplete
+// nav/accept, Tab-to-indent) — so a caller can still act on a key this field
+// doesn't itself consume, e.g. Enter to submit a single-line "add a fact" box
+// or run a filter query, without fighting the accept-suggestion Enter above it.
+//
 // The textarea/input is UNCONTROLLED: React never writes `value` back to the
 // DOM element after mount. Programmatic insertions (Tab, autocomplete, sidebar)
 // go through document.execCommand('insertText') to preserve the undo stack.
@@ -40,6 +45,7 @@ export default function DslInput({
   value, onChange, predicates, entityNames = [],
   multiline = false, placeholder = '', rows = 3, className = '',
   insertMode = 'cursor', primary = false, highlighter = null, autocomplete = true,
+  onKeyDown = null,
 }) {
   const ref = useRef(null);
   const highlightRef = useRef(null);
@@ -216,6 +222,7 @@ export default function DslInput({
       }
     }
     if (showHighlight && !multiline) requestAnimationFrame(syncScroll);
+    onKeyDown?.(e);
   }
 
   function handleKeyUp(e) {

@@ -1,16 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useInsert } from '../InsertContext.js';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ProofTreeView from './ProofTree.jsx';
 import ExplainButton from './ExplainButton.jsx';
 import PredicateView from './PredicateView.jsx';
-
-// Insert text at the input's caret (replacing any selection).
-function insertAtCaret(el, current, template) {
-  if (!el) return current + template;
-  const start = el.selectionStart ?? current.length;
-  const end   = el.selectionEnd ?? current.length;
-  return current.slice(0, start) + template + current.slice(end);
-}
+import DslInput from './DslInput.jsx';
 
 // A fact browser — filter/pattern-match, an optional bracketed-DSL query box,
 // sortable results, click-to-provenance, assert/delete — parameterized by
@@ -30,11 +22,8 @@ function insertAtCaret(el, current, template) {
 // fresh object of bound closures on every render for most callers, so the
 // effect keys on this stable string instead of the object's identity.
 export default function StateBrowser({
-  source, sourceKey, highlighter, predsByName = new Map(), renderAddFact, emptyHint,
+  source, sourceKey, highlighter, predsByName = new Map(), entityNames = [], renderAddFact, emptyHint,
 }) {
-  const insert = useInsert();
-  const filterRef = useRef(null);
-
   const [facts, setFacts]     = useState([]);
   const [filter, setFilter]   = useState('');
   const [newFact, setNewFact] = useState('');
@@ -47,15 +36,7 @@ export default function StateBrowser({
 
   const isServerQuery = filter.includes('[');
   const pattern = useMemo(() => parsePattern(filter), [filter]);
-
-  // The filter box is the predicate sidebar's default insert target — a
-  // custom add-fact box (StateTab's DslInput) registers its own on focus, so
-  // whichever was focused most recently wins; this is just the fallback.
-  const filterInserter = useCallback(
-    (template) => setFilter(f => insertAtCaret(filterRef.current, f, template)),
-    [],
-  );
-  useEffect(() => { insert?.register(filterInserter); }, [insert, filterInserter]);
+  const predicates = useMemo(() => [...predsByName.values()], [predsByName]);
 
   const load = async () => {
     setLoading(true);
@@ -133,25 +114,32 @@ export default function StateBrowser({
         ? renderAddFact({ onSubmit: addFact })
         : (
           <div className="state-add">
-            <input
+            <DslInput
               className="state-add-input" placeholder="add a fact…" value={newFact}
-              onChange={e => setNewFact(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') addFact(newFact); }}
+              onChange={setNewFact}
+              predicates={predicates} entityNames={entityNames}
+              highlighter={highlighter} insertMode="replace"
+              multiline rows={1}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFact(newFact); } }}
             />
             <button className="btn primary" onClick={() => addFact(newFact)} disabled={!newFact.trim()}>Add fact</button>
           </div>
         )}
 
       <div className="state-controls">
-        <input
-          ref={filterRef}
+        {/* The default insert target for the predicate sidebar (`primary`) — a
+            custom add-fact box (StateTab's own DslInput) registers its own on
+            focus instead, so whichever was focused most recently wins; this is
+            just the fallback the sidebar falls back to otherwise. */}
+        <DslInput
           className="state-filter"
           placeholder="filter or query…"
           value={filter}
-          onChange={e => setFilter(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') runQuery(); }}
-          onFocus={() => insert?.register(filterInserter)}
-          spellCheck={false}
+          onChange={setFilter}
+          predicates={predicates} entityNames={entityNames}
+          highlighter={highlighter} insertMode="cursor" primary
+          multiline rows={1}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runQuery(); } }}
         />
         {isServerQuery && <button className="btn primary" onClick={runQuery}>Run</button>}
         {(filter || query) && <button className="btn ghost" onClick={() => { setFilter(''); setQuery(null); }}>Clear</button>}

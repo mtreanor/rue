@@ -42,6 +42,7 @@ export default function StateTab({ scenario, data, highlighter, entityTypes = []
       <div className="state-main">
         <StateBrowser
           source={source} sourceKey={scenario} highlighter={highlighter} predsByName={predsByName}
+          entityNames={data?.entityNames ?? []}
           renderAddFact={({ onSubmit }) => (
             <div className="state-add">
               <DslInput
@@ -50,8 +51,10 @@ export default function StateTab({ scenario, data, highlighter, entityTypes = []
                 predicates={data?.predicates ?? []}
                 entityNames={data?.entityNames ?? []}
                 highlighter={highlighter}
+                multiline rows={1}
                 insertMode="replace"
                 placeholder="add a fact…"
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSubmit(newFact); setNewFact(''); } }}
               />
               <button
                 className="btn primary" disabled={!newFact.trim()}

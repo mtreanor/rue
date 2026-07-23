@@ -289,7 +289,11 @@ input.dsl-input-highlighted {
 .state-tab { display: flex; align-items: flex-start; gap: 18px; }
 .state-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 .state-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.state-filter { flex: 1; min-width: 260px; font-family: var(--mono); }
+/* The filter is a DslInput now (highlighted, focus-mode) — its rendered
+   .dsl-wrap, not the .state-filter textarea itself, is the actual flex child
+   here, same reasoning as .search-row .dsl-wrap above. */
+.state-controls .dsl-wrap { flex: 1; min-width: 260px; }
+.state-filter { font-family: var(--mono); }
 .state-ctl { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
 .btn.sort-dir { min-width: 34px; text-align: center; }
 .state-results { flex: 1; min-width: 0; }
@@ -560,6 +564,16 @@ input.dsl-input-highlighted {
 .hook-swap-pair select { flex: 1; font-size: 12px; min-width: 0; }
 .hook-swap-arrow { flex-shrink: 0; font-size: 12px; }
 .hooks-add { font-size: 12px; align-self: flex-start; padding: 3px 8px; margin-top: 2px; }
+
+/* SelectionStrategyEditor's group-by rows — same visual language as
+   HooksEditor (RoleSelect + a tiny remove button per row, a ghost "add"
+   button below), since it's the same "list of role-var pickers" shape. */
+.group-by-editor { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+.group-by-label { font-size: 11px; color: var(--dim); }
+.group-by-row { display: flex; align-items: center; gap: 6px; }
+.group-by-row select { flex: 1; font-size: 12px; min-width: 0; }
+.group-by-add { font-size: 12px; align-self: flex-start; padding: 3px 8px; }
+.group-by-pattern-note { font-size: 12px; color: var(--dim); margin-top: 4px; line-height: 1.5; }
 
 /* ── Play mode ─────────────────────────────────────────────────────────────── */
 
