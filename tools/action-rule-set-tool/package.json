@@ -9,7 +9,8 @@
     "start": "vite build && concurrently -k -n server,web -c blue,magenta \"npm:server\" \"vite preview\"",
     "dev": "concurrently -k -n server,web -c blue,magenta \"npm:server\" \"vite\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:embedded": "vite build --base=/tool/ --outDir dist-embed"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.2",

@@ -108,16 +108,22 @@ export function previewPlayInfo(scenarioName, planName) {
 }
 
 class PlaySession {
-  constructor(scenarioName, planName) {
+  // content: { engine, actionGraphs, tickPlanConfig, paths, planName, loop?, attached? }.
+  // File-built sessions (startPlaySession) get content from loadPlayContent and
+  // build their own TickPlan here. Attached sessions (attachPlaySession) are
+  // handed a host's already-live engine and TickPlan (`loop`) — the shared
+  // engine the game is also driving — and this session merely drives and
+  // inspects it, never building its own. `paths` is null when attached (the
+  // host owns files/hooks). See reception's docs/adr/0002-shared-session-*.
+  constructor(scenarioName, content) {
     this.scenarioName = scenarioName;
-    const { engine, actionGraphs, tickPlanConfig, paths, planName: resolvedPlanName } = loadPlayContent(scenarioName, planName);
-
-    this.planName   = resolvedPlanName;
-    this.engine     = engine;
-    this.actionGraphs  = actionGraphs;
-    this.tickPlanConfig = tickPlanConfig;
-    this.paths      = paths;
-    this.loop       = new TickPlan(this.engine, actionGraphs, tickPlanConfig);
+    this.planName     = content.planName;
+    this.engine       = content.engine;
+    this.actionGraphs = content.actionGraphs;
+    this.tickPlanConfig = content.tickPlanConfig;
+    this.paths      = content.paths ?? null;
+    this.attached   = content.attached ?? false;
+    this.loop       = content.loop ?? new TickPlan(this.engine, this.actionGraphs, this.tickPlanConfig);
 
     this.traces     = [];        // serialized TickTraces, index = tick - 1
     this.controlled = { agents: [], stages: [] };
@@ -257,6 +263,18 @@ class PlaySession {
     if (this.tickPromise) throw new Error('A tick is already running');
     this.tickPromise = this.loop.runTick({ decide: (request) => this._decide(request), plan: this.activePlan });
     return this._settle();
+  }
+
+  // Record a tick that an EXTERNAL driver (the host's real-time metronome) ran
+  // against the shared engine, into this session's one history — so the tool
+  // browses ticks it didn't itself step. Both drivers thus feed a single
+  // history, which is the whole point of the shared session: there is one sim,
+  // therefore one tick timeline. The host calls this right after its own
+  // runTick() on the shared engine/TickPlan. Attached sessions only.
+  recordExternalTick(tickTrace) {
+    const serialized = serializeTickTrace(tickTrace);
+    this.traces.push(serialized);
+    return serialized;
   }
 
   _decide(request) {
@@ -409,9 +427,31 @@ class PlaySession {
 // user-initiated action in this module that warrants it (see
 // registerScenarioJSHooks in scenario.js for the full reasoning).
 export async function startPlaySession(scenarioName, planName, controlled) {
-  const session = new PlaySession(scenarioName, planName);
+  const session = new PlaySession(scenarioName, loadPlayContent(scenarioName, planName));
   await registerScenarioJSHooks(session.engine, session.paths.hooks);
   if (controlled) session.setControlled(controlled);
+  sessions.set(scenarioName, session);
+  return session;
+}
+
+// Attach a Play session to a host-supplied, already-live engine + TickPlan
+// instead of building one from files — the seam that lets an embedding host
+// (the reception game) share ONE engine between the running game and the tool.
+// The host owns the engine's lifecycle and JS hooks (already registered on it);
+// this session is purely a driver/inspector over that shared engine, feeding
+// the same one history the host's own metronome does (see recordExternalTick).
+// Content beyond the engine is derived from the injected TickPlan, so callers
+// pass only { engine, tickPlan }. See docs/adr/0002-shared-session-*.
+export function attachPlaySession(scenarioName, { engine, tickPlan }) {
+  const session = new PlaySession(scenarioName, {
+    engine,
+    loop:           tickPlan,
+    actionGraphs:   tickPlan.actionGraphs,
+    tickPlanConfig: { entityType: tickPlan.entityType, phases: tickPlan.phases },
+    paths:          null,
+    planName:       'attached',
+    attached:       true,
+  });
   sessions.set(scenarioName, session);
   return session;
 }

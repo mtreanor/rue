@@ -53,6 +53,34 @@ Scenario paths in the config are resolved **relative to the config file's own
 directory**, so the config sits with its data anywhere on disk. The server prints
 the resolved config path on startup, so you can confirm which one is in use.
 
+## Embedding in a host app (shared live engine)
+
+A host application that already runs a live klugh `Engine` can mount this tool
+**against that same engine**, so the tool inspects and drives the host's running
+session rather than building its own from files. The reception project's game
+does exactly this — pause the game, open the tool, and it's already at the
+current tick (see that repo's `docs/adr/0002-shared-session-embedded-tool.md`).
+
+```js
+import { createToolRouter } from 'action-rule-set-tool/server/embed.js';
+
+// host builds its own engine + TickPlan, then:
+app.use('/tool/api', createToolRouter({ engine, tickPlan, scenarioName: 'reception' }));
+```
+
+`createToolRouter` seeds both places the tool would otherwise build an engine —
+the State/inspection routes and the Play session — with the host's engine, and
+returns the normal API router. The host keeps ownership of the engine, its JS
+hooks, and the tick clock; the tool is a guest driver/inspector. A **rule** edit
+then hot-reloads straight into that live engine (`Engine.reloadRules`, no
+rebuild); schema/actionset edits still fall back to a rebuild. Serve the built
+frontend under `/tool` — it detects that base at runtime and calls `/tool/api` —
+with a base-adjusted build:
+
+```
+npm run build:embedded      # vite build --base=/tool/ --outDir dist-embed
+```
+
 ## Inspect & search
 
 Pick a scenario, check the rulesets to include, and type a partial rule in the

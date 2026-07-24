@@ -1,12 +1,19 @@
 // Thin fetch wrappers over the backend JSON API.
 
+// Standalone, the API is at /api. When an embedding host serves this tool under
+// /tool (a single shared server — see reception's game,
+// docs/adr/0002-shared-session-embedded-tool.md), its API is at /tool/api.
+// Detect from the path the app was loaded under so one build works in both
+// places, no build-time config.
+const API_BASE = (typeof window !== 'undefined' && window.location.pathname.startsWith('/tool')) ? '/tool' : '';
+
 async function req(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body !== undefined) opts.body = JSON.stringify(body);
 
   let res;
   try {
-    res = await fetch(url, opts);
+    res = await fetch(API_BASE + url, opts);
   } catch {
     throw new Error(`Cannot reach the API at ${url}. Is the server running? Start both with \`npm run dev\` (API on :5174).`);
   }

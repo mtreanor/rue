@@ -6,7 +6,7 @@ import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
-import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines, stateTick, stateDegree, stateRulesets, stateRules, stateActionsets, stateActions, stateRun, stateScore, stateSelect } from './state.js';
+import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines, stateTick, stateDegree, stateRulesets, stateRules, stateActionsets, stateActions, stateRun, stateScore, stateSelect, hotReloadRuleset, embeddedScenarios } from './state.js';
 import { startPlaySession, getPlaySession, peekPlaySession, resetPlaySession, previewPlayInfo } from './play.js';
 import { listActionGraphs, saveActionGraph, deleteActionGraph } from './actiongraphs.js';
 import { listTickPlans, loadTickPlan, saveTickPlan, createTickPlan } from './tickplans.js';
@@ -60,7 +60,17 @@ router.post('/workspace/save', h((req, res) => {
 }));
 router.post('/workspace/discard', h((req, res) => {
   discardShadow();
-  clearStateEngines();
+  // Embedded scenarios keep their live shared engine — clearing it would detach
+  // the running session. Reload each such engine's rulesets from the now-
+  // reverted files so the live rules match the discarded state (apply-on-stage's
+  // mirror: the shared engine's rules always match the shadow's staged state).
+  // Non-injected (standalone) scenarios drop their file-built cache as before.
+  for (const scenario of embeddedScenarios()) {
+    const ctx = loadScenarioContext(scenario);
+    const files = new Set(loadRulesets(ctx).map(r => r.path).filter(Boolean));
+    for (const path of files) hotReloadRuleset(scenario, readFileSync(path, 'utf-8'));
+  }
+  clearStateEngines({ keepInjected: true });
   res.json({ ok: true });
 }));
 
@@ -431,6 +441,7 @@ router.post('/rule', h((req, res) => {
   if (!result.ok) return res.status(400).json({ error: 'Validation failed', ...result });
 
   appendRule(rulesetPath, { name, comment, body });
+  hotReloadRuleset(scenario, readFileSync(rulesetPath, 'utf-8')); // apply-on-stage: live if embedded, no-op otherwise
   res.json({ ok: true, warnings: result.warnings });
 }));
 
@@ -443,6 +454,7 @@ router.put('/rule', h((req, res) => {
   if (!result.ok) return res.status(400).json({ error: 'Validation failed', ...result });
 
   replaceRule(rulesetPath, originalName, { name, comment, body });
+  hotReloadRuleset(scenario, readFileSync(rulesetPath, 'utf-8')); // apply-on-stage
   res.json({ ok: true, warnings: result.warnings });
 }));
 
@@ -451,6 +463,7 @@ router.delete('/rule', h((req, res) => {
   const ctx = loadScenarioContext(scenario);
   const rulesetPath = requireRulesetPath(ctx, ruleset);
   deleteRule(rulesetPath, name);
+  hotReloadRuleset(scenario, readFileSync(rulesetPath, 'utf-8')); // apply-on-stage
   res.json({ ok: true });
 }));
 

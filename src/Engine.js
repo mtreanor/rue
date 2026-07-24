@@ -152,6 +152,23 @@ export class Engine {
     return rulesets;
   }
 
+  // Hot-reload: re-parse ruleset source and REPLACE each named ruleset in place
+  // (unlike loadRules, which merges onto an existing ruleset of the same name).
+  // Because runRulesetSingle/runRulesetFixpoint fetch rules by name at tick time
+  // (not at construction), a replaced ruleset takes effect on the very next tick
+  // with no engine rebuild — the fact store, numeric state, and tick history are
+  // untouched. This is the safe boundary for live editing: rules carry no
+  // fact-store coupling, whereas predicate/actionset/schema changes do and
+  // cannot be hot-reloaded this way. Returns the rulesets that were replaced.
+  // See the reception project's docs/adr/0002-shared-session-embedded-tool.md.
+  reloadRules(source) {
+    const { rulesets } = this.ruleLoader.load(this.ruleParser.parse(source));
+    for (const [name, rules] of Object.entries(rulesets)) {
+      this.addRuleset(name, rules, { merge: false });
+    }
+    return rulesets;
+  }
+
   // Attaches rules to a named ruleset. With merge:true the new rules are
   // appended to any existing ones; otherwise the group is replaced.
   addRuleset(name, rules, { merge = false } = {}) {

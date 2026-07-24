@@ -91,19 +91,29 @@ export class TickPlan {
     return (this.engine.world.entityRegistry.get(type) ?? []).map(e => e?.name ?? e);
   }
 
-  async runTick({ decide = null, plan = null } = {}) {
+  // onPhase(phaseTrace, { tick }), when supplied, is invoked after each phase's
+  // trace is recorded — letting a driver observe each phase as soon as it
+  // completes rather than only the whole tick at the end. The reception game
+  // uses this to push a phase's narration before the later (and possibly
+  // player-blocking) judge phase runs, which is why it no longer needs to
+  // hand-replicate this loop or reach into _runActionGraphPhase/_runRulesetPhase
+  // directly. onPhase must not mutate the trace; it may be async.
+  async runTick({ decide = null, plan = null, onPhase = null } = {}) {
     this.engine.advanceTick();
     const tick      = this.engine.world.tickTracker.currentTick;
     const tickTrace = { kind: 'tick', tick, phases: [] };
 
     for (const phase of (plan ?? this.phases)) {
+      let phaseTrace;
       if (phase.actionGraph) {
-        tickTrace.phases.push(await this._runActionGraphPhase(phase, tick, decide));
+        phaseTrace = await this._runActionGraphPhase(phase, tick, decide);
       } else if (phase.ruleset) {
-        tickTrace.phases.push(this._runRulesetPhase(phase));
+        phaseTrace = this._runRulesetPhase(phase);
       } else {
         throw new Error(`TickPlan phase must name a "actionGraph" or a "ruleset": ${JSON.stringify(phase)}`);
       }
+      tickTrace.phases.push(phaseTrace);
+      if (onPhase) await onPhase(phaseTrace, { tick });
     }
     return tickTrace;
   }

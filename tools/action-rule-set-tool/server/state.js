@@ -92,11 +92,57 @@ export function reloadStateEngine(name) {
   return getStateEngine(name);
 }
 
-// Drop all cached engines (e.g. after discarding the shadow) so the next fetch
-// rebuilds from the current files.
-export function clearStateEngines() {
-  engines.clear();
-  scenarioPaths.clear();
+// Drop cached engines (e.g. after discarding the shadow) so the next fetch
+// rebuilds from the current files. With keepInjected, host-injected engines are
+// preserved: clearing them would detach a live shared session (embedded mode),
+// so the discard route instead reverts their rules from the now-reverted files
+// (see routes.js) rather than dropping the engine.
+export function clearStateEngines({ keepInjected = false } = {}) {
+  for (const name of [...engines.keys()]) {
+    if (keepInjected && injected.has(name)) continue;
+    engines.delete(name);
+    scenarioPaths.delete(name);
+  }
+  if (!keepInjected) injected.clear();
+}
+
+// The scenarios whose engine was host-injected (embedded mode) — the discard
+// route reverts these in place instead of dropping them.
+export function embeddedScenarios() {
+  return [...injected];
+}
+
+// Scenarios whose engine was supplied by an embedding host (injectEngine),
+// rather than built from files. For these the state engine IS the live shared
+// engine, so a rule edit can be hot-reloaded straight into it (see
+// hotReloadRuleset) instead of waiting for a rebuild.
+const injected = new Set();
+
+// Seed the state-viewer cache with a host-supplied engine — the shared
+// session's one live engine — instead of one built from files, so every State
+// tab read and fact-edit route for this scenario resolves to it. Deliberately
+// does NOT register scenarioPaths: fact edits on a live attached engine must
+// mutate the running game in memory only, never overwrite the scenario's
+// authored state file (persistEngineState stays a no-op without a paths entry).
+// The seam that uses this is createToolRouter — see embed.js and reception's
+// docs/adr/0002-shared-session-embedded-tool.md.
+export function injectEngine(name, engine) {
+  engines.set(name, engine);
+  injected.add(name);
+}
+
+// Apply-on-stage hot-reload: when the tool edits a rule in an EMBEDDED session
+// (the engine was injected, so the state engine IS the live shared engine),
+// push the edited ruleset source straight into that engine so the change takes
+// effect on the next tick — no rebuild, no reset (Engine.reloadRules replaces
+// the ruleset in place; rulesets are read fresh each tick). No-op in standalone
+// mode, where nothing is injected and edits apply on the next explicit rebuild
+// as before. Rules only — schema/actionset edits are not routed here. See
+// reception's docs/adr/0002-shared-session-embedded-tool.md.
+export function hotReloadRuleset(name, rulesetSource) {
+  if (!injected.has(name)) return false;
+  engines.get(name).reloadRules(rulesetSource);
+  return true;
 }
 
 // Write the current in-memory fact store to the shadow state file so the
