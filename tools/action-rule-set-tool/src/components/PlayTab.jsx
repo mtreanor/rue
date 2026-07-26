@@ -81,6 +81,32 @@ export default function PlayTab({ scenario, highlighter, hidden = false }) {
     }).catch(() => {});
   }, [scenario]);
 
+  // Poll the server periodically to keep the tool in lockstep with the running game.
+  useEffect(() => {
+    if (!session?.exists) return;
+    const interval = setInterval(() => {
+      api.playSession(scenario).then(info => {
+        if (!info.exists) return;
+        const tickAdvanced = info.traceCount > session.traceCount;
+        const pendingChanged = !!info.pending !== !!pending;
+        if (tickAdvanced || pendingChanged) {
+          setSession(info);
+          setCtlAgents(info.controlled.agents);
+          setCtlStages(info.controlled.stages);
+          if (info.pending) {
+            armChoice(info.pending);
+          } else {
+            setPending(null);
+          }
+          if (info.traceCount > 0) {
+            focusOnTick(scenario, info.traceCount);
+          }
+        }
+      }).catch(() => {});
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [session?.exists, session?.traceCount, pending, scenario]);
+
   // Loads a tick's trace on demand and focuses it — from the local cache if a
   // prior fetch (this mount or an earlier one) already has it, else from the
   // server (which retains every recorded trace regardless of what this
@@ -925,6 +951,11 @@ function HookFirings({ label, firings, highlighter, onExplain, rulesets }) {
               skipped={f.skipped}
               highlighter={highlighter}
               onExplain={onExplain}
+              // Priming is where utility rules feed the ephemeral impulse
+              // predicates the next stage scores; grouping them by which
+              // predicate they push makes "what's driving engagement-approach-
+              // group right now" scannable, so order by RHS there.
+              sortByConclusion={label === 'priming'}
             />
           </Collapsible>
         );
@@ -933,7 +964,18 @@ function HookFirings({ label, firings, highlighter, onExplain, rulesets }) {
   );
 }
 
-function RulesetExecutionView({ ruleset, applications = [], skipped = false, highlighter, onExplain }) {
+// The RHS predicate a rule concludes — the target of its first (primary)
+// effect — read from the parsed AST, falling back to a regex on the body when
+// the rule failed to parse. Used both to label a rule by what it produces and
+// to sort the priming list by it.
+function ruleConclusion(rule) {
+  const effect = (rule.parsed?.effects ?? []).find(e => e?.name);
+  if (effect?.name) return effect.name;
+  const m = (rule.bodyText ?? '').match(/=>\s*(?:[?][\w]+\.)?([A-Za-z_][\w-]*)\s*\(/);
+  return m ? m[1] : null;
+}
+
+function RulesetExecutionView({ ruleset, applications = [], skipped = false, highlighter, onExplain, sortByConclusion = false }) {
   if (!ruleset) {
     if (skipped) return <div className="dim" style={{ padding: '4px 10px' }}>requires unmet — skipped</div>;
     if (applications.length === 0) {
@@ -942,12 +984,21 @@ function RulesetExecutionView({ ruleset, applications = [], skipped = false, hig
     return <ApplicationsList applications={applications} highlighter={highlighter} onExplain={onExplain} />;
   }
 
+  // Optionally order the rule cards by the predicate each concludes (then by
+  // name within a predicate), so every rule feeding the same impulse sits
+  // together. A copy — never mutate the fetched ruleset.
+  const rules = sortByConclusion
+    ? [...ruleset.rules].sort((a, b) =>
+        (ruleConclusion(a) ?? '').localeCompare(ruleConclusion(b) ?? '') || a.name.localeCompare(b.name))
+    : ruleset.rules;
+
   return (
     <div className="play-ruleset-execution">
       {skipped && <div className="dim" style={{ padding: '4px 10px 8px' }}>requires unmet — skipped</div>}
-      {ruleset.rules.map(rule => {
+      {rules.map(rule => {
         const ruleApps = skipped ? [] : applications.filter(app => app.rule === rule.name);
         const fired = ruleApps.length > 0;
+        const conclusion = ruleConclusion(rule);
         return (
           <Collapsible
             key={rule.id}
@@ -955,6 +1006,7 @@ function RulesetExecutionView({ ruleset, applications = [], skipped = false, hig
             summaryClassName="play-rule-exec-summary"
             summary={<>
               <span>
+                {conclusion && <code className="rule-conclusion" title="concludes">⇒ {conclusion}</code>}
                 <code className="rule-ref">{rule.name}</code>
                 <ExplainButton onClick={() => onExplain({ kind: 'rule', name: rule.name, binding: ruleApps[0]?.binding })} />
                 {rule.comment && <span className="dim tiny-comment" title={rule.comment}> (?)</span>}

@@ -2,6 +2,7 @@ import { toFactArg } from '../entityValue.js';
 import { serializePremise, serializeEffect, serializeBreakdown } from './serializeTrace.js';
 import { DerivedFactPredicate } from '../predicates/DerivedFactPredicate.js';
 import { Binding } from '../Binding.js';
+import { proofNodeForDerived, serializeProofNode } from '../provenance/ProofTree.js';
 
 // The provenance inspector's server side: one level of a backward-provenance
 // walk, resolved on demand against a live engine's retained history. See
@@ -152,6 +153,13 @@ function derivedNode(engine, name, args, owner, tick) {
     // and an imperative define(name, fn) fallback (DerivedFactQueryHandler's
     // non-rule escape hatch) has no rule object either.
     address: value ? { kind: 'derived-source', name, args, owner, tick } : null,
+    // The full recursive proof tree, shown inline — not just the one-hop drill
+    // to the define rule. This is what expands a majority/aggregate define
+    // (e.g. mostlyResentedGroup) down to the count it evaluated to, who was in
+    // the group, and each member's own grounded sub-provenance — the detail an
+    // aggregate/expr-comparison premise otherwise dead-ends on. Only present
+    // when the fact currently holds; a false derived predicate has no proof.
+    proof: value ? serializeProofNode(proofNodeForDerived(name, args, ctx)) : null,
   };
 }
 

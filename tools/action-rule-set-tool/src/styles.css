@@ -317,11 +317,27 @@ input.dsl-input-highlighted {
 .prov-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-size: 12px; padding: 1px 0; }
 .prov-statement { font-family: var(--mono); color: var(--text); }
 .prov-via { font-size: 11px; color: var(--accent); }
-.prov-via-given, .prov-via-external, .prov-via-absent, .prov-via-cycle, .prov-via-binding, .prov-via-precondition { color: var(--dim); }
+.prov-via-given, .prov-via-external, .prov-via-absent, .prov-via-cycle, .prov-via-binding, .prov-via-precondition, .prov-via-value { color: var(--dim); }
 .prov-via-rule, .prov-via-derived, .prov-via-action { color: var(--ok); }
+/* Aggregate / expression provenance: the count an aggregate reached, the
+   per-member matches beneath it, a numeric-expression node, and the boolean
+   outcome of a comparison (a majority test). Tinted like a computed value,
+   distinct from the green rule/action causes. */
+.prov-via-aggregate, .prov-via-expr, .prov-via-comparison, .prov-via-match { color: var(--accent); }
 .prov-tick { color: var(--dim); font-size: 11px; }
 .prov-absent { color: var(--err); }
 .prov-more { font-size: 11px; font-style: italic; }
+/* The inline proof tree embedded in the provenance inspector's derived-fact
+   view — indented and rule-off so it reads as a nested block, not a new panel. */
+.prov-insp-proof { margin-top: 4px; padding-left: 4px; border-left: 2px solid var(--border); }
+/* A drillable proof-tree leaf: a predicate instance you can open the provenance
+   of. Reset the button chrome so it reads as inline code, add the → affordance
+   on hover, same as the inspector's other drill rows. */
+.prov-statement-drill { background: none; border: none; padding: 0; margin: 0; font: inherit; cursor: pointer; color: var(--text); display: inline-flex; align-items: baseline; gap: 4px; }
+.prov-statement-drill code { color: var(--text); }
+.prov-statement-drill:hover code { color: var(--accent); text-decoration: underline; }
+.prov-statement-drill .prov-insp-arrow { opacity: 0; font-size: 10px; color: var(--accent); }
+.prov-statement-drill:hover .prov-insp-arrow { opacity: 1; }
 .pred-group-title.as-toggle { display: flex; align-items: center; gap: 6px; width: 100%; background: var(--panel); border: none; cursor: pointer; font: inherit; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; }
 .pred-group-title.as-toggle:hover { color: var(--text); }
 .pred-group-title .caret { color: var(--dim); font-size: 9px; width: 9px; display: inline-block; }
@@ -691,6 +707,9 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 .play-app { border-left: 2px solid var(--border); padding: 3px 0 3px 10px; margin: 5px 0; }
 .play-app-head { display: flex; align-items: center; gap: 8px; }
 .rule-ref { color: var(--accent); font-size: 12.5px; }
+/* The RHS predicate a rule concludes, shown in the priming-rule list summary so
+   the impulse each rule feeds is visible without expanding it. */
+.rule-conclusion { color: var(--ok); font-size: 12px; margin-right: 8px; font-family: var(--mono); }
 .app-line { font-size: 12px; padding-left: 6px; }
 .play-binding { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-left: 4px; }
 

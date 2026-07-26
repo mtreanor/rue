@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import HighlightedCode from './HighlightedCode.jsx';
+import ProofTreeView from './ProofTree.jsx';
 
 // The provenance inspector: a focused, stack-navigated panel for travelling a
 // value's backward provenance one hop at a time. See
@@ -201,6 +202,18 @@ function DerivedView({ node, onDrill, highlighter }) {
         </div>
       ) : (
         <div className="dim tiny-note">not currently true — no rule satisfies it</div>
+      )}
+      {/* The full recursive proof, inline. For a majority/aggregate define this
+          is where the count it evaluated to, the members it counted, and each
+          member's own grounded provenance become visible — the detail the
+          one-hop "satisfied by a define rule" drill above dead-ends before. */}
+      {node.proof && (
+        <>
+          <div className="play-section-label">proof</div>
+          <div className="prov-insp-proof">
+            <ProofTreeView node={node.proof} onDrill={onDrill} />
+          </div>
+        </>
       )}
     </div>
   );

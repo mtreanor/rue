@@ -142,16 +142,32 @@ export class AggregatePredicate extends Predicate {
   }
 
   describe(binding) {
-    const inner  = this._describeInner(binding);
-    const rhsStr = this._describeRhs(binding);
-    return `${this.fn}|${inner}| ${this.operator} ${rhsStr}`;
+    const inner = this._scrubCountingVars(this._describeInner(binding));
+    // An inner aggregate (rhs === null) is comparison-less — it's an operand in
+    // a larger expression, not a standalone premise — so it renders as just
+    // `fn|inner|` with no trailing `op rhs`. The AggRef expression node relies
+    // on this to stringify a majority test's two count operands.
+    if (this.rhs === null) return `${this.fn}|${inner}|`;
+    return `${this.fn}|${inner}| ${this.operator} ${this._describeRhs(binding)}`;
   }
 
   toString() {
     const filterStr = this.filterPredicates.map(p => p.toString()).join(' ^ ');
-    const inner     = this._joinInner(this._valueStr(), filterStr);
-    const rhsStr    = this._stringifyRhs();
-    return `${this.fn}|${inner}| ${this.operator} ${rhsStr}`;
+    const inner     = this._scrubCountingVars(this._joinInner(this._valueStr(), filterStr));
+    if (this.rhs === null) return `${this.fn}|${inner}|`;
+    return `${this.fn}|${inner}| ${this.operator} ${this._stringifyRhs()}`;
+  }
+
+  // Counting variables carry internal names (`__agg_0__`, minted by the loader
+  // when it rewrites a `_`/`_m` wildcard) that are meaningless to a reader.
+  // Render them back as `_` — their DSL origin — so a displayed aggregate reads
+  // `count|inGroup(_, ?G) ^ isStudent(_)|`, not `...(?__agg_0__...)`. Safe as a
+  // string pass because `__agg_` is a reserved internal prefix that can't
+  // collide with an authored identifier. Only affects display; evaluation
+  // continues to use the real (joined) counting variables.
+  _scrubCountingVars(str) {
+    if (!str) return str;
+    return str.replace(/\?__agg_\d+__/g, '_');
   }
 
   _resolveRhs(binding, evaluationContext) {

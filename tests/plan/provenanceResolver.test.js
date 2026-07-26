@@ -206,6 +206,13 @@ describe('provenanceResolver — step 1', () => {
     assert.equal(acquainted.value, 'true');
     assert.ok(acquainted.address, 'a satisfied derived predicate is drillable');
     assert.equal(acquainted.address.kind, 'derived-source');
+    // The full inline proof tree the inspector renders alongside the one-hop
+    // drill: a serialized ProofNode rooted at the derived fact, recursing into
+    // the define rule's premises (the aggregate/expr detail otherwise dead-ends).
+    assert.ok(acquainted.proof, 'a satisfied derived predicate carries an inline proof');
+    assert.equal(acquainted.proof.statement, 'acquainted(alice, bob)');
+    assert.equal(acquainted.proof.via, 'derived');
+    assert.ok(acquainted.proof.support.some(c => c.statement.startsWith('greeted(')));
 
     const { node: rule } = resolveProvenanceNode(engine, acquainted.address);
     assert.equal(rule.type, 'derived-rule');
@@ -230,6 +237,7 @@ describe('provenanceResolver — step 1', () => {
     const { node } = resolveProvenanceNode(engine, { kind: 'predicate', name: 'acquainted', args: ['alice', 'bob'] });
     assert.equal(node.value, 'false');
     assert.equal(node.address, null);
+    assert.equal(node.proof, null);
   });
 
   it('rejects an unknown rule/action name', () => {

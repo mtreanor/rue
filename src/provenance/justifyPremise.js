@@ -8,6 +8,8 @@ import { ExplicitNegationPredicate } from '../predicates/ExplicitNegationPredica
 import { NegationPredicate } from '../predicates/NegationPredicate.js';
 import { WeakNegationPredicate } from '../predicates/WeakNegationPredicate.js';
 import { AggregatePredicate } from '../predicates/AggregatePredicate.js';
+import { ExpressionComparisonPredicate } from '../predicates/ExpressionComparisonPredicate.js';
+import { NumLiteral, VarRef, PredRef, OwnerPredRef, AggRef, FnCall, BinOp, Neg } from '../NumericExpression.js';
 import { TemporalChainPredicate } from '../predicates/TemporalChainPredicate.js';
 import { HistoricalWindowPredicate } from '../predicates/HistoricalWindowPredicate.js';
 import { DuringPredicate } from '../predicates/DuringPredicate.js';
@@ -35,6 +37,14 @@ import { SensorNumericComparisonPredicate } from '../predicates/SensorNumericCom
 //   'temporal'          — a `then` chain                   → records (one per step)
 //   'historical'        — an [ever]/[asserted-during] check → record
 //   'sensor'            — sensor predicate                 → record (SensorProvenance: name, args, result, detail, value)
+//   'expr-comparison'   — `expr op expr` (a majority test, etc.) → value (the
+//                          boolean result), operator, children (left & right
+//                          operand justifications), and operandValues [l, r]
+//   'expr'              — a compound numeric-expression node (arithmetic, a
+//                          named function, negation) → value, operator (for
+//                          arithmetic), children (operand justifications)
+//   'expr-value'        — an expression leaf (literal, bound variable, numeric
+//                          predicate reference) → value, no children
 //   'unknown'           — unmodelled predicate type         → no record
 export class Justification {
   constructor(predicate, kind, {
@@ -45,6 +55,12 @@ export class Justification {
     subProvenance = null,
     value         = null,
     tick          = null,
+    children      = null,   // Justification[] — for expression/comparison nodes
+    operator      = null,   // the comparison/arithmetic operator, when relevant
+    operandValues = null,   // [leftValue, rightValue] for an expr-comparison
+    ref           = null,   // { name, args, owner } — the concrete predicate
+                            // instance this leaf identifies, so a viewer can
+                            // drill into it. Null for compound/structural nodes.
   } = {}) {
     this.predicate     = predicate;
     this.kind          = kind;
@@ -55,6 +71,10 @@ export class Justification {
     this.subProvenance = subProvenance;
     this.value         = value;
     this.tick          = tick;
+    this.children      = children;
+    this.operator      = operator;
+    this.operandValues = operandValues;
+    this.ref           = ref;
   }
 }
 
@@ -79,14 +99,14 @@ function justify(predicate, binding, ctx) {
 
   if (predicate instanceof FactPredicate) {
     const args = resolveArgs(predicate.args, binding);
-    return mk('fact', { record: lookupRecord(ctx, predicate.name, args, false), tick: ctx.currentTick });
+    return mk('fact', { record: lookupRecord(ctx, predicate.name, args, false), tick: ctx.currentTick, ref: refFor(predicate.name, args) });
   }
 
   if (predicate instanceof DerivedFactPredicate) {
     const args    = resolveArgs(predicate.args, binding);
     const derived = ctx.getHandler('derived');
     const sub     = derived?.buildProvenance?.(predicate.name, args, ctx, ctx.getActiveFactStore()) ?? null;
-    return mk('derived', { subProvenance: sub });
+    return mk('derived', { subProvenance: sub, ref: refFor(predicate.name, args) });
   }
 
   if (predicate instanceof NumericTierPredicate || predicate instanceof NumericComparisonPredicate) {
@@ -95,6 +115,7 @@ function justify(predicate, binding, ctx) {
     return mk('numeric', {
       record: numeric?.getRecord?.(predicate.name, args) ?? null,
       value:  numeric?.getValue?.(predicate.name, args, ctx) ?? null,
+      ref:    refFor(predicate.name, args),
     });
   }
 
@@ -123,6 +144,21 @@ function justify(predicate, binding, ctx) {
     return mk('aggregate', { records: collectAggregateRecords(predicate, binding, ctx), value: predicate.computeValue(binding, ctx) });
   }
 
+  // expr op expr — e.g. a majority test `(count|...|) > (count|...|) / 2`.
+  // Justify each side as its own expression subtree (which bottoms out at the
+  // aggregate members and numeric leaves that produced the two numbers), and
+  // record the two operand values plus the boolean outcome of the comparison.
+  if (predicate instanceof ExpressionComparisonPredicate) {
+    const leftValue  = predicate.left.evaluate(binding, ctx);
+    const rightValue = predicate.right.evaluate(binding, ctx);
+    return mk('expr-comparison', {
+      value:         predicate.evaluate(binding, ctx),
+      operator:      predicate.operator,
+      operandValues: [leftValue, rightValue],
+      children:      [justifyExpr(predicate.left, binding, ctx), justifyExpr(predicate.right, binding, ctx)],
+    });
+  }
+
   if (predicate instanceof TemporalChainPredicate) {
     return mk('temporal', { records: collectChainRecords(predicate, binding, ctx) });
   }
@@ -130,22 +166,22 @@ function justify(predicate, binding, ctx) {
   if (predicate instanceof HistoricalWindowPredicate) {
     const args = resolveArgs(predicate.args, binding);
     if (predicate.tier !== null) {
-      return mk('historical', { record: ctx.getHandler('numeric')?.getRecord?.(predicate.name, args) ?? null });
+      return mk('historical', { record: ctx.getHandler('numeric')?.getRecord?.(predicate.name, args) ?? null, ref: refFor(predicate.name, args) });
     }
-    return mk('historical', { record: lookupRecord(ctx, predicate.name, args, false) });
+    return mk('historical', { record: lookupRecord(ctx, predicate.name, args, false), ref: refFor(predicate.name, args) });
   }
 
   // pred [during: N] — state-range check; supported by the fact's record.
   if (predicate instanceof DuringPredicate) {
     const args = resolveArgs(predicate.args, binding);
-    return mk('historical', { record: lookupRecord(ctx, predicate.name, args, false) });
+    return mk('historical', { record: lookupRecord(ctx, predicate.name, args, false), ref: refFor(predicate.name, args) });
   }
 
   // pred [when: ?t] — the tick variable is bound by enumeration; the support is
   // the fact's record, tagged with the specific assertion tick it matched.
   if (predicate instanceof WhenPredicate) {
     const args = resolveArgs(predicate.args, binding);
-    return mk('historical', { record: lookupRecord(ctx, predicate.name, args, false), tick: binding.resolve(predicate.tickVar) });
+    return mk('historical', { record: lookupRecord(ctx, predicate.name, args, false), tick: binding.resolve(predicate.tickVar), ref: refFor(predicate.name, args) });
   }
 
   // pred(?X, ?Y) [degrees: N] — the target was reached from ?X over the edge
@@ -160,7 +196,7 @@ function justify(predicate, binding, ctx) {
   if (predicate instanceof PrivatePredicate) {
     const ownerName = predicate.resolveOwnerName(binding);
     const store     = ownerName != null ? ctx.privateStores?.get(ownerName) : null;
-    if (store) return rewrap(predicate, description, justify(predicate.innerPredicate, binding, ctx.scopedToStore(store)));
+    if (store) return rewrap(predicate, description, justify(predicate.innerPredicate, binding, ctx.scopedToStore(store)), null, ownerName);
     return mk('private');
   }
 
@@ -187,8 +223,11 @@ function justify(predicate, binding, ctx) {
 }
 
 // Re-label a nested justification with the wrapping predicate's description,
-// carrying its support through (for PrivatePredicate / AtTickPredicate).
-function rewrap(predicate, description, inner, tick = null) {
+// carrying its support through (for PrivatePredicate / AtTickPredicate). The
+// optional `owner` tags the inner predicate's drill ref with the private-store
+// owner it was resolved against, so `?SELF.metCount(...)` drills into SELF's
+// own store rather than world's.
+function rewrap(predicate, description, inner, tick = null, owner = null) {
   return new Justification(predicate, inner.kind, {
     description,
     present:       inner.present,
@@ -197,7 +236,78 @@ function rewrap(predicate, description, inner, tick = null) {
     subProvenance: inner.subProvenance,
     value:         inner.value,
     tick:          tick ?? inner.tick,
+    children:      inner.children,
+    operator:      inner.operator,
+    operandValues: inner.operandValues,
+    ref:           inner.ref ? { ...inner.ref, owner: owner ?? inner.ref.owner } : null,
   });
+}
+
+// A drill ref for a concrete predicate instance: the (name, args) a viewer
+// turns into a `{ kind:'predicate', ... }` provenance address. Skipped when any
+// arg is unresolved (a null/undefined from an unbound variable), since a
+// partial address can't be resolved and shouldn't render as a drill link.
+function refFor(name, args, owner = null) {
+  if (args.some(a => a == null)) return null;
+  return { name, args, owner };
+}
+
+// Justifies one numeric-expression node (NumericExpression.js), producing the
+// expression-side counterpart to justify()'s predicate-side output: a leaf
+// carries its resolved value, a compound node carries its value plus a
+// justification per operand. An aggregate operand (AggRef) is handed straight
+// to the ordinary aggregate justification, so a majority test's per-member
+// breakdown is reached through exactly the same path a bare count|...| premise
+// would be — one code path for aggregate provenance, not two.
+export function justifyExpr(expr, binding, ctx) {
+  const value = safeEvalExpr(expr, binding, ctx);
+  const leaf  = kind => new Justification(expr, kind, { description: safeExprToString(expr), value });
+
+  if (expr instanceof NumLiteral || expr instanceof VarRef ||
+      expr instanceof PredRef    || expr instanceof OwnerPredRef) {
+    return leaf('expr-value');
+  }
+
+  // An aggregate as an expression operand: the AggRef wraps a comparison-less
+  // AggregatePredicate (rhs === null). Its justification is the same
+  // 'aggregate' kind a top-level count|...| premise produces — value plus one
+  // record per matching combination — so both render identically.
+  if (expr instanceof AggRef) {
+    return justify(expr.aggregate, binding, ctx);
+  }
+
+  if (expr instanceof BinOp) {
+    return new Justification(expr, 'expr', {
+      description: safeExprToString(expr), value, operator: expr.op,
+      children:    [justifyExpr(expr.left, binding, ctx), justifyExpr(expr.right, binding, ctx)],
+    });
+  }
+
+  if (expr instanceof FnCall) {
+    return new Justification(expr, 'expr', {
+      description: safeExprToString(expr), value, operator: expr.name,
+      children:    expr.args.map(a => justifyExpr(a, binding, ctx)),
+    });
+  }
+
+  if (expr instanceof Neg) {
+    return new Justification(expr, 'expr', {
+      description: safeExprToString(expr), value, operator: '-',
+      children:    [justifyExpr(expr.operand, binding, ctx)],
+    });
+  }
+
+  return new Justification(expr, 'expr-value', { description: safeExprToString(expr), value });
+}
+
+function safeEvalExpr(expr, binding, ctx) {
+  try { return expr.evaluate(binding, ctx); }
+  catch { return null; }
+}
+
+function safeExprToString(expr) {
+  try { return expr.toString(); }
+  catch { return String(expr); }
 }
 
 // One record per entity combination that satisfies every filter predicate —

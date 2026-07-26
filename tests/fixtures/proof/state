@@ -2,3 +2,13 @@ world
   mentored(alice, bob)
   mentored(bob, alice)
   mentored(carol, alice)
+
+  # An isolated majority cluster (no interaction with mentored/respected/ally
+  # above) exercising a derived predicate whose define is an expr-comparison —
+  # bob is backed by a majority of voters, carol is not.
+  voter(alice)
+  voter(bob)
+  voter(carol)
+  backs(alice, bob)
+  backs(carol, bob)
+  backs(alice, carol)

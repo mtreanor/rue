@@ -1,3 +1,11 @@
 define "can pair — settled allies"
   ally(?X, ?Y)
   => canPair(?X, ?Y)
+
+# A majority define (expr-comparison): ?Y has a mandate when more than half of
+# the voters back them. Exercises justifyExpr / the 'expr-comparison' proof
+# node — the count each side reached, who was counted, and each member's own
+# grounded sub-provenance.
+define "has a mandate — backed by a majority of voters"
+  (count|voter(_v) ^ backs(_v, ?Y)|) > (count|voter(_v)|) / 2
+  => hasMandate(?Y)

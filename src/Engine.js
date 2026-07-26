@@ -19,7 +19,7 @@ import { THIS_ACTION } from './actionVariables.js';
 import { NumericStateQueryHandler } from './queryHandlers/NumericStateQueryHandler.js';
 import { Planner } from './planner/Planner.js';
 import { PlannerSnapshot } from './planner/PlannerSnapshot.js';
-import { proofNodeForFact, proofNodeForNumeric } from './provenance/ProofTree.js';
+import { proofNodeForFact, proofNodeForNumeric, proofNodeForDerived } from './provenance/ProofTree.js';
 import { Fact } from './Fact.js';
 import { restoreFromFile } from './Snapshot.js';
 import { toFactArg } from './entityValue.js';
@@ -595,13 +595,20 @@ export class Engine {
   // the fact, how it came to hold, and — following the premise justifications
   // recorded when each rule fired — the support beneath it, all the way down to
   // given/authored leaves. Returns a ProofNode; call .render() for indented text.
-  // Works for boolean and numeric facts.
+  // Works for boolean, numeric, and derived (define-concluded) facts.
   // scopedTo: entity name — if provided, look in that entity's private store.
   explain(factText, { scopedTo = null } = {}) {
     const { name, args } = this._groundFact(factText);
-    const ctx = this._scopedContext(scopedTo);
-    if (this.schema.getDefinition(name)?.type === 'numeric') {
+    const ctx  = this._scopedContext(scopedTo);
+    const type = this.schema.getDefinition(name)?.type;
+    if (type === 'numeric') {
       return proofNodeForNumeric(name, args, ctx);
+    }
+    // A derived predicate is never stored as a fact — proofNodeForFact would
+    // find nothing and report it 'external'; build its proof from the define
+    // rule instead.
+    if (type === 'derived') {
+      return proofNodeForDerived(name, args, ctx);
     }
     return proofNodeForFact(name, args, ctx);
   }

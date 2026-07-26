@@ -108,6 +108,92 @@ describe('Proof trees (engine.explain)', () => {
     const text = engine.explain('friendship(alice, bob)').render();
     assert.equal(text.includes('[cycle]'), false);
   });
+
+  // A derived predicate is never asserted into a store, so a FactStore lookup
+  // (proofNodeForFact) would report it 'external'. explain() must route to
+  // proofNodeForDerived and expand the define rule instead.
+  it('explains a derived predicate directly, not as an external dead-end', () => {
+    const node = engine.explain('canPair(alice, bob)');
+    assert.equal(node.via, 'derived');
+    assert.equal(node.detail, 'can pair — settled allies');
+    assert.notEqual(node.via, 'external');
+    // recurses through the define's premise into the ally sub-tree
+    assert.ok(node.support.some(c => c.statement.startsWith('ally(')));
+  });
+
+  it('a currently-false derived predicate explains as an absent leaf', () => {
+    // carol is backed by only 1 of 3 voters — no majority.
+    const node = engine.explain('hasMandate(carol)');
+    assert.equal(node.present, false);
+    assert.equal(node.support.length, 0);
+  });
+
+  // The heart of the feature: a majority define (expr-comparison) expands to
+  // the value each side reached, and — down the winning side — exactly who was
+  // counted, each with their own grounded sub-provenance.
+  describe('a majority (expr-comparison) define', () => {
+    let node;
+    beforeEach(() => { node = engine.explain('hasMandate(bob)'); });
+
+    it('holds and is derived from its define rule', () => {
+      assert.equal(node.via, 'derived');
+      assert.equal(node.detail, 'has a mandate — backed by a majority of voters');
+    });
+
+    it('shows the comparison, its two operand values, and the boolean outcome', () => {
+      const cmp = node.support.find(c => c.via === 'comparison');
+      assert.ok(cmp, 'expected an expr-comparison node');
+      // 2 voters back bob; 3 voters total, half = 1.5 — 2 > 1.5 → true.
+      assert.match(cmp.detail, /2 > 1\.5 → true/);
+    });
+
+    it('expands the backing side to the actual voters who backed bob', () => {
+      const cmp = node.support.find(c => c.via === 'comparison');
+      // left operand: count|voter(_v) ^ backs(_v, bob)| = 2
+      const backing = cmp.support.find(c => c.via === 'aggregate' && c.detail === '= 2');
+      assert.ok(backing, 'expected the backing aggregate = 2');
+      const backers = backing.support.map(m => m.statement).sort();
+      assert.deepEqual(backers, ['alice', 'carol']);
+      // each matched voter carries its own grounded premises (voter + backs)
+      const alice = backing.support.find(m => m.statement === 'alice');
+      assert.ok(alice.support.some(s => s.statement.startsWith('voter(alice)')));
+      assert.ok(alice.support.some(s => s.statement.startsWith('backs(alice, bob)')));
+    });
+
+    it('expands the threshold side to the voter total over two', () => {
+      const cmp = node.support.find(c => c.via === 'comparison');
+      // right operand: (count|voter(_v)| / 2) — an expr node over the total = 3
+      const half = cmp.support.find(c => c.via === 'expr');
+      assert.ok(half, 'expected the divide-by-two expr node');
+      const total = half.support.find(c => c.via === 'aggregate');
+      assert.equal(total.detail, '= 3');
+      assert.equal(total.support.length, 3); // alice, bob, carol
+    });
+
+    it('renders the whole tree as indented text with the counts visible', () => {
+      const text = node.render();
+      assert.match(text, /hasMandate\(bob\)/);
+      assert.match(text, /\[comparison: 2 > 1\.5 → true\]/);
+      assert.match(text, /\[aggregate: = 2\]/);
+      // counting variables render as `_`, not their internal __agg__ names
+      assert.doesNotMatch(text, /__agg_/);
+    });
+
+    it('tags each concrete predicate leaf with a drill ref, but not the structural nodes', () => {
+      const cmp     = node.support.find(c => c.via === 'comparison');
+      const backing = cmp.support.find(c => c.via === 'aggregate' && c.detail === '= 2');
+      // the comparison and aggregate nodes are structural — not a single
+      // predicate instance, so nothing to drill into
+      assert.equal(cmp.ref, null);
+      assert.equal(backing.ref, null);
+      // but each matched voter's own premises (a fact) carry a ref
+      const alice   = backing.support.find(m => m.statement === 'alice');
+      const voterLeaf = alice.support.find(s => s.statement.startsWith('voter(alice)'));
+      assert.deepEqual(voterLeaf.ref, { name: 'voter', args: ['alice'], owner: null });
+      const backsLeaf = alice.support.find(s => s.statement.startsWith('backs(alice, bob)'));
+      assert.deepEqual(backsLeaf.ref, { name: 'backs', args: ['alice', 'bob'], owner: null });
+    });
+  });
 });
 
 // why()/explain() must resolve a numeric fact's history against the SAME
