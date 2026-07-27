@@ -3,7 +3,7 @@ import { useInsert } from '../InsertContext.js';
 import { predicateTemplate } from '../predicateTemplate.js';
 import { scopeClass } from '../tmHighlight.js';
 
-// A text field (input or textarea) with schema-aware autocomplete for the klugh
+// A text field (input or textarea) with schema-aware autocomplete for the ruse
 // DSL. It completes, at the caret:
 //   • predicate names          (default, at a word boundary)
 //   • tier names after a dot   ("trust." → none/low/mid/…)

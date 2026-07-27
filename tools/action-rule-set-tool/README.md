@@ -1,11 +1,11 @@
 # action-rule-set-tool
 
-An authoring & visualization tool for klugh scenarios. It reads scenarios from the
+An authoring & visualization tool for ruse scenarios. It reads scenarios from the
 repo's `project.config.json` and provides tabs for **inspecting, searching, and
 editing** rules and actions, **browsing world state**, **browsing actionGraphs**, and
 **running scenarios interactively** in Play mode.
 
-The backend imports klugh's own `RuleParser`, `RuleLoader`, `RuleSerializer`, and
+The backend imports ruse's own `RuleParser`, `RuleLoader`, `RuleSerializer`, and
 `RuleCycleDetector` directly from `../../src`, so parsing, validation, and cycle
 detection always match the engine — there is no second implementation to drift.
 
@@ -26,28 +26,28 @@ together. Open http://localhost:5173.
 The tool edits the scenario's rule files **in place** on disk. It only rewrites
 the specific rule block you add/edit/delete; every other rule is byte-preserved.
 
-## Using klugh as a git submodule
+## Using ruse as a git submodule
 
-If you vendor klugh as a **git submodule** and keep your own scenarios/data in
+If you vendor ruse as a **git submodule** and keep your own scenarios/data in
 the parent repo, put a `project.config.json` at your repo root — the tool
 **discovers it automatically** (via the submodule's superproject) and reads and
-writes your data there. No configuration needed. klugh-shipped assets (the engine
+writes your data there. No configuration needed. ruse-shipped assets (the engine
 and the syntax-highlighting grammar) always load from the submodule, so nothing
-about klugh needs editing.
+about ruse needs editing.
 
 Config resolution order:
 
-1. **`KLUGH_CONFIG`** — an explicit override; a path to a `project.config.json`,
+1. **`RUSE_CONFIG`** — an explicit override; a path to a `project.config.json`,
    or a directory containing one. Use it when your config isn't at the
    superproject root, or to switch configs:
    ```
-   KLUGH_CONFIG=/path/to/other/project.config.json npm run dev
+   RUSE_CONFIG=/path/to/other/project.config.json npm run dev
    ```
    To set it once without retyping, create a gitignored `tools/action-rule-set-tool/.env`
-   with `KLUGH_CONFIG=/abs/path/to/project.config.json`.
-2. **The host repo's `project.config.json`**, auto-discovered when klugh is a
+   with `RUSE_CONFIG=/abs/path/to/project.config.json`.
+2. **The host repo's `project.config.json`**, auto-discovered when ruse is a
    submodule.
-3. **klugh's own `project.config.json`** (standalone development).
+3. **ruse's own `project.config.json`** (standalone development).
 
 Scenario paths in the config are resolved **relative to the config file's own
 directory**, so the config sits with its data anywhere on disk. The server prints
@@ -55,7 +55,7 @@ the resolved config path on startup, so you can confirm which one is in use.
 
 ## Embedding in a host app (shared live engine)
 
-A host application that already runs a live klugh `Engine` can mount this tool
+A host application that already runs a live ruse `Engine` can mount this tool
 **against that same engine**, so the tool inspects and drives the host's running
 session rather than building its own from files. The reception project's game
 does exactly this — pause the game, open the tool, and it's already at the
@@ -110,9 +110,9 @@ only, terms before it match conditions only.
 With no `=>`, terms match anywhere in the rule.
 
 There's also a plain **rule name** box next to the structural search — filter by
-name substring (combines with the structural filter). Rules are shown with klugh
+name substring (combines with the structural filter). Rules are shown with ruse
 DSL **syntax highlighting**, reusing the TextMate grammar from
-`extensions/vscode/klugh.tmLanguage.json` verbatim (served by the backend at
+`extensions/vscode/ruse.tmLanguage.json` verbatim (served by the backend at
 `/api/grammar`), so the tool's colors always match the editor extension.
 
 ## Add / edit rules

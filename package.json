@@ -1,5 +1,5 @@
 {
-  "name": "klugh",
+  "name": "ruse",
   "version": "0.1.0",
   "type": "module",
   "description": "A predicate logic engine for authoring rules about relationships, beliefs, and history",
@@ -8,9 +8,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mtreanor/klugh"
+    "url": "https://github.com/mtreanor/ruse"
   },
-  "homepage": "https://github.com/mtreanor/klugh",
+  "homepage": "https://github.com/mtreanor/ruse",
   "exports": {
     ".": "./src/index.js"
   },
@@ -27,7 +27,8 @@
     "demo:landing-page": "node examples/landing-page-demo.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "markdown-it-mathjax3": "^4.3.2",

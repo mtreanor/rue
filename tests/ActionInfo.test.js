@@ -47,7 +47,7 @@ describe('registerActionEntities', () => {
 // ── End-to-end: info: DSL block → queryable action catalog ───────────────────
 
 function makeEngine() {
-  const dir = mkdtempSync(join(tmpdir(), 'klugh-actioninfo-'));
+  const dir = mkdtempSync(join(tmpdir(), 'ruse-actioninfo-'));
 
   writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
     predicates: {

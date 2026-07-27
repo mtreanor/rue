@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 
 const HELP_LINES = [
-  { text: 'klugh interpreter — shared state with the State Browser tab', cls: 'dim' },
+  { text: 'ruse interpreter — shared state with the State Browser tab', cls: 'dim' },
   { text: '' },
   { text: '  query:      knows(?X, ?Y) ^ friendship.strong(alice, ?Y)', cls: 'dim' },
   { text: '  as:         as alice: canPair(alice, ?Y)', cls: 'dim' },

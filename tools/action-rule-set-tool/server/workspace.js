@@ -8,7 +8,7 @@ import { tmpdir } from 'os';
 // real files stay untouched until saveToFile() flushes them. The shadow lives
 // in the OS temp dir and is cleared on each server start, so a session always
 // begins from the real files on disk.
-const SHADOW_ROOT = join(tmpdir(), 'klugh-tool-shadow');
+const SHADOW_ROOT = join(tmpdir(), 'ruse-tool-shadow');
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'); // not used for paths; kept for parity
 
 const mirrored = new Map(); // real absolute path -> shadow absolute path

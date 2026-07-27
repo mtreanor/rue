@@ -367,10 +367,10 @@ world
   // real scenario data must survive parse -> serialize -> parse unchanged. The
   // stress scenario is built to exercise every form, so this is broad coverage.
   describe('corpus round-trip (real scenario data)', () => {
-    it('round-trips data/stress/rulesets/main.klugh unchanged', () => {
+    it('round-trips data/stress/rulesets/main.ruse unchanged', () => {
       const entityNames = entityNamesFrom(join(dataDir, 'stress/entities.json'));
       const p = new RuleParser(null, { entityNames });
-      const json1 = p.parse(readFileSync(join(dataDir, 'stress/rulesets/main.klugh'), 'utf8'));
+      const json1 = p.parse(readFileSync(join(dataDir, 'stress/rulesets/main.ruse'), 'utf8'));
       const dsl   = serializer.serialize({ rules: json1.rulesets['main'] });
       const json2 = p.parse(`ruleset "main"\n${dsl}`);
       assert.deepEqual(json2, json1);

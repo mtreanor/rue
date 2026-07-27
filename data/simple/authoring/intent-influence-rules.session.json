@@ -1,6 +1,6 @@
 {
   "ruleset": "intent-influence-rules",
-  "rulesFile": "data/simple/intent-influence-rules.klugh",
+  "rulesFile": "data/simple/intent-influence-rules.ruse",
   "targetPredicates": [
     "intent-antagonize",
     "intent-flirt",

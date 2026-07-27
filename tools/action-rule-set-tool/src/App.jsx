@@ -114,7 +114,7 @@ export default function App() {
 
   useEffect(() => {
     refreshScenarios().then(list => {
-      const last = localStorage.getItem('klugh:lastScenario');
+      const last = localStorage.getItem('ruse:lastScenario');
       const pick = (last && list.find(s => s.name === last))
         ?? list.find(s => s.rulesets.length > 0)
         ?? list[0];
@@ -148,7 +148,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (scenario) localStorage.setItem('klugh:lastScenario', scenario);
+    if (scenario) localStorage.setItem('ruse:lastScenario', scenario);
     reload(scenario);
   }, [scenario]);
 
@@ -194,7 +194,7 @@ export default function App() {
     <InsertContext.Provider value={insertApi}>
       <div className="app">
         <header className="topbar">
-          <h1>klugh · action-rule-set-tool</h1>
+          <h1>ruse · action-rule-set-tool</h1>
           <label className="scenario-pick">
             Scenario
             <select value={scenario} onChange={e => setScenario(e.target.value)}>

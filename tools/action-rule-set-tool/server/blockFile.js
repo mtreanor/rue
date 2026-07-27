@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
 
-// The klugh loader discards `#` comments, so we maintain our own raw-file model
+// The ruse loader discards `#` comments, so we maintain our own raw-file model
 // to (a) associate a block's leading comment lines with it for display, and
 // (b) locate the exact line span of a block for in-place edit/delete without
 // touching any other block's formatting.

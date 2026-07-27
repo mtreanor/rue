@@ -4,7 +4,7 @@ Actions are named, scoreable, executable units of behaviour. Unlike rules — wh
 
 An action file contains only `action` blocks:
 
-```klugh
+```ruse
 action "offer help"
   roles: ?SELF: agent, ?Y: agent
   preconditions
@@ -27,7 +27,7 @@ action "offer help"
 
 Optional. A comma-separated list of typed variable declarations for the action's participants.
 
-```klugh
+```ruse
 roles: ?SELF: agent, ?Y: agent
 ```
 
@@ -51,11 +51,11 @@ Every action definition has one implicit variable that is bound for you — you 
 
 ## `info:`
 
-Optional. A list of facts that describe the action *itself*. Each action with an `info:` block is registered as an entity of type `action`, and its info facts are asserted into the world fact store — so the action catalog becomes queryable with ordinary klugh queries.
+Optional. A list of facts that describe the action *itself*. Each action with an `info:` block is registered as an entity of type `action`, and its info facts are asserted into the world fact store — so the action catalog becomes queryable with ordinary ruse queries.
 
 Inside an action, the variable `?this_action` refers to the action being defined (see [Implicit variables](#implicit-variables)). Because `?this_action` sits in subject position like any query variable, each declaration reads exactly like the query that would later find it:
 
-```klugh
+```ruse
 action "give"
   roles: ?SELF: agent, ?Y: agent
   info:
@@ -85,7 +85,7 @@ The facts are ordinary facts, so they are **mutable** — `assert`/`retract` a t
 
 - **`?this_action` only.** Info facts describe a single action and must be ground; the only variable allowed is `?this_action`. Any other variable is a load-time error.
 - **Plain positive facts.** An `info:` block holds simple `name(args)` facts — no negation, tiers, or comparisons.
-- **Predicate and entity-type names must differ.** The info predicate (`tag`) and the entity type of its values cannot share a name. Name the value type distinctly — e.g. predicate `tag` with value type `actionTag` (instances `social`, `generous`, …) — and declare both in your schema/entities. klugh provides the mechanism; the vocabulary is yours.
+- **Predicate and entity-type names must differ.** The info predicate (`tag`) and the entity type of its values cannot share a name. Name the value type distinctly — e.g. predicate `tag` with value type `actionTag` (instances `social`, `generous`, …) — and declare both in your schema/entities. ruse provides the mechanism; the vocabulary is yours.
 - **Action names with spaces** (`"share a kind word"`) work as entity names; reference a specific action in a query with a string literal: `tag("share a kind word", social)`.
 
 A runnable example is in `examples/action-info.js`.
@@ -96,7 +96,7 @@ A runnable example is in `examples/action-info.js`.
 
 Optional. A conjunction of predicates joined by `^`, using the same syntax as a rule LHS (see [Query forms](query-forms.md) and [Negation](negation.md)). Checked by `action.arePreconditionsMet(binding, ctx)`. When absent, the action is always eligible.
 
-```klugh
+```ruse
 preconditions
   knows(?SELF, ?Y)
   ^ not hostile(?SELF, ?Y)
@@ -114,7 +114,7 @@ Optional. One or more utility sources listed beneath the `utility` keyword. `act
 
 Any utility source can be a numeric expression combining the source types below with infix `+`, `-`, `*`, `/` (standard precedence, parentheses to override) and the functions `min`, `max`, `abs`, `clamp`, `pow`:
 
-```klugh
+```ruse
 utility
   warmth(?SELF, ?OTHER) + trust(?SELF, ?OTHER) / 2
   clamp(?SELF.rapport(?OTHER) * 2, 0, 100)
@@ -129,14 +129,14 @@ Operands may be any source — a numeric predicate (its value), a private-store 
 
 A bare number. Contributes a fixed value regardless of world state.
 
-```klugh
+```ruse
 utility
   5.0
 ```
 
 Negative constants are valid:
 
-```klugh
+```ruse
 utility
   -2.0
 ```
@@ -145,7 +145,7 @@ utility
 
 `random(min, max)`. Draws a uniform random value in `[min, max)`. Useful for breaking ties between otherwise equally-weighted candidates — mix it into a `sum` to add jitter:
 
-```klugh
+```ruse
 utility
   sum
     friendship(?SELF, ?Y)
@@ -164,14 +164,14 @@ A `random` source makes scoring non-deterministic by design. Two independent sco
 
 `predicateName(args)`. Reads the current value of a **numeric** predicate for the resolved argument values. If the predicate has no stored value, the schema default is used. Returns 0 when no numeric handler is registered.
 
-```klugh
+```ruse
 utility
   friendship(?SELF, ?Y)
 ```
 
 A predicate source can read from a private store with an owner prefix:
 
-```klugh
+```ruse
 utility
   ?SELF.mood(?SELF)
   alice.mood(alice)
@@ -181,7 +181,7 @@ utility
 
 `rule "name" predicates… => weight`. Counts how many distinct bindings satisfy the predicate conjunction, then multiplies by the weight. Variables already bound by the caller are held fixed; free variables are enumerated over the entity registry.
 
-```klugh
+```ruse
 utility
   rule "knows many"
     knows(?SELF, ?Z)
@@ -190,7 +190,7 @@ utility
 
 If `?SELF` is pre-bound and `?Z` is free, this scores 1.0 for each agent `?Z` that `?SELF` knows. Conjunctions work the same as in rules:
 
-```klugh
+```ruse
 utility
   rule "need bonus"
     hasNeed(?Y, _)
@@ -202,7 +202,7 @@ utility
 
 `aggregator sources…`. One of `sum`, `avg`, `min`, or `max` followed by any number of atomic sources (constants, predicates, rule sources). Aggregate sources cannot be nested.
 
-```klugh
+```ruse
 utility
   sum
     friendship(?SELF, ?Y)
@@ -225,14 +225,14 @@ utility
 
 `fn|numericPred(args) ^ filter(args)|`. Enumerates entities matching the arguments, collects a numeric predicate value for each, and reduces with the given function. Returns 0 when no entities match. A bare `_` is an anonymous wildcard (a fresh enumeration variable that never joins); a named wildcard `_name` shares one variable across its occurrences, so `_name` positions join (see [query forms](query-forms#aggregate)).
 
-```klugh
+```ruse
 utility
   avg|warmth(_, ?SELF)|
 ```
 
 Score = average warmth that any agent feels toward `?SELF`.
 
-```klugh
+```ruse
 utility
   avg|warmth(_a, ?SELF) ^ knows(_a, ?SELF)|
 ```
@@ -245,14 +245,14 @@ All four functions are available: `avg`, `sum`, `min`, `max`. Unlike the [aggreg
 
 `source * source`. Multiplies two utility sources. Products can chain (`a * b * c`), and each operand can be any atomic source — constants, predicates, rule sources, or predicate aggregates.
 
-```klugh
+```ruse
 utility
   friendship(?SELF, ?Y) * trust(?SELF, ?Y)
 ```
 
 Products are evaluated left to right. A product of an aggregate and a predicate:
 
-```klugh
+```ruse
 utility
   avg|warmth(_, ?SELF)| * reputation(?SELF)
 ```
@@ -265,7 +265,7 @@ Optional. A single content item attached to the action.
 
 Currently the only content type is `text`:
 
-```klugh
+```ruse
 content text: "?SELF offers to help ?Y"
 ```
 
@@ -277,7 +277,7 @@ content text: "?SELF offers to help ?Y"
 
 Optional. One or more state operations using the same syntax as a rule RHS (see [State files](state.md#state-operations)). Applied immediately by `action.execute()` or staged by `action.enqueue()`. When absent, `action.effects` is an empty array.
 
-```klugh
+```ruse
 effects
   helpful(?SELF, ?Y)
   toward(?SELF, ?Y) += 5
@@ -292,7 +292,7 @@ All effect types are valid: assert, retract (`not pred`), explicit disbelief (`-
 
 Creates an entity at runtime from an effect. Available in both action effects and rule effects.
 
-```klugh
+```ruse
 effects
   new entity(building, tavern)         # named — idempotent if "tavern" exists
   new entity(bond, ?b)                 # auto-named, bound to ?b
@@ -309,7 +309,7 @@ effects
 
 The `[name:]` annotation supports **`{?VAR}` template interpolation** — role variables are resolved into the name string:
 
-```klugh
+```ruse
 effects
   new entity(bond, ?b) [name: "{?SELF}_{?Y}_bond"]
   bondMembers(?b, ?SELF, ?Y)
@@ -327,7 +327,7 @@ Entity types can declare a `naming` template in `entities.json` that auto-genera
 }
 ```
 
-```klugh
+```ruse
 effects
   new entity(part, ?P)
   has(?SELF, ?P)
@@ -344,7 +344,7 @@ Variables introduced by `new entity` are **not enumerated** during scoring — t
 
 Removes an entity from the registry. Available in both action effects and rule effects. Idempotent — removing a nonexistent entity is a no-op.
 
-```klugh
+```ruse
 effects
   remove entity(building, tavern)      # remove by literal name
   remove entity(bond, ?b)              # remove by variable
@@ -357,7 +357,7 @@ effects
 
 `remove entity` only removes the entity from the registry — it does **not** retract facts that reference the entity. Orphaned fact references become inert string values, just like any literal that doesn't match a registered entity. Retract facts explicitly before removing if you want a clean slate:
 
-```klugh
+```ruse
 effects
   not bondMembers(?b, ?SELF, ?Y)
   remove entity(bond, ?b)
@@ -381,7 +381,7 @@ role(occ1, Y, bob)             // …keyed by the role variable's name (?SELF �
 
 The variable `?var` is bound to the occurrence id, so subsequent effects can annotate it:
 
-```klugh
+```ruse
 action "give"
   roles: ?SELF: agent, ?Y: agent
   effects
@@ -401,7 +401,7 @@ Declare the vocabulary so query variables get typed:
 "role":       { "type": "boolean", "args": ["occurrence", "roleName", "entity"] }
 ```
 
-The `occurrence` type is populated at runtime (one entity per recorded occurrence). The `roleName` and `entity` types are intentionally **never instantiated** — that is what makes them work. When a free query variable has a type with no registered entities, klugh binds it from the matching facts themselves, so `role`'s value slot is **polymorphic**: it resolves to whatever was actually recorded (an agent, an item, anything), without an `any` type.
+The `occurrence` type is populated at runtime (one entity per recorded occurrence). The `roleName` and `entity` types are intentionally **never instantiated** — that is what makes them work. When a free query variable has a type with no registered entities, ruse binds it from the matching facts themselves, so `role`'s value slot is **polymorphic**: it resolves to whatever was actually recorded (an agent, an item, anything), without an `any` type.
 
 ### Querying
 

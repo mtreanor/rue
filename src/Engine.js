@@ -25,13 +25,13 @@ import { restoreFromFile } from './Snapshot.js';
 import { toFactArg } from './entityValue.js';
 import { scopeToOwner } from './predicates/resolveOwnerScope.js';
 
-function scanKlughFiles(dir) {
+function scanRuseFiles(dir) {
   const results = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
-      results.push(...scanKlughFiles(full));
-    } else if (entry.endsWith('.klugh')) {
+      results.push(...scanRuseFiles(full));
+    } else if (entry.endsWith('.ruse')) {
       results.push(full);
     }
   }
@@ -49,8 +49,8 @@ export class Engine {
           predicates:  join(dataDirOrConfig, 'predicates.json'),
           entities:    join(dataDirOrConfig, 'entities.json'),
           state:       join(dataDirOrConfig, 'state'),
-          definitions: join(dataDirOrConfig, 'definitions.klugh'),
-          klughDir:    dataDirOrConfig,
+          definitions: join(dataDirOrConfig, 'definitions.ruse'),
+          ruseDir:    dataDirOrConfig,
         }
       : dataDirOrConfig;
 
@@ -90,16 +90,16 @@ export class Engine {
     this.actionsets = new Map();
     this.jsHooks    = new Map();
 
-    if (paths.klughDir) {
-      for (const file of scanKlughFiles(paths.klughDir)) {
-        if (file.endsWith('definitions.klugh')) continue;
-        this.loadKlughFile(readFileSync(file, 'utf-8'));
+    if (paths.ruseDir) {
+      for (const file of scanRuseFiles(paths.ruseDir)) {
+        if (file.endsWith('definitions.ruse')) continue;
+        this.loadRuseFile(readFileSync(file, 'utf-8'));
       }
     } else {
       if (paths.rulesets) {
         const rsVal = paths.rulesets;
         if (typeof rsVal === 'string') {
-          for (const file of scanKlughFiles(rsVal)) {
+          for (const file of scanRuseFiles(rsVal)) {
             this.loadRules(readFileSync(file, 'utf-8'));
           }
         } else {
@@ -115,7 +115,7 @@ export class Engine {
       if (paths.actionsets) {
         const asVal = paths.actionsets;
         if (typeof asVal === 'string') {
-          for (const file of scanKlughFiles(asVal)) {
+          for (const file of scanRuseFiles(asVal)) {
             this.loadActions(readFileSync(file, 'utf-8'));
           }
         } else {
@@ -177,8 +177,8 @@ export class Engine {
     return rules;
   }
 
-  // Dispatches a .klugh file to loadRules or loadActions based on its first keyword.
-  loadKlughFile(source) {
+  // Dispatches a .ruse file to loadRules or loadActions based on its first keyword.
+  loadRuseFile(source) {
     const keyword = source.match(/^\s*(\w+)/m)?.[1];
     if (keyword === 'ruleset')   return this.loadRules(source);
     if (keyword === 'actionset') return this.loadActions(source);

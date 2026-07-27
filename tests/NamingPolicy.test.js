@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Engine } from '../src/Engine.js';
 
 function makeDir() {
-  return mkdtempSync(join(tmpdir(), 'klugh-naming-'));
+  return mkdtempSync(join(tmpdir(), 'ruse-naming-'));
 }
 
 describe('entity naming policies', () => {

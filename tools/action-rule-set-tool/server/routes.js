@@ -25,9 +25,9 @@ import { onReload } from './state.js';
 
 export const router = Router();
 
-// The klugh TextMate grammar, reused verbatim from the VS Code extension so the
+// The ruse TextMate grammar, reused verbatim from the VS Code extension so the
 // tool's highlighting stays in sync with the editor's — single source of truth.
-const GRAMMAR_PATH = join(repoRoot, 'extensions', 'vscode', 'klugh.tmLanguage.json');
+const GRAMMAR_PATH = join(repoRoot, 'extensions', 'vscode', 'ruse.tmLanguage.json');
 
 // Wrap an async handler so thrown errors become 400s with a message.
 const h = (fn) => async (req, res) => {

@@ -1,7 +1,7 @@
 {
-  "name": "klugh",
-  "displayName": "klugh",
-  "description": "Syntax highlighting for the klugh logic DSL",
+  "name": "ruse",
+  "displayName": "ruse",
+  "description": "Syntax highlighting for the ruse logic DSL",
   "version": "0.1.0",
   "publisher": "local",
   "engines": { "vscode": "^1.80.0" },
@@ -9,17 +9,17 @@
   "contributes": {
     "languages": [
       {
-        "id": "klugh",
-        "aliases": ["klugh"],
-        "extensions": [".klugh"],
+        "id": "ruse",
+        "aliases": ["ruse"],
+        "extensions": [".ruse"],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "klugh",
-        "scopeName": "source.klugh",
-        "path": "./klugh.tmLanguage.json"
+        "language": "ruse",
+        "scopeName": "source.ruse",
+        "path": "./ruse.tmLanguage.json"
       }
     ]
   }

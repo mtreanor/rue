@@ -4,7 +4,7 @@ import { Engine } from '../../src/Engine.js';
 import { TickPlan } from '../../src/plan/TickPlan.js';
 
 // The invariants the shared-session design rests on (reception's
-// docs/adr/0002-shared-session-embedded-tool.md), proven at the klugh-primitive
+// docs/adr/0002-shared-session-embedded-tool.md), proven at the ruse-primitive
 // level: ONE engine + ONE TickPlan, driven alternately by two callers (a
 // metronome-style loop and a manual single-step), must produce one continuous
 // tick timeline, one shared history, accumulated state that never resets across

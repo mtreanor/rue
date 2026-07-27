@@ -1,12 +1,12 @@
-# Research notes — formalising klugh
+# Research notes — formalising ruse
 
-Working notes on what a formal treatment of klugh would require, and what a research contribution might look like.
+Working notes on what a formal treatment of ruse would require, and what a research contribution might look like.
 
 ---
 
 ## What kind of system is this?
 
-klugh is best described as a **temporal, paraconsistent production rule system with a Datalog-flavored query layer and graded truth scoring**. The closest theoretical ancestor is Datalog, but it draws from four additional traditions:
+ruse is best described as a **temporal, paraconsistent production rule system with a Datalog-flavored query layer and graded truth scoring**. The closest theoretical ancestor is Datalog, but it draws from four additional traditions:
 
 - **Production rule systems** (CLIPS, Drools) — mutable working memory, forward chaining to fixpoint
 - **Paraconsistent / epistemic logic** — four-valued negation, per-entity private stores with configurable contradiction policy
@@ -19,7 +19,7 @@ The combination of all five in a single small system is unusual. Standard academ
 
 ## Publishability
 
-Probably not as-is. Academic logic programming venues (ICLP, LPNMR, KR) require formal contributions: defined semantics, soundness and completeness proofs, complexity analysis, and comparison with prior work. klugh is currently an implemented system without formal semantics.
+Probably not as-is. Academic logic programming venues (ICLP, LPNMR, KR) require formal contributions: defined semantics, soundness and completeness proofs, complexity analysis, and comparison with prior work. ruse is currently an implemented system without formal semantics.
 
 The most novel contribution is the **epistemic store model**: per-entity fact stores with configurable contradiction policy, where `allow` makes a store genuinely paraconsistent and `lastWins` collapses it to classical two-valued logic. This combination doesn't have obvious prior art.
 
@@ -61,9 +61,9 @@ The natural framework for the semantics of the negation operators. Belnap observ
 
 These form a lattice with two orderings: a *truth* ordering (False < Neither/Both < True) and an *information* ordering (Neither < True/False < Both). Contradiction is not a catastrophe — it is a state of conflicting information, and the system keeps reasoning sensibly rather than exploding (unlike classical logic where contradiction entails everything).
 
-### Mapping klugh onto FOUR
+### Mapping ruse onto FOUR
 
-| klugh store state | Belnap value |
+| ruse store state | Belnap value |
 |-------------------|-------------|
 | `pred` asserted, no `-pred` | True |
 | `-pred` asserted, no `pred` | False |

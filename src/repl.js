@@ -7,7 +7,15 @@ import { formatBoundRule } from './RuleFormatter.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const config   = JSON.parse(readFileSync(join(repoRoot, 'project.config.json'), 'utf-8'));
-const scenario = config.scenarios[config.active];
+const scenarioRaw = config.scenarios[config.active];
+const scenario = typeof scenarioRaw === 'string'
+  ? {
+      predicates:  join(scenarioRaw, 'predicates.json'),
+      entities:    join(scenarioRaw, 'entities.json'),
+      state:       join(scenarioRaw, 'state'),
+      definitions: join(scenarioRaw, 'definitions.ruse'),
+    }
+  : scenarioRaw;
 
 const paths = {
   predicates:  resolve(repoRoot, scenario.predicates),

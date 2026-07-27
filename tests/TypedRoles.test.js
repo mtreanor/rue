@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Engine } from '../src/Engine.js';
 
 function makeEngine(actionsText, extraPredicates = {}, extraEntities = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'klugh-typedroles-'));
+  const dir = mkdtempSync(join(tmpdir(), 'ruse-typedroles-'));
 
   writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
     predicates: {

@@ -1,6 +1,6 @@
-# Klugh Authoring Idioms
+# Ruse Authoring Idioms
 
-Recurring patterns for modelling common scenarios in klugh.
+Recurring patterns for modelling common scenarios in ruse.
 
 ---
 
@@ -33,7 +33,7 @@ The transferred fact's provenance records the rule name and tick, capturing *how
 
 There is no dedicated `argmax` syntax. Instead, combine a numeric predicate comparison with a `max` aggregate on the right-hand side:
 
-```klugh
+```ruse
 rule "identify carol's biggest admirer"
   warmth(?X, carol) = max|warmth(_, carol)|
   => biggestAdmirer(carol, ?X)
@@ -45,7 +45,7 @@ rule "identify carol's biggest admirer"
 
 For readability and reuse, wrap the pattern in a `define` block:
 
-```klugh
+```ruse
 define "most admiring agent"
   warmth(?X, ?Y) = max|warmth(_, ?Y)|
   => mostAdmires(?X, ?Y)
@@ -55,7 +55,7 @@ Downstream rules and queries can then simply say `mostAdmires(?X, carol)` withou
 
 ### Argmin works the same way
 
-```klugh
+```ruse
 define "least admiring agent"
   warmth(?X, ?Y) = min|warmth(_, ?Y)|
   => leastAdmires(?X, ?Y)
@@ -67,7 +67,7 @@ define "least admiring agent"
 
 Wrap `[degrees: N]` in a `define` so the reachable set has a name for provenance and reuse:
 
-```klugh
+```ruse
 define "extended circle"
   knows(?SELF, ?OTHER) [degrees: 3]
   => inMyCircle(?SELF, ?OTHER)
@@ -75,7 +75,7 @@ define "extended circle"
 
 Filter by distance with a bare variable comparison:
 
-```klugh
+```ruse
 knows(?SELF, ?OTHER) [degrees: 6] [dist: ?d]
 ^ ?d >= 2
 ^ ?d <= 3
@@ -90,7 +90,7 @@ Count the bloc with an aggregate: `count|knows(?SELF, _) [degrees: 3]|` is reach
 
 `[when: _t]` inside `count|…|` counts how many times a fact was asserted — not how long it stayed true:
 
-```klugh
+```ruse
 rule "an on-and-off friendship never earns full trust"
   count|friendsWith(?SELF, ?OTHER) [when: _t]| > 3
   => trust(?SELF, ?OTHER) -= 10
@@ -104,7 +104,7 @@ Same-tick co-occurrence uses the standalone form: bind `?t` once and reuse it on
 
 Rule effects can read other numeric predicates and combine them:
 
-```klugh
+```ruse
 rule "trust grows with mutual regard"
   knows(?X, ?Y)
   => trust(?X, ?Y) += (respect(?X, ?Y) + goodwill(?X, ?Y)) / 2

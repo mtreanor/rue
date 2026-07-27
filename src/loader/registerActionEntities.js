@@ -2,7 +2,7 @@ import { Fact } from '../Fact.js';
 
 // Registers each action as an entity (default type 'action') and asserts the
 // facts declared in its info: block, so the action catalog becomes queryable
-// with ordinary klugh queries.
+// with ordinary ruse queries.
 //
 // In an info fact, ?this_action resolves to the action's own name. Any other
 // variable is an error — info facts describe a single action and must be ground.

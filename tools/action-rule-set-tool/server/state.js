@@ -289,7 +289,7 @@ export function serializeProof(node, maxDepth, depth = 0) {
 // A wildcard-bound arg (`_` in the DSL) resolves to `null`/`undefined` by
 // the time it reaches here (toFactArg's identity pass-through for a
 // non-object value) — Array.join() renders that as an EMPTY string, not the
-// literal `_`, which produces invalid klugh syntax the moment the hole
+// literal `_`, which produces invalid ruse syntax the moment the hole
 // isn't in the trailing position (`pred(a, , b)` — a bare double-comma the
 // parser rejects outright, not merely a fact with a missing arg). Render it
 // back as `_` so the text stays valid regardless of which position the

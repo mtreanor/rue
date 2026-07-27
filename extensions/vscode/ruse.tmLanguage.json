@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "klugh",
-  "scopeName": "source.klugh",
-  "fileTypes": ["klugh"],
+  "name": "ruse",
+  "scopeName": "source.ruse",
+  "fileTypes": ["ruse"],
   "patterns": [
     { "include": "#comment" },
     { "include": "#block-keyword" },
@@ -23,63 +23,63 @@
   ],
   "repository": {
     "comment": {
-      "name": "comment.line.klugh",
+      "name": "comment.line.ruse",
       "match": "(\\/\\/|#).*$"
     },
     "block-keyword": {
-      "name": "keyword.control.klugh",
+      "name": "keyword.control.ruse",
       "match": "\\b(rule|define|action|world|private)\\b"
     },
     "section-keyword": {
-      "name": "storage.type.klugh",
+      "name": "storage.type.ruse",
       "match": "\\b(preconditions|effects|utility|roles|content|info|text)\\b"
     },
     "entity-keyword": {
-      "name": "keyword.control.klugh",
+      "name": "keyword.control.ruse",
       "match": "\\b(new|remove)\\s+entity\\b|\\brecord\\b(?=\\s*\\()"
     },
     "aggregator": {
-      "name": "support.function.klugh",
+      "name": "support.function.ruse",
       "match": "\\b(sum|avg|min|max|count|random)\\b"
     },
     "numeric-function": {
-      "name": "support.function.klugh",
+      "name": "support.function.ruse",
       "match": "\\b(abs|clamp|pow)\\b(?=\\s*\\()"
     },
     "modifier-keyword": {
-      "name": "keyword.operator.word.klugh",
+      "name": "keyword.operator.word.ruse",
       "match": "\\b(not|then(?:\\[\\d+\\])?)\\b"
     },
     "operator": {
       "patterns": [
-        { "name": "keyword.operator.klugh",            "match": "=>" },
-        { "name": "keyword.operator.assignment.klugh", "match": "[+\\-]=" },
-        { "name": "keyword.operator.comparison.klugh", "match": "!=|==|>=|<=" },
-        { "name": "keyword.operator.comparison.klugh", "match": "[><]" },
-        { "name": "keyword.operator.arithmetic.klugh", "match": "[+*/]" },
-        { "name": "keyword.operator.logical.klugh",    "match": "\\^" },
-        { "name": "keyword.operator.klugh",            "match": "~" },
-        { "name": "keyword.operator.klugh",            "match": "-(?=[a-zA-Z?])" },
-        { "name": "keyword.operator.arithmetic.klugh", "match": "-" },
-        { "name": "keyword.operator.assignment.klugh", "match": "=" }
+        { "name": "keyword.operator.ruse",            "match": "=>" },
+        { "name": "keyword.operator.assignment.ruse", "match": "[+\\-]=" },
+        { "name": "keyword.operator.comparison.ruse", "match": "!=|==|>=|<=" },
+        { "name": "keyword.operator.comparison.ruse", "match": "[><]" },
+        { "name": "keyword.operator.arithmetic.ruse", "match": "[+*/]" },
+        { "name": "keyword.operator.logical.ruse",    "match": "\\^" },
+        { "name": "keyword.operator.ruse",            "match": "~" },
+        { "name": "keyword.operator.ruse",            "match": "-(?=[a-zA-Z?])" },
+        { "name": "keyword.operator.arithmetic.ruse", "match": "-" },
+        { "name": "keyword.operator.assignment.ruse", "match": "=" }
       ]
     },
     "pipe-delimiter": {
-      "name": "keyword.operator.klugh",
+      "name": "keyword.operator.ruse",
       "match": "\\|"
     },
     "annotation": {
-      "name": "meta.annotation.klugh",
+      "name": "meta.annotation.ruse",
       "begin": "\\[",
       "end": "\\]",
-      "beginCaptures": { "0": { "name": "punctuation.section.annotation.begin.klugh" } },
-      "endCaptures":   { "0": { "name": "punctuation.section.annotation.end.klugh" } },
+      "beginCaptures": { "0": { "name": "punctuation.section.annotation.begin.ruse" } },
+      "endCaptures":   { "0": { "name": "punctuation.section.annotation.end.ruse" } },
       "patterns": [
         {
-          "name": "keyword.other.klugh",
+          "name": "keyword.other.ruse",
           "match": "\\b(ever|asserted-during|during|when|tick|ago|degrees|dist|importance|strength|name)\\b"
         },
-        { "name": "punctuation.separator.klugh", "match": ":" },
+        { "name": "punctuation.separator.ruse", "match": ":" },
         { "include": "#string" },
         { "include": "#number" },
         { "include": "#variable" },
@@ -88,33 +88,33 @@
       ]
     },
     "string": {
-      "name": "string.quoted.double.klugh",
+      "name": "string.quoted.double.ruse",
       "begin": "\"",
       "end": "\"",
-      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.klugh" } },
-      "endCaptures":   { "0": { "name": "punctuation.definition.string.end.klugh" } },
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.ruse" } },
+      "endCaptures":   { "0": { "name": "punctuation.definition.string.end.ruse" } },
       "patterns": [
-        { "name": "variable.other.klugh", "match": "\\?[A-Za-z][A-Za-z0-9_]*" }
+        { "name": "variable.other.ruse", "match": "\\?[A-Za-z][A-Za-z0-9_]*" }
       ]
     },
     "variable": {
-      "name": "variable.other.klugh",
+      "name": "variable.other.ruse",
       "match": "\\?[A-Za-z][A-Za-z0-9_]*"
     },
     "named-wildcard": {
-      "name": "variable.language.klugh",
+      "name": "variable.language.ruse",
       "match": "(?<![a-zA-Z0-9])_[a-zA-Z0-9_]+"
     },
     "wildcard": {
-      "name": "variable.language.klugh",
+      "name": "variable.language.ruse",
       "match": "(?<![a-zA-Z0-9])_(?![a-zA-Z0-9])"
     },
     "number": {
-      "name": "constant.numeric.klugh",
+      "name": "constant.numeric.ruse",
       "match": "(?<![a-zA-Z0-9.])-?\\d+(\\.\\d+)?\\b"
     },
     "predicate": {
-      "name": "entity.name.function.klugh",
+      "name": "entity.name.function.ruse",
       "match": "\\b[a-z][a-zA-Z0-9]*(?:\\.[a-z][a-zA-Z0-9]*)?(?=\\s*\\()"
     }
   }

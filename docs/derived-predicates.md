@@ -23,7 +23,7 @@ Logic for derived predicates is authored in a dedicated `definitions` file. The 
 
 A definition has a name, a body of premises joined by `^`, and a **conclusion** — a single derived predicate call — after `=>`:
 
-```klugh
+```ruse
 define "can pair — strong friendship"
   knows(?X, ?Y)
   ^ friendship.strong(?X, ?Y)
@@ -76,7 +76,7 @@ Cycle detection prevents infinite recursion when definitions refer to each other
 
 In rules, queries, and the REPL, a derived predicate looks identical to a boolean fact:
 
-```klugh
+```ruse
 rule "can exploit if need can be met"
   knows(?SELF, ?Y)
   ^ canHaveNeedMet(?SELF, ?Y)
@@ -93,7 +93,7 @@ Definition premises always query the **world store** unless they carry an explic
 
 To read from a specific entity's private store inside a definition, use an explicit owner prefix:
 
-```klugh
+```ruse
 define "can pair by alice's private view"
   alice.knows(?X, ?Y)
   ^ alice.friendship.strong(?X, ?Y)

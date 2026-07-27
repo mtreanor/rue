@@ -10,7 +10,7 @@ import { Engine } from '../src/Engine.js';
 // ── record(?var) in action effects ──────────────────────────────────────────
 
 function makeEngine() {
-  const dir = mkdtempSync(join(tmpdir(), 'klugh-occurrence-'));
+  const dir = mkdtempSync(join(tmpdir(), 'ruse-occurrence-'));
 
   writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
     predicates: {
@@ -109,7 +109,7 @@ describe('record(?var) — action occurrence via DSL', () => {
   });
 
   it('actions without record() produce no occurrence', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-no-occ-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-no-occ-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { helped: { type: 'boolean', args: ['agent', 'agent'] } },
     }));
@@ -219,7 +219,7 @@ describe('action occurrences — querying by pattern', () => {
 
 describe('new entity() in effects', () => {
   it('creates a named entity (idempotent)', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-new-entity-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-new-entity-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { built: { type: 'boolean', args: ['agent', 'building'] } },
     }));
@@ -256,7 +256,7 @@ describe('new entity() in effects', () => {
   });
 
   it('creates an auto-named entity with variable binding', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-new-entity-var-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-new-entity-var-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { bondMembers: { type: 'boolean', args: ['bond', 'agent', 'agent'] } },
     }));
@@ -290,7 +290,7 @@ describe('new entity() in effects', () => {
   });
 
   it('creates a named entity with variable binding via [name:] annotation', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-new-entity-named-var-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-new-entity-named-var-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { bondMembers: { type: 'boolean', args: ['bond', 'agent', 'agent'] } },
     }));
@@ -324,7 +324,7 @@ describe('new entity() in effects', () => {
   });
 
   it('works in rule effects (named entity)', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-new-entity-rule-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-new-entity-rule-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: {
         friends: { type: 'boolean', args: ['agent', 'agent'] },
@@ -356,7 +356,7 @@ describe('new entity() in effects', () => {
   });
 
   it('bare new entity(type) form creates an entity with no variable handle', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-new-entity-bare-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-new-entity-bare-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { tagged: { type: 'boolean', args: ['agent'] } },
     }));
@@ -394,7 +394,7 @@ describe('new entity() in effects', () => {
 
 describe('[name: "template_{?VAR}"] interpolation', () => {
   it('resolves role variables in the name template', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-name-template-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-name-template-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { has: { type: 'boolean', args: ['agent', 'item'] } },
     }));
@@ -427,7 +427,7 @@ describe('[name: "template_{?VAR}"] interpolation', () => {
   });
 
   it('is idempotent — re-executing binds to the existing entity', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-name-template-idem-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-name-template-idem-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { has: { type: 'boolean', args: ['agent', 'item'] } },
     }));
@@ -460,7 +460,7 @@ describe('[name: "template_{?VAR}"] interpolation', () => {
   });
 
   it('creates distinct entities for different bindings', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-name-template-multi-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-name-template-multi-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { has: { type: 'boolean', args: ['agent', 'item'] } },
     }));
@@ -500,7 +500,7 @@ describe('[name: "template_{?VAR}"] interpolation', () => {
 
 describe('remove entity() in effects', () => {
   it('removes a named entity from the registry', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-remove-entity-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-remove-entity-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { demolished: { type: 'boolean', args: ['agent'] } },
     }));
@@ -534,7 +534,7 @@ describe('remove entity() in effects', () => {
   });
 
   it('removes a variable-bound entity', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-remove-entity-var-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-remove-entity-var-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { bondMembers: { type: 'boolean', args: ['bond', 'agent', 'agent'] } },
     }));
@@ -583,7 +583,7 @@ describe('remove entity() in effects', () => {
   });
 
   it('is idempotent — removing a nonexistent entity is a no-op', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-remove-entity-noop-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-remove-entity-noop-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: { done: { type: 'boolean', args: ['agent'] } },
     }));
@@ -614,7 +614,7 @@ describe('remove entity() in effects', () => {
   });
 
   it('works in rule effects', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'klugh-remove-entity-rule-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ruse-remove-entity-rule-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
       predicates: {
         condemned: { type: 'boolean', args: ['building'] },

@@ -152,7 +152,7 @@ describe('Planner — derived rule with a numeric-tier premise', () => {
   });
 });
 
-describe('Planner — validator running a full klugh query', () => {
+describe('Planner — validator running a full ruse query', () => {
   const schema = new PredicateSchema({
     predicates: {
       knows:      { type: 'boolean', args: ['agent', 'agent'] },

@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { Engine } from '../src/Engine.js';
 
 // Set up a small scenario with actions that use record().
-const dir = mkdtempSync(join(tmpdir(), 'klugh-occ-example-'));
+const dir = mkdtempSync(join(tmpdir(), 'ruse-occ-example-'));
 
 writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
   predicates: {

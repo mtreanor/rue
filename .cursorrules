@@ -1,0 +1,4 @@
+# Git Commit Rules
+- Never credit AI tools, assistants, or LLMs (e.g., Cursor, Claude, Gemini, Antigravity, ChatGPT, OpenAI, Copilot) in commit messages.
+- Never add Co-authored-by trailers.
+- Keep commit messages concise, descriptive, and authored as if written directly by the human developer.

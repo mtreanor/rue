@@ -8,7 +8,7 @@ The system provides four negation operators, each with a distinct meaning. Under
 
 True when the positive belief is **currently asserted** in the relevant store.
 
-```klugh
+```ruse
 knows(?SELF, ?Y)
 ```
 
@@ -18,7 +18,7 @@ knows(?SELF, ?Y)
 
 True when an **explicit disbelief** is currently present — a fact stored with `negated: true`. On the LHS this tests for the presence of that disbelief; on the RHS it asserts one.
 
-```klugh
+```ruse
 rule "back off when contact is explicitly declined"
   knows(?SELF, ?Y)
   ^ -wantsContact(?Y)
@@ -33,7 +33,7 @@ Explicit disbelief is a stored fact, not just the absence of positive belief. A 
 
 True when the **positive belief is absent** from the store — regardless of whether explicit disbelief is present. On the RHS, `not pred` retracts the positive belief.
 
-```klugh
+```ruse
 rule "lean in when no hostility is on record"
   knows(?SELF, ?Y)
   ^ not hostile(?SELF, ?Y)
@@ -48,7 +48,7 @@ NAF does not distinguish between "not known to be true" and "known to be false".
 
 True when **no explicit disbelief** has been asserted — regardless of whether positive belief is present. On the RHS, `not -pred` retracts the explicit disbelief.
 
-```klugh
+```ruse
 rule "approach unless explicitly refused"
   knows(?SELF, ?Y)
   ^ not -wantsContact(?Y)
@@ -63,7 +63,7 @@ This fires for anyone who has not been explicitly marked as not wanting contact.
 
 True when the **positive belief is absent OR explicit disbelief is present**. On the LHS only — there is no RHS form for weak negation.
 
-```klugh
+```ruse
 rule "cautious when trust is unconfirmed"
   knows(?SELF, ?Y)
   ^ ~trusts(?Y, ?SELF)
@@ -90,7 +90,7 @@ Under `lastWins` contradiction policy, asserting `-pred` always retracts `pred`,
 
 Variables inside a negation predicate must already be bound by a positive predicate earlier in the conjunction — they are not enumerated. This applies to `not`, `-`, and `~`.
 
-```klugh
+```ruse
 rule "correct — ?Y is already bound by knows"
   knows(?SELF, ?Y)
   ^ not hostile(?SELF, ?Y)
@@ -101,4 +101,4 @@ rule "incorrect — ?Z would never be bound"
   => ...
 ```
 
-This is the standard *safety* (range-restriction) condition that Datalog and ASP enforce. klugh flags it at **load time**: a rule with a variable that appears only inside a negation, with no positive premise to bind it, emits a warning naming the variable (it will never fire unless that variable is supplied via a starting binding). The runtime — the rule yielding no applications — is the secondary safety net, mirroring how cycle detection warns at load and falls back to a runtime guard.
+This is the standard *safety* (range-restriction) condition that Datalog and ASP enforce. ruse flags it at **load time**: a rule with a variable that appears only inside a negation, with no positive premise to bind it, emits a warning naming the variable (it will never fire unless that variable is supplied via a starting binding). The runtime — the rule yielding no applications — is the secondary safety net, mirroring how cycle detection warns at load and falls back to a runtime guard.

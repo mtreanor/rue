@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Engine } from '../src/Engine.js';
 
 function makeEngine() {
-  const dir = mkdtempSync(join(tmpdir(), 'klugh-breakdown-'));
+  const dir = mkdtempSync(join(tmpdir(), 'ruse-breakdown-'));
 
   writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
     predicates: {

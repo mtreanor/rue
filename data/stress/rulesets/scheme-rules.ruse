@@ -1,6 +1,6 @@
 ruleset "scheme-rules"
   # Priming for the schemes stage (pooled with confrontations — see
-  # confront-rules.klugh for why the pooled stages keep separate rulesets).
+  # confront-rules.ruse for why the pooled stages keep separate rulesets).
   
   rule "a grudge whispers"
     ?SELF.grudgeAgainst(?SELF, ?MARK)

@@ -23,7 +23,7 @@ Run `npm run demo` to open an interactive query prompt against the active scenar
 
 Without a prefix, every predicate in the conjunction must hold. Only fully satisfied bindings are printed.
 
-```klugh
+```ruse
 > knows(?X, ?Y)
   ?X = alice, ?Y = bob
   ?X = alice, ?Y = carol
@@ -52,7 +52,7 @@ Without a prefix, every predicate in the conjunction must hold. Only fully satis
 
 Prefix a line with `degree` to score each candidate binding by partial satisfaction, instead of requiring every predicate to hold. Bindings with a satisfaction score of 0 are omitted.
 
-```klugh
+```ruse
 > degree knows(alice, ?Y) ^ friendship.strong(alice, ?Y)
   ?Y = bob  —  1.00 (100%)
     knows(alice, bob) ✓  friendship.strong(alice, bob) ✓
@@ -67,7 +67,7 @@ Prefix a line with `degree` to score each candidate binding by partial satisfact
 
 The `assert` command runs a state operation against the world store. The same syntax as state files applies, including explicit negation and numeric operations (see [State files](state.md)).
 
-```klugh
+```ruse
 > assert -wantsContact(alice)
   ok
 
@@ -82,7 +82,7 @@ The `assert` command runs a state operation against the world store. The same sy
 
 ## Inspecting stores
 
-```klugh
+```ruse
 > facts alice
 [alice]
   perceivedThreat("carol", "alice") [strength: 0.85]

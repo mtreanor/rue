@@ -1,8 +1,8 @@
 # Language overview
 
-klugh is a **temporal, paraconsistent production rule system with a Datalog-flavored query layer and graded truth scoring**. It evaluates predicate conjunctions against a mutable fact store, supports backward-chaining derivation, and ships an interactive REPL for exploring scenarios. See [Design](design.md) for how it relates to Datalog, ASP, Prolog, and event calculus.
+ruse is a **temporal, paraconsistent production rule system with a Datalog-flavored query layer and graded truth scoring**. It evaluates predicate conjunctions against a mutable fact store, supports backward-chaining derivation, and ships an interactive REPL for exploring scenarios. See [Design](design.md) for how it relates to Datalog, ASP, Prolog, and event calculus.
 
-At the behavior level, klugh is a rule-based utility pipeline where priming rules shape action scores, selected actions mutate state, later scoring adapts to those mutations, and every step is provenance-traceable.
+At the behavior level, ruse is a rule-based utility pipeline where priming rules shape action scores, selected actions mutate state, later scoring adapts to those mutations, and every step is provenance-traceable.
 
 ---
 
@@ -79,7 +79,7 @@ These predicate forms are valid in rule LHS conjunctions, queries, `define` defi
 
 Facts are declared in a `state` file. The `world` block is the shared store; `private` blocks write to a named entity's private store.
 
-```klugh
+```ruse
 world
   knows(alice, bob)
   friendship(alice, bob) = 85
@@ -109,7 +109,7 @@ A predicate is queried against a private store by prefixing it with an owner: `?
 
 Rules fire when their LHS conjunction is satisfied. On the RHS, state operations update the world. The forward chainer runs rules to fixpoint.
 
-```klugh
+```ruse
 rule "guilt lingers after exploitation"
   knows(?SELF, ?Y)
   ^ exploited(?SELF, ?Y) [ever]
@@ -138,7 +138,7 @@ const fired = engine.runRulesetFixpoint('social', { minimumSatisfactionScore: 0.
 
 `define` blocks give names to reusable inferences. Derived predicates are not stored — they are proved by backward chaining at query time and cached per tick.
 
-```klugh
+```ruse
 define "can pair — strong friendship"
   knows(?X, ?Y)
   ^ friendship.strong(?X, ?Y)
@@ -155,7 +155,7 @@ Multiple definitions may share the same conclusion (OR semantics). Cycle detecti
 
 Actions are named, scoreable, executable choices. The application layer enumerates candidates, scores them, and picks one to execute.
 
-```klugh
+```ruse
 action "offer help"
   roles: ?SELF: agent, ?Y: agent
   preconditions
@@ -201,7 +201,7 @@ Boolean provenance is accessible through `FactRecord.currentReasons()`. Numeric 
 
 `node src/repl.js` opens an interactive query prompt against the active scenario. Commands include strict queries, degree scoring, `assert`, `facts`, and `entities`.
 
-```klugh
+```ruse
 > degree knows(alice, ?Y) ^ friendship.strong(alice, ?Y)
   ?Y = bob   —  1.00 (100%)
   ?Y = carol —  0.50 (50%)

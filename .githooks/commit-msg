@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+import fs from 'fs';
+import process from 'process';
+
+const commitMsgFile = process.argv[2];
+if (!commitMsgFile) {
+  console.error("No commit message file specified.");
+  process.exit(1);
+}
+
+const commitMsg = fs.readFileSync(commitMsgFile, 'utf8');
+
+// Rules check
+const errors = [];
+
+// Rule 1: No Co-authored-by trailers
+if (/co-authored-by/i.test(commitMsg)) {
+  errors.push("Commit message contains 'Co-authored-by' trailer. AI attributions and co-author lines are forbidden.");
+}
+
+// Rule 2: No mentions of specific AI tools/assistants
+const forbiddenAIs = ['claude', 'gemini', 'antigravity', 'chatgpt', 'openai', 'copilot'];
+forbiddenAIs.forEach(ai => {
+  const regex = new RegExp(`\\b${ai}\\b`, 'i');
+  if (regex.test(commitMsg)) {
+    errors.push(`Commit message contains reference to AI tool/assistant '${ai}'. AI credits/attributions are forbidden.`);
+  }
+});
+
+// Rule 3: Cursor checks (avoid false positives on UI text cursor)
+if (/\bcursor\b/i.test(commitMsg)) {
+  const isUICursor = (
+    /cursor\s*(?:position|alignment|select|move|style|key|coordinate|pointer|offset|blink|shape|hide|show|visible|line|character|index|color|behavior|hover|focus|active)/i.test(commitMsg) ||
+    /(?:text|mouse|pointer|textarea|input|cursor)\s+cursor/i.test(commitMsg) ||
+    /cursor\/selection/i.test(commitMsg) ||
+    /cursor-simple/i.test(commitMsg)
+  );
+  if (!isUICursor) {
+    errors.push("Commit message contains reference to 'Cursor'. If you are referring to the AI tool/assistant, it is forbidden. If you are referring to the UI/text cursor, please rephrase it to make the UI context clear (e.g., 'text cursor', 'cursor position').");
+  }
+}
+
+if (errors.length > 0) {
+  console.error("\x1b[31mError: Commit blocked due to AI attribution policy:\x1b[0m");
+  errors.forEach(err => console.error(`  - ${err}`));
+  console.error("\nFor more details, see the repository rules in CLAUDE.md or AGENTS.md.");
+  process.exit(1);
+}

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Authoring & visualization tool for klugh rulesets — inspect/search rules and add/edit/delete them with schema-aware autocomplete and DSL validation.",
+  "description": "Authoring & visualization tool for ruse rulesets — inspect/search rules and add/edit/delete them with schema-aware autocomplete and DSL validation.",
   "scripts": {
     "server": "node server/index.js",
     "start": "vite build && concurrently -k -n server,web -c blue,magenta \"npm:server\" \"vite preview\"",

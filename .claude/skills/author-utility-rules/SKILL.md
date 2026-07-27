@@ -1,6 +1,6 @@
 ---
 name: author-utility-rules
-description: Multi-tier authoring process for klugh utility rulesets — rules that adjust ephemeral numeric predicates (engagement-*, social-*, judge-*, claim-*) for use as action-selection utilities. Use when the user wants to author, extend, or review a ruleset like engagement-mode-rules.klugh, socialize-rules.klugh, judgement-rules.klugh, or claim-judgement-rules.klugh, or invokes /author-utility-rules.
+description: Multi-tier authoring process for ruse utility rulesets — rules that adjust ephemeral numeric predicates (engagement-*, social-*, judge-*, claim-*) for use as action-selection utilities. Use when the user wants to author, extend, or review a ruleset like engagement-mode-rules.ruse, socialize-rules.ruse, judgement-rules.ruse, or claim-judgement-rules.ruse, or invokes /author-utility-rules.
 ---
 
 # Authoring utility rulesets
@@ -12,13 +12,13 @@ true}}` in `predicates.json`). The action with the highest resulting utility
 wins. This skill builds such a ruleset incrementally, tier by tier, with the
 user reviewing every proposed rule before it's written.
 
-Read `src/klugh/src/AGENTS.md` and the target rules file before starting if
+Read `src/ruse/src/AGENTS.md` and the target rules file before starting if
 you haven't already this session.
 
 ## Session manifest
 
 State for an authoring session lives in
-`data/reception/authoring/<ruleset>.session.json`, sibling to the `.klugh`
+`data/reception/authoring/<ruleset>.session.json`, sibling to the `.ruse`
 files. This is what makes the process resumable — if interrupted mid-tier,
 reload the manifest and re-present only the still-pending items, not the
 whole list.
@@ -26,7 +26,7 @@ whole list.
 ```json
 {
   "ruleset": "engagement-mode",
-  "rulesFile": "data/reception/engagement-mode-rules.klugh",
+  "rulesFile": "data/reception/engagement-mode-rules.ruse",
   "targetPredicates": ["engagement-wait", "engagement-approach", "engagement-socialize", "engagement-leave"],
   "consideredPredicates": [
     { "name": "isAdvisor", "store": "world" },
@@ -60,13 +60,13 @@ Ask the user, in plain conversation (not necessarily AskUserQuestion — a
 free-text list is fine here):
 
 1. **Which rules file** is this session for (e.g.
-   `engagement-mode-rules.klugh`)?
+   `engagement-mode-rules.ruse`)?
 2. **Which target numeric predicates** from that file's domain should rules
    adjust? Cross-check against `predicates.json` — they must be `numeric`
    and `ephemeral`. List the candidates you find feeding the corresponding
-   actions/acts file as a starting menu, e.g. for `engagement-mode-rules.klugh`
+   actions/acts file as a starting menu, e.g. for `engagement-mode-rules.ruse`
    that's `engagement-wait`, `engagement-approach`, `engagement-socialize`,
-   `engagement-leave` (read `engagement-mode.klugh` to confirm which utility
+   `engagement-leave` (read `engagement-mode.ruse` to confirm which utility
    predicates the actions actually reference).
 3. **Which predicates to consider** as LHS material. Don't ask the user to
    type the entire schema — propose a numbered checklist pulled from
@@ -129,7 +129,7 @@ their owner regardless of which store they're actually asserted in:
   (`embarrassedThemselves`, `judged`, `metCount`) — is the intended substitute
   for reading their inner state directly: it's how `?SELF` would plausibly
   form an opinion about someone without telepathy. Expect this to matter
-  more as `judgement-acts.klugh`/`judgement-rules.klugh` get authored and
+  more as `judgement-acts.ruse`/`judgement-rules.ruse` get authored and
   start producing more standing-record predicates; actively look for
   opportunities to bind on history/track-record predicates once they
   exist, not just present disposition or labels.
@@ -189,7 +189,7 @@ role becomes a **free variable**, left for the rule evaluator to enumerate:
 Private-store bindings use `?SELF.pred(...)` — `PrivatePredicate` syntax
 queries the *evaluating* agent's own private store, so the store owner is
 always `?SELF`. **The convention in this dataset is opinion-about-others,
-not self-perception**: `state.klugh` asserts things like `-cool(drell)` and
+not self-perception**: `state.ruse` asserts things like `-cool(drell)` and
 `admiration(sabrina, zelda) = 9` inside `private sabrina` — i.e. sabrina's
 private opinion of *drell*/*zelda*, not of herself. So for a 1-arg
 considered predicate's private reading, bind it `?SELF.pred(?OTHER)` with
@@ -201,7 +201,7 @@ and say so explicitly in the proposal.
 
 Four of the relational numeric predicates — `warmth`, `resentment`,
 `admiration`, `metCount` — are private-store-only by convention in this
-dataset (the design doc and `state.klugh` only ever assert them inside
+dataset (the design doc and `state.ruse` only ever assert them inside
 `private <agent>` blocks). Don't propose a `world`-store version of these;
 only the private free-`?OTHER` form applies.
 
@@ -292,7 +292,7 @@ enumerating combinations. Candidates come from one of two sources only:
    unrelated combinations while you're in there.
 2. **A tier-1 rule turns out to need a second premise for correctness** —
    discovered during review, not proposed speculatively. The engagement-
-   mode-rules.klugh "someone present" bug is the precedent: rules that
+   mode-rules.ruse "someone present" bug is the precedent: rules that
    claimed to be about a *current groupmate* but only checked a disposition
    predicate, with `?OTHER` left totally free. The fix — adding
    `inGroup(?SELF, ?G) ^ inGroup(?OTHER, ?G)` — is a tier-2 rule by

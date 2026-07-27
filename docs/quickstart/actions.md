@@ -6,7 +6,7 @@ An **action** is an authored choice. It declares who can take part, when it's el
 
 Actions live in their own file, named in `project.config.json` under `actionsets` (here, `social`). The quickstart actionset:
 
-```klugh
+```ruse
 action "offer help"
   roles: ?SELF: agent, ?Y: agent
   preconditions

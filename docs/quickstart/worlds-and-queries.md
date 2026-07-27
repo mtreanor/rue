@@ -4,7 +4,7 @@ The basics: where your authored data lives, how to load it, how to ask questions
 
 ## Where authored data goes
 
-A klugh world is four plain files in a directory. Here is the entire quickstart scenario.
+A ruse world is four plain files in a directory. Here is the entire quickstart scenario.
 
 **`predicates.json`** — the schema. Every predicate the world knows about, its type, and its argument types.
 
@@ -36,7 +36,7 @@ A klugh world is four plain files in a directory. Here is the entire quickstart 
 
 **`state`** — the initial facts. The `world` block is the shared store.
 
-```klugh
+```ruse
 world
   knows(alice, bob)
   knows(bob, alice)
@@ -78,7 +78,7 @@ world
 Create an `Engine`. Pass the file paths directly:
 
 ```javascript
-import { Engine } from 'klugh';
+import { Engine } from 'ruse';
 
 const engine = new Engine({
   predicates: 'data/quickstart/predicates.json',

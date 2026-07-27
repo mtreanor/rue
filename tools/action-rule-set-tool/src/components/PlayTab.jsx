@@ -650,7 +650,7 @@ function StoryLine({ run, winner, evaluation, showOtherCandidates, onExplain, hi
 // The rendered content string, with templated spans (values pulled from the
 // winning binding) visually distinguished from the surrounding authored
 // text — segments come pre-split from TextContentItem.renderSegments
-// (klugh); an older recorded trace without labelSegments falls back to the
+// (ruse); an older recorded trace without labelSegments falls back to the
 // plain label, unhighlighted.
 function ContentLabel({ segments, fallback }) {
   if (!segments) return <span className="story-content">{fallback}</span>;
