@@ -1,5 +1,5 @@
 actionset "schemes"
-  # Tier 2b — the indirect route. Pooled with confrontations.ruse under the
+  # Tier 2b — the indirect route. Pooled with confrontations.rue under the
   # settle-scores fan-out.
   
   action "spread-gossip"

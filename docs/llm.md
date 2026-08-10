@@ -1,6 +1,6 @@
 # LLM Configuration & Features
 
-Ruse supports neuro-symbolic reasoning via Large Language Models (LLMs). By hooking the logic engine up to an LLM, you can query models dynamically during logic evaluation and use AI-assisted tools during rule authoring.
+RUE supports neuro-symbolic reasoning via Large Language Models (LLMs). By hooking the logic engine up to an LLM, you can query models dynamically during logic evaluation and use AI-assisted tools during rule authoring.
 
 ---
 
@@ -61,7 +61,7 @@ Hooking up an LLM unlocks three core features:
 ### 1. LLM Sensor Predicates (`sensor-llm` / `sensor-llm-numeric`)
 Instead of hardcoding boolean logic or numeric thresholds in JavaScript, you can delegate complex, subjective, or real-world classification to an LLM:
 
-```ruse
+```rue
 rule "respect movie stars"
   friendly(?X, ?Y) > 10
   ^ mainCharacterInMovie(?Y)

@@ -76,7 +76,7 @@ describe('ActionParser — multi-actionset blocks', () => {
 
 describe('Engine — multi-actionset file loading', () => {
   function makeDir() {
-    const dir = mkdtempSync(join(tmpdir(), 'ruse-multi-as-'));
+    const dir = mkdtempSync(join(tmpdir(), 'rue-multi-as-'));
     writeFileSync(join(dir, 'predicates.json'), JSON.stringify(PREDICATES));
     writeFileSync(join(dir, 'entities.json'), JSON.stringify(ENTITIES));
     return dir;
@@ -84,7 +84,7 @@ describe('Engine — multi-actionset file loading', () => {
 
   it('loads named actionsets from a multi-actionset file', () => {
     const dir = makeDir();
-    const file = join(dir, 'acts.ruse');
+    const file = join(dir, 'acts.rue');
     writeFileSync(file, `
       actionset "greet"
         action "wave"
@@ -105,8 +105,8 @@ describe('Engine — multi-actionset file loading', () => {
 
   it('merges same-name actionsets from different files', () => {
     const dir = makeDir();
-    const fileA = join(dir, 'a.ruse');
-    const fileB = join(dir, 'b.ruse');
+    const fileA = join(dir, 'a.rue');
+    const fileB = join(dir, 'b.rue');
     writeFileSync(fileA, `
       actionset "acts"
         action "alpha"
@@ -128,8 +128,8 @@ describe('Engine — multi-actionset file loading', () => {
 
   it('throws when merged actionsets contain a duplicate action name', () => {
     const dir = makeDir();
-    const fileA = join(dir, 'a.ruse');
-    const fileB = join(dir, 'b.ruse');
+    const fileA = join(dir, 'a.rue');
+    const fileB = join(dir, 'b.rue');
     writeFileSync(fileA, `
       actionset "acts"
         action "wave"
@@ -151,7 +151,7 @@ describe('Engine — multi-actionset file loading', () => {
 
   it('supports object-form actionsets alongside array-form (backward compat)', () => {
     const dir = makeDir();
-    const single = join(dir, 'single.ruse');
+    const single = join(dir, 'single.rue');
     writeFileSync(single, `
       actionset "greet"
         action "wave"

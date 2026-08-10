@@ -1,6 +1,6 @@
 # Action records
 
-When an action fires and at least one effect is applied, ruse creates an **`ActionRecord`** and appends it to `world.actionLog`. The record captures the full context of the decision: when it happened, what was scored, and why the score was what it was.
+When an action fires and at least one effect is applied, RUE creates an **`ActionRecord`** and appends it to `world.actionLog`. The record captures the full context of the decision: when it happened, what was scored, and why the score was what it was.
 
 Each fact asserted or adjusted by the action's effects carries an [`ActionEffectProvenance`](provenance.md#action-effect) pointing back to the same record, so the path from any fact back to the action that caused it — and from there to the scored utility — is always traversable.
 

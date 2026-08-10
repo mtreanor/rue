@@ -230,7 +230,7 @@ function clone(phi) {
 
 // Unify a rule-premise term with a typed-condition term, binding premise
 // variables to typed roles/constants. The mapping is injective — distinct
-// premise variables must bind distinct terms — modelling ruse's default
+// premise variables must bind distinct terms — modelling rue's default
 // `distinct: true`, so a two-variable premise never fires reflexively.
 function unifyTerm(p, c, phi) {
   if (p.w || c.w) return true;               // wildcard on either side matches

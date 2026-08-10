@@ -10,7 +10,7 @@ For negation operators (`-pred`, `not pred`, `~pred`, `not -pred`), see [Negatio
 
 The default. True if the predicate is currently asserted in the relevant store.
 
-```ruse
+```rue
 knows(?SELF, ?Y)
 hasKnowledge(?Y, "karate")
 ?SELF.perceivedThreat(?SELF, ?OTHER)
@@ -22,7 +22,7 @@ hasKnowledge(?Y, "karate")
 
 `[ever]` makes a predicate true if the fact was ever *asserted* at or before now, even if later retracted. It is an **event** check — it asks whether an assertion happened, not whether the fact is currently, or was continuously, true.
 
-```ruse
+```rue
 rule "guilt when SELF has previously exploited Y"
   knows(?SELF, ?Y)
   ^ exploited(?SELF, ?Y) [ever]
@@ -31,7 +31,7 @@ rule "guilt when SELF has previously exploited Y"
 
 `[asserted-during: N]` is the bounded form: true if the fact was asserted at some point in the last N ticks.
 
-```ruse
+```rue
 rule "remorse sharpens when exploitation was recent"
   knows(?SELF, ?Y)
   ^ exploited(?SELF, ?Y) [asserted-during: 3]
@@ -46,7 +46,7 @@ Because these check assertion *events*, a fact asserted once long ago and never 
 
 `[tick: N]` evaluates the predicate as of an absolute tick N — was the fact *true* then, per the last assert/retract event at or before N. Negative ticks address history seeded before tick 0.
 
-```ruse
+```rue
 rule "an ancient acquaintance still colours things"
   knows(?X, ?Y) [tick: -25]
   => tension(?Y, ?X) += 2
@@ -54,7 +54,7 @@ rule "an ancient acquaintance still colours things"
 
 `[ago: N]` is the same check relative to now: it resolves to `currentTick - N` at evaluation time.
 
-```ruse
+```rue
 rule "were we friends five ticks ago"
   friends(?X, ?Y) [ago: 5]
   => reminisce(?X, ?Y) += 1
@@ -68,7 +68,7 @@ Unlike the event checks above, these are **state** checks: they report whether t
 
 `[during: N]` is the range form of the state check: true if the fact was true at *any* point in the last N ticks, no matter when it was asserted.
 
-```ruse
+```rue
 rule "recently-together friends still get the benefit of the doubt"
   friends(?X, ?Y) [during: 5]
   => goodwill(?X, ?Y) += 1
@@ -82,7 +82,7 @@ This is the one form that separates cleanly from `[asserted-during: N]`. A fact 
 
 `[when: ?t]` binds `?t` to *every* tick at which the fact became true — one binding per assertion event (reassertions after a retraction included), not one per tick it was continuously active. Only events at or before the current tick are visible.
 
-```ruse
+```rue
 rule "two friendships that began on the same tick"
   friendsWith(?X, ?Y) [when: ?t]
   ^ friendsWith(?X, ?Z) [when: ?t]
@@ -99,17 +99,17 @@ Enumerating discrete events — rather than every tick the fact was true — is 
 
 `pred(?X, ?Y) [degrees: N]` binds `?Y` to every node reachable from `?X` by 1–N hops of `pred` — its **bounded transitive closure**. The predicate you write *is* the relation whose edges are walked; `[degrees: 1]` is just the relation itself.
 
-```ruse
+```rue
 rule "you can be introduced to friends of friends"
   knows(?SELF, ?OTHER) [degrees: 2]
   => couldBeIntroduced(?SELF, ?OTHER)
 ```
 
-`?OTHER` binds to each node within 2 hops of `?SELF` (friends, and friends-of-friends), one firing per node; the origin is excluded and each node counts once. A node that isn't reachable within N hops simply doesn't bind — there is no unbounded form (ruse forbids recursion; the bound is what keeps evaluation terminating, and in a social graph "within N degrees" is usually the quantity you actually mean).
+`?OTHER` binds to each node within 2 hops of `?SELF` (friends, and friends-of-friends), one firing per node; the origin is excluded and each node counts once. A node that isn't reachable within N hops simply doesn't bind — there is no unbounded form (RUE forbids recursion; the bound is what keeps evaluation terminating, and in a social graph "within N degrees" is usually the quantity you actually mean).
 
 **Distance.** A stacked `[dist: ?d]` bracket binds the shortest hop-count, which you can then filter with a variable comparison (see [Variable comparison](#variable-comparison)):
 
-```ruse
+```rue
 knows(?SELF, ?OTHER) [degrees: 6] [dist: ?d] ^ ?d <= 2    # friends-of-friends, no further
 ```
 
@@ -119,7 +119,7 @@ knows(?SELF, ?OTHER) [degrees: 6] [dist: ?d] ^ ?d <= 2    # friends-of-friends, 
 
 **Counting reach.** Inside an aggregate the target counts the reachable set:
 
-```ruse
+```rue
 rule "socially central agents grow confident"
   count|knows(?SELF, _) [degrees: 3]| >= 5
   => confident(?SELF) += 2
@@ -135,7 +135,7 @@ What it can't express, by design: anything *unbounded* — connected components 
 
 `predicate.tier(args)` is true when the predicate's current value falls within the named tier's range. Tiers are declared in the schema.
 
-```ruse
+```rue
 rule "warmth toward someone when friendship is strong"
   knows(?SELF, ?Y)
   ^ friendship.strong(?SELF, ?Y)
@@ -150,7 +150,7 @@ rule "warmth toward someone when friendship is strong"
 
 `predicate(args) > N`, `>= N`, `< N`, `<= N`, `= N`, or `!= N` compares the current numeric value directly against a threshold.
 
-```ruse
+```rue
 rule "desperate when mood is very low"
   knows(?SELF, ?Y)
   ^ mood(?SELF) <= 20
@@ -170,7 +170,7 @@ Either side of a comparison can be another predicate instead of a literal, so yo
 
 **Numeric vs numeric** — both operands must be `numeric` or `sensor-numeric`. All operators (`>`, `>=`, `<`, `<=`, `=`, `!=`) apply:
 
-```ruse
+```rue
 rule "the stronger party intimidates the weaker"
   knows(?X, ?Y)
   ^ health(?X) > health(?Y)
@@ -179,7 +179,7 @@ rule "the stronger party intimidates the weaker"
 
 **Boolean vs boolean** — operands may be stored `boolean`, `derived`, or boolean `sensor` predicates; only `=` and `!=` apply. Each side resolves to a three-valued state — **true** (positive belief present), **false** (explicit disbelief present), or **unknown** (neither). Comparison is *state-equality*: `=` holds when both sides share the same state (including `unknown = unknown`), `!=` when they differ. `derived` and `sensor` operands are total — they resolve to **true**/**false** and never **unknown**.
 
-```ruse
+```rue
 rule "reciprocity mismatch breeds resentment"
   knows(?X, ?Y)
   ^ trusts(?X, ?Y) != trusts(?Y, ?X)
@@ -200,7 +200,7 @@ Operands must be the same kind: numeric (`numeric`, `sensor-numeric`) or boolean
 
 A bound variable can be compared directly against a literal or another bound variable: `?v op rhs`. This is the form that filters variables bound *by enumeration* — a closure's distance (`[dist: ?d]`), a tick (`[when: ?t]`), or two entity variables you want to keep distinct.
 
-```ruse
+```rue
 rule "close, but not already direct friends"
   knows(?SELF, ?OTHER) [degrees: 4] [dist: ?d]
   ^ ?d >= 2                    # skip direct friends
@@ -216,7 +216,7 @@ It's a pure **filter**: both operands must already be bound by some other (posit
 
 Either side of a numeric comparison can be a full expression — infix `+`, `-`, `*`, `/` with standard precedence and parentheses, and the functions `min`, `max`, `abs`, `clamp`, `pow`. Operands are literals, bound variables, numeric predicates, or aggregates:
 
-```ruse
+```rue
 rule "the healthier party intimidates the weaker"
   knows(?X, ?Y)
   ^ health(?X) - health(?Y) > 10
@@ -242,7 +242,7 @@ The simple forms above (`pred op N`, `pred op pred`, `?v op rhs`) are unchanged:
 
 `|conjunction| > N` counts how many entity combinations satisfy every predicate in the conjunction, then compares the count to a threshold. Supports `< N`, `= N`, `>= N`, `<= N`, `!= N` as well. Use `_` for the positions being counted over. Bare `|...|` is sugar for `count|...|` — see [Aggregate](#aggregate) below, whose conjunction/filtering/wildcard-sharing rules apply identically. `count` has no numeric value predicate; every predicate in the conjunction is a filter — a bare reference to a numeric predicate (e.g. `intoxication(_)`) is rejected for exactly this reason, since it filters on whether the predicate holds, not on its value. Use a comparison against a numeric literal instead (`intoxication(_) > 5`) to filter on the value.
 
-```ruse
+```rue
 rule "popular when many agents feel warm toward SELF"
   |friendship.warm(_, ?SELF)| > 3
   => confident(?SELF) += 2.0
@@ -272,7 +272,7 @@ The type of each `_` position is inferred from the predicate schema, so non-agen
 
 `fn|conjunction| op rhs` computes an aggregate function over enumerated entity combinations satisfying the conjunction, then compares the result. Functions: `count`, `avg`, `sum`, `max`, `min`. Operators: `>`, `>=`, `<`, `<=`, `=`, `!=`. Use `_` for positions being enumerated; the type is inferred from the schema. `count`'s conjunction is entirely filters (no value predicate — see [Count](#count) above); `avg`/`sum`/`max`/`min` require exactly one numeric predicate in the conjunction as the value being aggregated, with the rest acting as filters.
 
-```ruse
+```rue
 rule "well-regarded when the average warmth among coworkers is high"
   avg|warmth(_a, ?SELF) ^ coworker(_a, ?SELF)| > 60
   => wellRegarded(?SELF) += 1.0
@@ -288,7 +288,7 @@ rule "carol is admired more than bob overall"
 
 **Group filtering** — add boolean predicates to the conjunction inside the pipes with `^`. Boolean predicates, tier checks, and numeric-literal comparisons all act as filters; the one bare numeric predicate provides the values.
 
-```ruse
+```rue
 avg|warmth(_a, carol) ^ knows(_a, carol)|  // average warmth among agents who know carol
 avg|warmth(_a, carol) ^ trust.high(_a, carol)|  // average warmth among high-trust agents
 avg|warmth(_a, carol) ^ prestige(_a) > 5|  // average warmth among high-prestige agents
@@ -298,7 +298,7 @@ avg|warmth(_a, carol) ^ prestige(_a) > 5|  // average warmth among high-prestige
 
 **Counting events with `[when: _t]`** — a `[when:]` modifier inside an aggregate binds a *tick-kind* counting variable (a named wildcard), enumerated from the fact's assertion events rather than the entity registry. `count|…|` over it counts how many times the fact was asserted:
 
-```ruse
+```rue
 rule "an on-and-off friendship never earns full trust"
   count|friendsWith(?SELF, ?OTHER) [when: _t]| > 3
   => trust(?SELF, ?OTHER) -= 10
@@ -316,7 +316,7 @@ rule "an on-and-off friendship never earns full trust"
 
 `pred1 then pred2` is true when both predicates were asserted in that order (with any gap). `then[N]` tightens the window to N ticks between assertions.
 
-```ruse
+```rue
 rule "awareness of moral failure follows exploitation"
   knows(?SELF, ?Y) then exploited(?SELF, ?Y)
   => cautious(?SELF, ?Y) += 1.5
@@ -329,7 +329,7 @@ rule "exploitation followed by respect, and history is honoured now"
 
 The first step of a chain can carry an `[asserted-during: N]` window to restrict how far back the initial event is looked for:
 
-```ruse
+```rue
 rule "recent betrayal followed by apology"
   betrayed(?X, ?Y) [asserted-during: 10] then apologized(?X, ?Y)
   => goodwill(?Y, ?X) += 3
@@ -347,7 +347,7 @@ Temporal chains with private-store predicates are not supported.
 
 `[importance: N]` assigns a weight to a predicate in the LHS. When a rule is only partially satisfied, its contribution is scaled by the ratio of satisfied importance to total importance. Unweighted predicates have importance 1.
 
-```ruse
+```rue
 rule "complex judgment"
   knows(?SELF, ?Y) [importance: 2.0]
   ^ exploited(?SELF, ?Y) [ever]

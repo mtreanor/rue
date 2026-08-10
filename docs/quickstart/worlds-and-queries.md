@@ -4,7 +4,7 @@ The basics: where your authored data lives, how to load it, how to ask questions
 
 ## Where authored data goes
 
-A ruse world is four plain files in a directory. Here is the entire quickstart scenario.
+A rue world is four plain files in a directory. Here is the entire quickstart scenario.
 
 **`predicates.json`** — the schema. Every predicate the world knows about, its type, and its argument types.
 
@@ -36,7 +36,7 @@ A ruse world is four plain files in a directory. Here is the entire quickstart s
 
 **`state`** — the initial facts. The `world` block is the shared store.
 
-```ruse
+```rue
 world
   knows(alice, bob)
   knows(bob, alice)
@@ -78,7 +78,7 @@ world
 Create an `Engine`. Pass the file paths directly:
 
 ```javascript
-import { Engine } from 'ruse';
+import { Engine } from 'rue';
 
 const engine = new Engine({
   predicates: 'data/quickstart/predicates.json',

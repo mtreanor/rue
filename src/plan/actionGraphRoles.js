@@ -1,6 +1,6 @@
 // Derives which variables a actionGraph's entry stage expects, and their entity
 // types — the union of every entry-stage action's own declared `roles`
-// (`action.roleTypes`, already a Map<name, type> per action; ruse's schema
+// (`action.roleTypes`, already a Map<name, type> per action; rue's schema
 // already knows these types authoritatively, so this is read-only
 // introspection, not a second place authors declare the same thing).
 //

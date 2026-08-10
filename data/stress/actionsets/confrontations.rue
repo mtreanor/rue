@@ -1,5 +1,5 @@
 actionset "confrontations"
-  # Tier 2b — open confrontation. Pooled with schemes.ruse when settle-scores
+  # Tier 2b — open confrontation. Pooled with schemes.rue when settle-scores
   # routes: both stages score, the candidates merge, and one winner is picked
   # across the union — so a direct confrontation competes with a whisper
   # campaign on utility alone.

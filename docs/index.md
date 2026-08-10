@@ -1,12 +1,12 @@
-# ruse
+# RUE
 
 A logic engine built for authorship. Describe relationships, beliefs, and history as rules; define scoreable actions against them; the engine evaluates an evolving world and tells you what follows.
 
-ruse is a rule-based utility actionGraph where priming rules shape action scores, selected actions mutate state, later scoring adapts to those mutations, and every step is provenance-traceable.
+RUE is a rule-based utility actionGraph where priming rules shape action scores, selected actions mutate state, later scoring adapts to those mutations, and every step is provenance-traceable.
 
 **Rules** turn conditions into numeric scores:
 
-```ruse
+```rue
 rule "kindness warms friendship"
   helped(?X, ?Y)
   => friendship(?Y, ?X) += 5
@@ -22,7 +22,7 @@ rule "forgiveness follows demonstrated change"
 
 **Actions** read those scores as utility to choose behavior:
 
-```ruse
+```rue
 action "seek reconciliation"
   roles: ?SELF: agent, ?Y: agent
   preconditions
@@ -37,7 +37,7 @@ action "seek reconciliation"
     trusts(?Y, ?SELF)
 ```
 
-![ruse core loop: rulesets build numeric scores, actions read them as utility](/core-loop.svg)
+![RUE core loop: rulesets build numeric scores, actions read them as utility](/core-loop.svg)
 
 Rulesets run to fixpoint, accumulating numeric predicates. Actions score eligible candidates from those values — `friendship(?SELF, ?Y)` ranks who alice is most motivated to reconcile with. The winning action fires, its effects update the world, and the rules fire again.
 
@@ -67,13 +67,13 @@ Write hundreds of rules and actions and you get emergent behavior — social phy
 
 ## Designed for explanation
 
-A ruse world is fully auditable. Ask `why` for the event log; ask `explain` for the full proof behind any single step.
+A RUE world is fully auditable. Ask `why` for the event log; ask `explain` for the full proof behind any single step.
 
 ![engine.why() stores every change with tick and source](/provenance-why.svg)
 
 ![engine.explain() expands one rule firing into its premises](/provenance-explain.svg)
 
-Both diagrams use real output from the scenario above. The event log tracks every numeric adjustment from state load through action effects and rule firings. `explain` zooms into one step and shows the kinds of premises ruse records: temporal chains, counts, absence, derived predicates, private beliefs.
+Both diagrams use real output from the scenario above. The event log tracks every numeric adjustment from state load through action effects and rule firings. `explain` zooms into one step and shows the kinds of premises RUE records: temporal chains, counts, absence, derived predicates, private beliefs.
 
 This is a first-class design goal, not an afterthought.
 
@@ -83,6 +83,6 @@ Runnable demo: `node examples/landing-page-demo.js` — simulates the scenario a
 
 ---
 
-ruse grew out of 15 years of social simulation research — [Comme il Faut, Ensemble, Game-O-Matic, and ESP](history.md) — and the recurring frustration of wanting a system expressive enough to capture social nuance yet simple enough to author at scale. This is that system.
+RUE grew out of 15 years of social simulation research — [Comme il Faut, Ensemble, Game-O-Matic, and ESP](history.md) — and the recurring frustration of wanting a system expressive enough to capture social nuance yet simple enough to author at scale. This is that system.
 
 [Quickstart →](quickstart/) · [Language overview](overview.md) · [History](history.md)

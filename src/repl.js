@@ -13,7 +13,7 @@ const scenario = typeof scenarioRaw === 'string'
       predicates:  join(scenarioRaw, 'predicates.json'),
       entities:    join(scenarioRaw, 'entities.json'),
       state:       join(scenarioRaw, 'state'),
-      definitions: join(scenarioRaw, 'definitions.ruse'),
+      definitions: join(scenarioRaw, 'definitions.rue'),
     }
   : scenarioRaw;
 
@@ -311,6 +311,7 @@ function handleSelectCommand(parts) {
 
 // ---
 
+console.log('RUE — Logic System');
 console.log('Ready. Ctrl+D to exit.');
 console.log();
 console.log('  query:      knows(?X, ?Y) ^ friendship.strong(alice, ?Y)');

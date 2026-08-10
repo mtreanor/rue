@@ -1,6 +1,6 @@
 # Quickstart
 
-A tiered path into ruse. Each tier is self-contained and runnable, and they build on one another:
+A tiered path into rue. Each tier is self-contained and runnable, and they build on one another:
 
 | Tier | Page | You'll learn |
 |------|------|--------------|
@@ -11,11 +11,11 @@ A tiered path into ruse. Each tier is self-contained and runnable, and they buil
 
 Tier 1 is meant to be effortless. Tier 2 (actions) is a small step up.
 
-Everything here goes through the **`Engine`** — ruse's single entry point. You create one, then call `query`, `assert`, `selectAction`, `execute`, `why`, and so on. You rarely need anything else.
+Everything here goes through the **`Engine`** — rue's single entry point. You create one, then call `query`, `assert`, `selectAction`, `execute`, `why`, and so on. You rarely need anything else.
 
 ## The scenario
 
-Every page on this path uses the same small world, which lives in [`data/quickstart/`](https://github.com/mtreanor/ruse). Three agents — `alice`, `bob`, `carol` — with:
+Every page on this path uses the same small world, which lives in [`data/quickstart/`](https://github.com/mtreanor/rue). Three agents — `alice`, `bob`, `carol` — with:
 
 - **`knows`** — a *directional* acquaintance relation (alice knows bob, but not carol)
 - **`trusts`** — boolean, supporting explicit disbelief (`-trusts`)

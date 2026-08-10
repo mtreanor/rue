@@ -18,7 +18,7 @@ A boolean sensor evaluates to true or false. In a rule LHS it is written exactly
 
 **In rules:**
 
-```ruse
+```rue
 rule "approach when nearby"
   near(?SELF, ?Y)
   ^ knows(?SELF, ?Y)
@@ -47,7 +47,7 @@ A numeric sensor produces a continuous value. In rules it supports the same tier
 
 **In rules:**
 
-```ruse
+```rue
 rule "wariness when far"
   distance.far(?SELF, ?Y)
   ^ knows(?SELF, ?Y)

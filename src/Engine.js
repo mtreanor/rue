@@ -25,13 +25,13 @@ import { restoreFromFile } from './Snapshot.js';
 import { toFactArg } from './entityValue.js';
 import { scopeToOwner } from './predicates/resolveOwnerScope.js';
 
-function scanRuseFiles(dir) {
+function scanRueFiles(dir) {
   const results = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
-      results.push(...scanRuseFiles(full));
-    } else if (entry.endsWith('.ruse')) {
+      results.push(...scanRueFiles(full));
+    } else if (entry.endsWith('.rue')) {
       results.push(full);
     }
   }
@@ -49,8 +49,8 @@ export class Engine {
           predicates:  join(dataDirOrConfig, 'predicates.json'),
           entities:    join(dataDirOrConfig, 'entities.json'),
           state:       join(dataDirOrConfig, 'state'),
-          definitions: join(dataDirOrConfig, 'definitions.ruse'),
-          ruseDir:    dataDirOrConfig,
+          definitions: join(dataDirOrConfig, 'definitions.rue'),
+          rueDir:    dataDirOrConfig,
         }
       : dataDirOrConfig;
 
@@ -90,16 +90,16 @@ export class Engine {
     this.actionsets = new Map();
     this.jsHooks    = new Map();
 
-    if (paths.ruseDir) {
-      for (const file of scanRuseFiles(paths.ruseDir)) {
-        if (file.endsWith('definitions.ruse')) continue;
-        this.loadRuseFile(readFileSync(file, 'utf-8'));
+    if (paths.rueDir) {
+      for (const file of scanRueFiles(paths.rueDir)) {
+        if (file.endsWith('definitions.rue')) continue;
+        this.loadRueFile(readFileSync(file, 'utf-8'));
       }
     } else {
       if (paths.rulesets) {
         const rsVal = paths.rulesets;
         if (typeof rsVal === 'string') {
-          for (const file of scanRuseFiles(rsVal)) {
+          for (const file of scanRueFiles(rsVal)) {
             this.loadRules(readFileSync(file, 'utf-8'));
           }
         } else {
@@ -115,7 +115,7 @@ export class Engine {
       if (paths.actionsets) {
         const asVal = paths.actionsets;
         if (typeof asVal === 'string') {
-          for (const file of scanRuseFiles(asVal)) {
+          for (const file of scanRueFiles(asVal)) {
             this.loadActions(readFileSync(file, 'utf-8'));
           }
         } else {
@@ -177,8 +177,8 @@ export class Engine {
     return rules;
   }
 
-  // Dispatches a .ruse file to loadRules or loadActions based on its first keyword.
-  loadRuseFile(source) {
+  // Dispatches a .rue file to loadRules or loadActions based on its first keyword.
+  loadRueFile(source) {
     const keyword = source.match(/^\s*(\w+)/m)?.[1];
     if (keyword === 'ruleset')   return this.loadRules(source);
     if (keyword === 'actionset') return this.loadActions(source);

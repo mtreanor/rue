@@ -60,7 +60,7 @@ function buildWorld() {
   derived.define('rivals', () => true);
 
   const { rulesets } = engine.ruleLoader.load(
-    engine.ruleParser.parse(readFileSync(join(stressDir, 'rulesets/main.ruse'), 'utf-8'))
+    engine.ruleParser.parse(readFileSync(join(stressDir, 'rulesets/main.rue'), 'utf-8'))
   );
   const rules = rulesets['main'];
 
@@ -707,7 +707,7 @@ describe('Stress scenario', () => {
 
     function buildSimWorld() {
       const { engine, world, rules, nearPairs } = buildWorld();
-      const actionsSource = readFileSync(join(stressDir, 'actionsets/social.ruse'), 'utf-8');
+      const actionsSource = readFileSync(join(stressDir, 'actionsets/social.rue'), 'utf-8');
       const { actionsets } = new ActionLoader(engine.schema).load(
         new ActionParser().parse(actionsSource)
       );

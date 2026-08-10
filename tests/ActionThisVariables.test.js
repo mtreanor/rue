@@ -8,7 +8,7 @@ import { Engine } from '../src/Engine.js';
 // ── ?this_action available everywhere a binding works ────────────────────────
 
 function makeEngine() {
-  const dir = mkdtempSync(join(tmpdir(), 'ruse-thisvars-'));
+  const dir = mkdtempSync(join(tmpdir(), 'rue-thisvars-'));
 
   writeFileSync(join(dir, 'predicates.json'), JSON.stringify({
     predicates: {

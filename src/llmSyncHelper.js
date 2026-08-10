@@ -8,7 +8,7 @@ async function run() {
     exit(1);
   }
 
-  const llmConf = env.RUSE_LLM_CONFIG ? JSON.parse(env.RUSE_LLM_CONFIG) : {};
+  const llmConf = env.RUE_LLM_CONFIG ? JSON.parse(env.RUE_LLM_CONFIG) : {};
   const apiKey = env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || llmConf.apiKey;
   if (!apiKey) {
     console.error('Error: LLM API Key not found. Set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY');

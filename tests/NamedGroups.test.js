@@ -90,14 +90,14 @@ describe('config — array paths for rulesets and actionsets', () => {
     const engine = new Engine({
       predicates: join(stressDir, 'predicates.json'),
       entities:   join(stressDir, 'entities.json'),
-      rulesets:   { main: join(stressDir, 'rulesets/main.ruse') },
+      rulesets:   { main: join(stressDir, 'rulesets/main.rue') },
     });
     assert.ok(engine.rulesets.get('main').length > 0);
   });
 
   it('accepts an array of paths and merges them into one named ruleset', () => {
     // Point the same file twice — the group should have double the rules.
-    const rulesPath = join(stressDir, 'rulesets/main.ruse');
+    const rulesPath = join(stressDir, 'rulesets/main.rue');
     const single = new Engine({
       predicates: join(stressDir, 'predicates.json'),
       entities:   join(stressDir, 'entities.json'),
@@ -112,7 +112,7 @@ describe('config — array paths for rulesets and actionsets', () => {
   });
 
   it('accepts an array of paths for actionsets (array form equals string form)', () => {
-    const actionsPath = join(stressDir, 'actionsets/social.ruse');
+    const actionsPath = join(stressDir, 'actionsets/social.rue');
     const withString = new Engine({
       predicates: join(stressDir, 'predicates.json'),
       entities:   join(stressDir, 'entities.json'),

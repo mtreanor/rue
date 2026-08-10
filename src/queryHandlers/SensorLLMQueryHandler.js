@@ -31,7 +31,7 @@ export class SensorLLMQueryHandler extends QueryHandler {
     }
 
     const config = loadConfig();
-    const override = process.env.RUSE_CONFIG;
+    const override = process.env.RUE_CONFIG;
     let repoRoot = process.cwd();
     if (override) {
       repoRoot = dirname(resolve(override));

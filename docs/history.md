@@ -1,4 +1,4 @@
-# The History of Ruse
+# The History of RUE
 
 For me, this story starts in 2010 with the creation of Comme il Faut — a project I built alongside [Josh McCoy](https://joshmccoy.com), [Ben Samuel](http://www.ben-samuel.com), [Aaron Reed](https://aaronareed.net), and others while we were all pursuing PhDs as part of the [Expressive Intelligence Studio](https://eis.ucsc.edu) at the University of California, Santa Cruz. We were advised by [Michael Mateas](https://users.soe.ucsc.edu/~michaelm/) and [Noah Wardrip-Fruin](http://www.noahwf.com). The project itself has a rich intellectual history rooted in GOFAI (good old-fashioned AI), and I was deeply inspired by the work my advisors and the studio had already done.
 
@@ -18,8 +18,8 @@ In 2024, I started working on social practices again. As had happened with CiF b
 
 Ben and I also used ESP to create a vertical slice demo of a game called [Slice of Life](https://mtreanor.com/publications/fdg2025-sliceOfLife.pdf) — a Christmas Carol-themed game about a pizzeria chef revisiting his past to rediscover his passion for pizza and for the people around him. That project is sadly on hold, but you can read about it here.
 
-Which brings us to Ruse. Across this 16-year period — and really ever since I first understood logic and GOFAI — I have wanted a robust, expressive, and feature-rich authoring system that worked precisely the way I needed it to. Ruse is my attempt to overcome every challenge I faced while creating and using CiF, Ensemble, Game-O-Matic (and [its less successful successor Game-O-Mat](https://mtreanor.com/publications/treanor_gameomat_engine.pdf)), and ESP (though [ESP is pretty great — check it out!](https://github.com/mtreanor/esp)).
+Which brings us to RUE. Across this 16-year period — and really ever since I first understood logic and GOFAI — I have wanted a robust, expressive, and feature-rich authoring system that worked precisely the way I needed it to. RUE is my attempt to overcome every challenge I faced while creating and using CiF, Ensemble, Game-O-Matic (and [its less successful successor Game-O-Mat](https://mtreanor.com/publications/treanor_gameomat_engine.pdf)), and ESP (though [ESP is pretty great — check it out!](https://github.com/mtreanor/esp)).
 
-You might reasonably ask: why not just use Datalog? Did you know ASP can do 100x's more than Ruse? Why did you violate such-and-such property that would guarantee whatever? The answer is that I jut don't work well unless I do things from scratch. So if I have meaninglessly reinvented the wheel, that's just how its gotta be! If you want to see what an LLM thought about the features of Ruse, [check this out](design.md).
+You might reasonably ask: why not just use Datalog? Did you know ASP can do 100x's more than RUE? Why did you violate such-and-such property that would guarantee whatever? The answer is that I jut don't work well unless I do things from scratch. So if I have meaninglessly reinvented the wheel, that's just how its gotta be! If you want to see what an LLM thought about the features of RUE, [check this out](design.md).
 
-One last thing: where does the name Ruse come from? [Smooth jazz, obviously](https://en.wikipedia.org/wiki/Earl_Ruse).
+One last thing: where does the name RUE come from? [Smooth jazz, obviously](https://en.wikipedia.org/wiki/Earl_Rue).

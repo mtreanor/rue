@@ -5,7 +5,7 @@ A **actionGraph** is a named, declarative layer over the engine. Where [actions]
 Each stage pairs **priming rules** with an **actionset**. Running a stage means: run its hooks, fire its priming rules to prime scores, score the actionset, filter by a salience floor, pick winners with a selection strategy, execute them, and — if the stage resolves a route for the winner — continue into the named child stage. When it resolves to nothing, that winner is *terminal*: the actionGraph's `postHooks` fire and that branch ends.
 
 ```javascript
-import { ActionGraph, Stage, ActionGraphRunner } from 'ruse';
+import { ActionGraph, Stage, ActionGraphRunner } from 'rue';
 
 const actionGraph = new ActionGraph('turn', {
   entry: 'choose-stage',
@@ -60,8 +60,8 @@ A `ActionGraph` carries the same `preHooks` / `postHooks` / `selectionStrategy` 
 
 The simplest actionGraph is one stage with one terminal action. The runner scores the actionset for the starting binding, picks the highest-scoring eligible candidate, and executes it.
 
-```ruse
-// actions/moves.ruse
+```rue
+// actions/moves.rue
 actionset "moves"
 
 action "rest"
@@ -74,7 +74,7 @@ action "rest"
 ```
 
 ```javascript
-import { ActionGraph, Stage, ActionGraphRunner } from 'ruse';
+import { ActionGraph, Stage, ActionGraphRunner } from 'rue';
 
 const actionGraph = new ActionGraph('turn', {
   entry: 'rest-stage',
@@ -95,8 +95,8 @@ With no `routesTo` on `rest-stage`, `rest` is terminal: the actionGraph ends aft
 
 Routing lets one character's choice hand off to another character's reaction. The `initiate-stage` routes to `respond-stage` for every winner; before the child stage scores, a `swap-roles` hook flips `?SELF` and `?OTHER` so the *other* agent becomes the actor.
 
-```ruse
-// actions/initiate.ruse
+```rue
+// actions/initiate.rue
 actionset "initiate"
 
 action "greet"
@@ -109,8 +109,8 @@ action "greet"
     greeted(?SELF, ?OTHER)
 ```
 
-```ruse
-// actions/respond.ruse
+```rue
+// actions/respond.rue
 actionset "respond"
 
 action "greet back"
@@ -129,7 +129,7 @@ action "ignore"
 ```
 
 ```javascript
-import { ActionGraph, Stage, ActionGraphRunner } from 'ruse';
+import { ActionGraph, Stage, ActionGraphRunner } from 'rue';
 
 const actionGraph = new ActionGraph('exchange', {
   entry: 'initiate-stage',

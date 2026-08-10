@@ -8,7 +8,7 @@ Rule files contain only `rule` blocks. World and private state belong in the `st
 
 A rule has a name, a left-hand side (LHS) of predicates joined by `^`, and a right-hand side (RHS) of one or more state operations, each introduced by `=>`.
 
-```ruse
+```rue
 rule "R1 — exploit when a need can be met"
   knows(?SELF, ?Y)
   ^ canHaveNeedMet(?SELF, ?Y)
@@ -17,7 +17,7 @@ rule "R1 — exploit when a need can be met"
 
 Multiple effects are separated by `=>`:
 
-```ruse
+```rue
 rule "friendship creates a bond"
   friends(?X, ?Y)
   => new entity(bond, ?b) [name: "{?X}_{?Y}_bond"]
@@ -32,7 +32,7 @@ The LHS uses the forms documented in [Query forms](query-forms.md) and [Negation
 
 Variables begin with `?`. During evaluation the engine searches all possible bindings — assignments of entities to variables — that satisfy the full LHS.
 
-```ruse
+```rue
 rule "shared knowledge deepens respect"
   knows(?SELF, ?Y)
   ^ hasKnowledge(?SELF, ?K)
@@ -60,7 +60,7 @@ Both constraints follow from argument types in the schema (`agent`, `knowledge`,
 
 `_` (underscore) is an anonymous variable — it matches any entity but is not bound and cannot be referenced elsewhere in the rule. Each bare `_` is independent: two `_` positions never join.
 
-```ruse
+```rue
 rule "cautious when self has any unmet need"
   knows(?SELF, ?Y)
   ^ hasNeed(?SELF, _)

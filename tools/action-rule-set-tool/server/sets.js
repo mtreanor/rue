@@ -70,7 +70,7 @@ function createActionGraph(scenario, name) {
   return { ok: true, name };
 }
 
-// Create a new named ruleset or actionset block in a new .ruse file inside the
+// Create a new named ruleset or actionset block in a new .rue file inside the
 // scenario's shadow tree. No config update needed — the scenario dir is already
 // the entry, and the directory scans pick up the new file immediately.
 function createNamedSet(scenario, name, keyword) {
@@ -83,7 +83,7 @@ function createNamedSet(scenario, name, keyword) {
 
   const dir = resolveScenarioPaths(s).dir;
   mkdirSync(dir, { recursive: true });
-  const abs = join(dir, `${name}.ruse`);
+  const abs = join(dir, `${name}.rue`);
   if (existsSync(abs)) throw new Error(`A ${keyword} named "${name}" already exists`);
   writeFileSync(abs, `${keyword} "${name}"\n`);
   return { ok: true, name };

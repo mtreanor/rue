@@ -31,7 +31,7 @@ function resolveArg(arg, binding) {
   return resolved?.name ?? resolved;
 }
 
-// Convert a ruse predicate object (with a ground binding) to a goal fact tuple.
+// Convert a rue predicate object (with a ground binding) to a goal fact tuple.
 // Supports FactPredicate, PrivatePredicate, and NegationPredicate wrapping either.
 function normalizeGroundPredicate(predicate, binding) {
   if (predicate instanceof NegationPredicate) {

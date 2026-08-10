@@ -1,7 +1,7 @@
 {
-  "name": "ruse",
-  "displayName": "ruse",
-  "description": "Syntax highlighting for the ruse logic DSL",
+  "name": "rue",
+  "displayName": "RUE",
+  "description": "Syntax highlighting for the RUE logic DSL",
   "version": "0.1.0",
   "publisher": "local",
   "engines": { "vscode": "^1.80.0" },
@@ -9,17 +9,17 @@
   "contributes": {
     "languages": [
       {
-        "id": "ruse",
-        "aliases": ["ruse"],
-        "extensions": [".ruse"],
+        "id": "rue",
+        "aliases": ["RUE", "rue"],
+        "extensions": [".rue"],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "ruse",
-        "scopeName": "source.ruse",
-        "path": "./ruse.tmLanguage.json"
+        "language": "rue",
+        "scopeName": "source.rue",
+        "path": "./rue.tmLanguage.json"
       }
     ]
   }

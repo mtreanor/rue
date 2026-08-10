@@ -5,7 +5,7 @@ State is declared in a dedicated `state` file (not inside rule files). The file 
 - `world` — the shared fact store
 - `private <name>` — the private store for a named entity
 
-```ruse
+```rue
 world
   knows(alice, bob)
   knows(alice, carol)
@@ -49,7 +49,7 @@ These operations appear in state files and on the RHS of rules.
 
 In **rule** effects (not state files), the value of a numeric `=`/`+=`/`-=` can be a full numeric expression — infix `+ - * /` with precedence and parens, the functions `min`/`max`/`abs`/`clamp`/`pow`, and operands that are literals, bound variables, numeric predicates, or **owner-prefixed** numeric predicates (`?VAR.pred(args)`, reading from that entity's private store instead of the world):
 
-```ruse
+```rue
 rule "trust grows with mutual regard"
   knows(?X, ?Y)
   => trust(?X, ?Y) += (respect(?X, ?Y) + goodwill(?X, ?Y)) / 2
@@ -71,7 +71,7 @@ An owner-prefixed operand (`?SELF.pred(args)`) resolves the owner variable, look
 
 If a predicate is declared [`singleValued`](schema.md#singlevalued), a positive assert sets the one value held at its key, superseding any prior value there (governed by the store's contradiction policy). A negated assert only rules out its exact value, so disbeliefs accumulate until a positive value sweeps them. Superseded values stay in history:
 
-```ruse
+```rue
 world
   feels(zeke, anxious)   // zeke's mood is anxious…
   feels(zeke, hopeful)   // …now hopeful; anxious survives only in history
@@ -85,7 +85,7 @@ world
 
 Every fact carries a strength value from 0.0 to 1.0. If omitted, strength defaults to **1.0**. Specify strength with a `[strength: N]` annotation after the assertion:
 
-```ruse
+```rue
 perceivedThreat(carol, alice) [strength: 0.85]
 friendship(bob, alice) = 85 [strength: 0.9]
 knows(alice, bob)                  // strength 1.0
@@ -101,7 +101,7 @@ Strength applies to assertions and `=` value sets, not to `+=`/`-=` adjustments 
 
 A fact can be backdated to a specific tick using `[tick: N]`. Negative ticks represent history before the simulation started. Backdating is how you establish prior events that rules can look back on.
 
-```ruse
+```rue
 world
   exploited(alice, carol) [tick: -5]
   hadConflict(alice, carol) [tick: -1]
@@ -115,7 +115,7 @@ world
 
 String literals are enclosed in double quotes and are compared by value.
 
-```ruse
+```rue
 world
   hasNeed(alice, "companionship")
   hasKnowledge(bob, "philosophy")

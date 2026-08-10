@@ -1,6 +1,6 @@
 # 1.5 · Provenance
 
-Every fact in a ruse world records *why* it exists. You don't have to opt in or instrument anything — the record is produced as a side effect of the fact being there. One call reads it back.
+Every fact in a rue world records *why* it exists. You don't have to opt in or instrument anything — the record is produced as a side effect of the fact being there. One call reads it back.
 
 ## `engine.why(...)`
 

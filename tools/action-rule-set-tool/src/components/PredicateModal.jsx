@@ -215,7 +215,7 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
         )}
 
         <div className="ent-field">
-          <span>App data <span className="dim">(JSON — opaque to ruse; the host application's own data)</span></span>
+          <span>App data <span className="dim">(JSON — opaque to rue; the host application's own data)</span></span>
           <textarea
             className="pred-app-data mono"
             rows={4}

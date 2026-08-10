@@ -4,13 +4,13 @@ import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { workingPath } from './workspace.js';
 
-// tools/action-rule-set-tool/server → the ruse repo root is three levels up. This is
-// used for ruse-shipped assets (the engine in src/, the TextMate grammar) and
+// tools/action-rule-set-tool/server → the RUE repo root is three levels up. This is
+// used for RUE-shipped assets (the engine in src/, the TextMate grammar) and
 // is fixed regardless of where the project config lives.
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const toolRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-// Optional local .env (gitignored) so a submodule host can persist RUSE_CONFIG
+// Optional local .env (gitignored) so a submodule host can persist RUE_CONFIG
 // without editing tracked files. Only KEY=VALUE lines; existing env wins.
 (function loadDotEnv() {
   const envPath = join(toolRoot, '.env');
@@ -21,10 +21,10 @@ const toolRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   }
 })();
 
-// When ruse is vendored as a git submodule, the host repo's working tree is its
+// When RUE is vendored as a git submodule, the host repo's working tree is its
 // "superproject". If that host has a project.config.json, it's the one the user
 // means — so the tool discovers it automatically, no configuration needed.
-// Returns null when ruse is standalone or the host has no config.
+// Returns null when RUE is standalone or the host has no config.
 function superprojectConfig() {
   try {
     const superRoot = execFileSync('git', ['rev-parse', '--show-superproject-working-tree'], {
@@ -39,13 +39,13 @@ function superprojectConfig() {
 }
 
 // Config resolution order:
-//   1. RUSE_CONFIG (explicit override) — a project.config.json path, or a
+//   1. RUE_CONFIG (explicit override) — a project.config.json path, or a
 //      directory containing one. Relative paths resolve from the launch cwd.
-//   2. The host repo's config, when ruse is a git submodule (auto-discovered).
-//   3. ruse's own project.config.json (standalone development).
+//   2. The host repo's config, when RUE is a git submodule (auto-discovered).
+//   3. RUE's own project.config.json (standalone development).
 // Scenario data paths are then resolved relative to the chosen config's directory.
 function locateConfig() {
-  const override = process.env.RUSE_CONFIG;
+  const override = process.env.RUE_CONFIG;
   if (override) {
     const abs = resolve(override);
     try {
@@ -92,11 +92,11 @@ export function resolveScenarioPaths(scenario) {
   const sub = (name) => join(dir, name); // every file lives inside that one tree
   return {
     dir,
-    ruseDir:    dir,
+    rueDir:    dir,
     predicates:  sub('predicates.json'),
     entities:    sub('entities.json'),
     state:       sub('state'),
-    definitions: sub('definitions.ruse'),
+    definitions: sub('definitions.rue'),
     actionGraphs:   sub('actiongraphs'),
     hooks:       sub('hooks'),
     tickPlans:   sub('tickplans'),

@@ -22,7 +22,7 @@ A boolean actuator is triggered by a positive assertion (`=> pred(...)`) or a re
 ```
 
 **In rule effects:**
-```ruse
+```rue
 rule "applause on repair"
   repaired(?X, ?Y)
   => playSound("cheer")  # Trigger sound (negated: false)
@@ -45,7 +45,7 @@ A numeric actuator is triggered by assigning value updates (`=`, `+=`, or `-=`).
 ```
 
 **In rule effects:**
-```ruse
+```rue
 rule "red alert flash"
   alertLevel(?L) > 80
   => screenFlash("red") = 1.0  # Set value to 1.0
@@ -64,7 +64,7 @@ rule "decay flash opacity"
 To implement an actuator, extend the base `Actuator` or `NumericActuator` classes:
 
 ```javascript
-import { Actuator, NumericActuator } from 'ruse';
+import { Actuator, NumericActuator } from 'rue';
 
 // 1. Boolean Actuator implementation
 export class AudioActuator extends Actuator {
@@ -95,7 +95,7 @@ export class FlashActuator extends NumericActuator {
 Actuators are registered globally on the world's `ActuatorQueryHandler` at world-setup time under the query handler name `'actuator'`:
 
 ```javascript
-import { World, ActuatorQueryHandler } from 'ruse';
+import { World, ActuatorQueryHandler } from 'rue';
 
 const world = new World(schema);
 
@@ -111,12 +111,12 @@ world.queryHandlers.register('actuator', actuatorHandler);
 ## Architectural Constraints
 
 * **No Owner Prefixes**: Actuators fire against a single, globally-registered handler, not a specific entity's private store. Owner prefixes are rejected at load time:
-  ```ruse
+  ```rue
   # REJECTED AT LOAD TIME (will throw an error):
   => ?SELF.playSound("cheer") 
   ```
 * **No Stored History**: Actuators are pure write-only triggers. They do not store history or assertions inside the `FactStore`, and cannot be queried in a rule's LHS:
-  ```ruse
+  ```rue
   # REJECTED AT LOAD TIME (actuators cannot be rules premises):
   rule "bad"
     playSound("cheer") 

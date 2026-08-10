@@ -1,6 +1,6 @@
 actionset "social-actions"
   # Vegas hangout — two-person social actions, scored against the ephemeral
-  # intent-* utility predicates from intent-influence-rules.ruse. Several
+  # intent-* utility predicates from intent-influence-rules.rue. Several
   # actions share an intent; each carries its own differentiating "rule"
   # utility source (or a hard precondition) so they don't all fire together.
 

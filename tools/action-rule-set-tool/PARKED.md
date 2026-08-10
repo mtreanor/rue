@@ -14,7 +14,7 @@ resolved target), live. Each firing rule also has a full **Edit** button.
 
 Semantics (as designed):
 - Firing = every rule premise is covered by your conditions under a consistent,
-  **injective** role mapping (ruse's default `distinct: true`), possibly under
+  **injective** role mapping (rue's default `distinct: true`), possibly under
   several mappings.
 - **Closed-world:** `not P` / `~P` hold unless you typed a matching `P`; counts
   (`|P| ≥ n`) and count-anchored variables are evaluated/enumerated over the
@@ -154,7 +154,7 @@ That's the whole surface — no changes needed to `tune.js` or `TuneTab.jsx`.
 
 ## Known drift to fix on revival
 
-Since parking, ruse made `|pred|` counts a real aggregate: they now parse as
+Since parking, rue made `|pred|` counts a real aggregate: they now parse as
 `{ type: 'aggregate', fn: 'count', … }` rather than `{ type: 'count', … }`.
 `server/tune.js` still keys count handling off `spec === 'count'` (via
 `describe`), so under the current parser counts read as `aggregate` and land in

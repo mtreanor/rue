@@ -2,7 +2,7 @@
 
 # Plans
 
-A **plan** is a sequence of actions that achieves a goal from a given starting state. ruse ships two planners — a forward planner and a backward (regression) planner — that search over hypothetical world states to find such sequences.
+A **plan** is a sequence of actions that achieves a goal from a given starting state. RUE ships two planners — a forward planner and a backward (regression) planner — that search over hypothetical world states to find such sequences.
 
 The planner never mutates the live world. It works against a `PlannerSnapshot` — a frozen copy of the fact store and private stores at a point in time — so searching is always safe to discard.
 
@@ -215,7 +215,7 @@ const steps = new Planner(actions, schema).findPlan(goal, PlannerSnapshot.from(w
 
 Numeric values survive the snapshot, so derivation rules with numeric-tier premises (like `friendship.strong`) resolve correctly during search.
 
-### Full ruse queries inside validators
+### Full RUE queries inside validators
 
 Validators receive the initial snapshot, so they can replay a candidate plan and then run any query against the simulated outcome — or against every intermediate state:
 
@@ -230,7 +230,7 @@ const validators = [
     let snap = initialSnapshot;
     for (const { action, binding } of steps) snap = snap.apply(action, binding);
 
-    // ...then evaluate full ruse queries against it.
+    // ...then evaluate full rue queries against it.
     const ctx = snap.createEvaluationContext();
     const b   = new Binding();
     return new DerivedFactPredicate('trustedAlly', 'alice', 'carol').evaluate(b, ctx)

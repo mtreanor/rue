@@ -13,7 +13,7 @@ import { attachPlaySession } from './play.js';
 // The host keeps ownership of the engine's lifecycle, JS hooks, and the
 // real-time metronome; the tool is a guest driver/inspector. The tool's own
 // file-editing routes still operate on the scenario's authored files (via the
-// shadow workspace, resolved through the host repo's project config — ruse is a
+// shadow workspace, resolved through the host repo's project config — rue is a
 // git submodule of that repo, so config discovery finds it), and a rule edit is
 // pushed into this shared engine by the host via Engine.reloadRules.
 //

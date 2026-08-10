@@ -40,7 +40,7 @@ export default function App() {
   );
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('ruse:theme', theme);
+    localStorage.setItem('rue:theme', theme);
   }, [theme]);
 
   // The item currently loaded into the Add rule / Add action tab for editing
@@ -126,7 +126,7 @@ export default function App() {
 
   useEffect(() => {
     refreshScenarios().then(list => {
-      const last = localStorage.getItem('ruse:lastScenario');
+      const last = localStorage.getItem('rue:lastScenario');
       const pick = (last && list.find(s => s.name === last))
         ?? list.find(s => s.rulesets.length > 0)
         ?? list[0];
@@ -160,7 +160,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (scenario) localStorage.setItem('ruse:lastScenario', scenario);
+    if (scenario) localStorage.setItem('rue:lastScenario', scenario);
     reload(scenario);
   }, [scenario]);
 
@@ -206,7 +206,7 @@ export default function App() {
     <InsertContext.Provider value={insertApi}>
       <div className="app">
         <header className="topbar">
-          <h1>ruse · action-rule-set-tool</h1>
+          <h1>rue · action-rule-set-tool</h1>
           <label className="scenario-pick">
             Scenario
             <select value={scenario} onChange={e => setScenario(e.target.value)}>

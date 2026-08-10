@@ -351,7 +351,7 @@ export class RuleEvaluator {
     // Only a genuinely FactStore-backed clause's record count is a trustworthy
     // selectivity signal — the same isFactStoreBackedIndexable check
     // hasIndexableClause uses to decide whether to narrow at all. A derived
-    // predicate (define "..." => communityPillar(?X) in definitions.ruse,
+    // predicate (define "..." => communityPillar(?X) in definitions.rue,
     // backward-chained, never literally asserted) still passes the generic
     // .name/.args guard above and always yields zero records from
     // recordsForName — not because it's selective, but because it isn't

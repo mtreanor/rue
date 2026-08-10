@@ -1,11 +1,11 @@
 import { defineConfig } from 'vitepress';
 import mathjax3 from 'markdown-it-mathjax3';
-import ruseGrammar from './ruse-grammar.js';
+import rueGrammar from './rue-grammar.js';
 
 export default defineConfig({
-  title: 'ruse',
+  title: 'rue',
   description: 'A symbolic logic engine for reasoning about state',
-  base: '/ruse/',
+  base: '/rue/',
 
   // Scratch/archive notes that are not part of the published site. Keeping
   // them out of the build means a stray dead link in a draft can't fail the
@@ -13,7 +13,7 @@ export default defineConfig({
   srcExclude: ['old/**', 'ml-ideas.md'],
 
   markdown: {
-    languages: [ruseGrammar],
+    languages: [rueGrammar],
     config: (md) => {
       md.use(mathjax3);
     },
@@ -28,7 +28,7 @@ export default defineConfig({
     sidebar: [
       {
         items: [
-          { text: 'What is ruse?', link: '/' },
+          { text: 'What is rue?', link: '/' },
           { text: 'History', link: '/history' },
         ],
       },

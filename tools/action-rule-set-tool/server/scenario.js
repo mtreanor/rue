@@ -78,13 +78,13 @@ export function loadScenarioContext(name) {
   return { name, scenario, paths, schema, entityNames, entityTypeNames, ruleParser, actionParser };
 }
 
-function scanRuseFiles(dir) {
+function scanRueFiles(dir) {
   const results = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
-      results.push(...scanRuseFiles(full));
-    } else if (entry.endsWith('.ruse')) {
+      results.push(...scanRueFiles(full));
+    } else if (entry.endsWith('.rue')) {
       results.push(full);
     }
   }
@@ -95,8 +95,8 @@ function listNamesInScenarioDir(dir, keyword) {
   if (!dir) return [];
   try {
     const names = [];
-    for (const file of scanRuseFiles(dir)) {
-      if (file.endsWith('definitions.ruse')) continue;
+    for (const file of scanRueFiles(dir)) {
+      if (file.endsWith('definitions.rue')) continue;
       const text = readFileSync(file, 'utf-8');
       for (const m of text.matchAll(new RegExp(`^${keyword}\\s+"([^"]+)"`, 'gm'))) {
         names.push(m[1]);
@@ -108,15 +108,15 @@ function listNamesInScenarioDir(dir, keyword) {
   }
 }
 
-// Find which .ruse file in the scenario dir contains a named block.
+// Find which .rue file in the scenario dir contains a named block.
 // Returns the absolute file path, or null if not found.
 export function findSetFile(dir, keyword, name) {
   if (!dir) return null;
   try {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(`^${keyword}\\s+"${escaped}"`, 'm');
-    for (const file of scanRuseFiles(dir)) {
-      if (file.endsWith('definitions.ruse')) continue;
+    for (const file of scanRueFiles(dir)) {
+      if (file.endsWith('definitions.rue')) continue;
       if (re.test(readFileSync(file, 'utf-8'))) return file;
     }
   } catch {
@@ -170,7 +170,7 @@ export function schemaForClient(schema) {
       tierRanges: def.tiers ?? null,
       singleValued: def.singleValued ?? null,
       ephemeral: !!def.annotations?.ephemeral,
-      // Arbitrary host-application data on the predicate spec — ruse itself
+      // Arbitrary host-application data on the predicate spec — rue itself
       // never reads this key, it's just carried through so the editor can show
       // and round-trip whatever the host project has attached (see predicates.js
       // buildDef and PredicateModal's "App data" field).
@@ -203,7 +203,7 @@ export function loadRulesets(ctx) {
   const byName = new Map();
   let files;
   try {
-    files = scanRuseFiles(ctx.paths.dir).filter(f => !f.endsWith('definitions.ruse'));
+    files = scanRueFiles(ctx.paths.dir).filter(f => !f.endsWith('definitions.rue'));
   } catch {
     return [];
   }
@@ -266,7 +266,7 @@ export function loadActionsets(ctx) {
   const byName = new Map();
   let files;
   try {
-    files = scanRuseFiles(ctx.paths.dir).filter(f => !f.endsWith('definitions.ruse'));
+    files = scanRueFiles(ctx.paths.dir).filter(f => !f.endsWith('definitions.rue'));
   } catch {
     return [];
   }
@@ -316,7 +316,7 @@ export function loadActionsets(ctx) {
 // with imports and side effects, and this scan runs inside the dev server —
 // executing arbitrary scenario-authored code here would be a real risk, not
 // just a style choice. A file with no `hookName` export is skipped, not
-// treated as an error — the same way a .ruse file with no `ruleset "..."`
+// treated as an error — the same way a .rue file with no `ruleset "..."`
 // header is skipped by loadRulesets.
 // Returns [{ name, file }].
 export function loadJSHooks(ctx) {

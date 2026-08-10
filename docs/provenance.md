@@ -1,6 +1,6 @@
 # Provenance
 
-Every fact in ruse carries a record of why it exists. When a rule fires and asserts a fact, the fact record stores the rule and the binding that triggered it. When an action fires and its effects land, each asserted or adjusted fact records which action caused it and carries a full reference to the action's scored utility. This record is called **provenance**.
+Every fact in RUE carries a record of why it exists. When a rule fires and asserts a fact, the fact record stores the rule and the binding that triggered it. When an action fires and its effects land, each asserted or adjusted fact records which action caused it and carries a full reference to the action's scored utility. This record is called **provenance**.
 
 Provenance is read-only — it is attached automatically by the engine and cannot be written by hand.
 
@@ -78,7 +78,7 @@ The fact was asserted or adjusted by a rule firing.
 }
 ```
 
-`rule.name` is the string name of the rule as declared in the `.ruse` file. `binding.resolve(variable)` returns the entity bound to a given `LogicalVariable`.
+`rule.name` is the string name of the rule as declared in the `.rue` file. `binding.resolve(variable)` returns the entity bound to a given `LogicalVariable`.
 
 ### `'derived-fact'`
 
@@ -158,7 +158,7 @@ for (const event of record.currentReasons()) {
 
 ## Explaining a fact — proof trees
 
-Provenance is one level deep: a fact knows the rule (or action) that concluded it. But when that rule's premises were *themselves* concluded by other rules, you usually want the whole chain. ruse records, at the moment each rule fires, **which records satisfied each of its premises** — a parallel array of `Justification`s stored on `RuleEffectProvenance.premiseRecords` (and `DerivedFactProvenance.premiseRecords`). Following those links yields a full proof tree.
+Provenance is one level deep: a fact knows the rule (or action) that concluded it. But when that rule's premises were *themselves* concluded by other rules, you usually want the whole chain. RUE records, at the moment each rule fires, **which records satisfied each of its premises** — a parallel array of `Justification`s stored on `RuleEffectProvenance.premiseRecords` (and `DerivedFactProvenance.premiseRecords`). Following those links yields a full proof tree.
 
 `engine.explain(fact)` walks it and returns a `ProofNode`:
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { scopeClass } from '../tmHighlight.js';
 
-// Renders ruse DSL with TextMate highlighting. Falls back to plain text until
+// Renders rue DSL with TextMate highlighting. Falls back to plain text until
 // the grammar has loaded (or if it failed to load).
 export default function HighlightedCode({ text, highlighter, className }) {
   if (!highlighter) return <pre className={className}>{text}</pre>;

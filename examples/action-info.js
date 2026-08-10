@@ -1,5 +1,5 @@
 // Demonstrates action info: blocks — describing actions with facts so the
-// action catalog itself becomes queryable with ordinary ruse queries.
+// action catalog itself becomes queryable with ordinary rue queries.
 //
 // Each action declares facts about itself via `info:`, where ?this_action is the
 // action. Those facts register the action as an `action` entity, so you can

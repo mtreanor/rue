@@ -1,4 +1,4 @@
-# ruse
+# RUE
 
 A symbolic logic engine for reasoning about state. You declare predicates, assert facts, write rules, and ask questions. It supports the kind of nuanced negation and temporal reasoning that most simple fact stores don't bother with — explicit disbelief, negation as failure, historical queries, backward-chaining derivation, and numeric values with named tiers.
 

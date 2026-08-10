@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "ruse",
-  "scopeName": "source.ruse",
-  "fileTypes": ["ruse"],
+  "name": "rue",
+  "scopeName": "source.rue",
+  "fileTypes": ["rue"],
   "patterns": [
     { "include": "#comment" },
     { "include": "#block-keyword" },
@@ -23,63 +23,63 @@
   ],
   "repository": {
     "comment": {
-      "name": "comment.line.ruse",
+      "name": "comment.line.rue",
       "match": "(\\/\\/|#).*$"
     },
     "block-keyword": {
-      "name": "keyword.control.ruse",
+      "name": "keyword.control.rue",
       "match": "\\b(rule|define|action|world|private)\\b"
     },
     "section-keyword": {
-      "name": "storage.type.ruse",
+      "name": "storage.type.rue",
       "match": "\\b(preconditions|effects|utility|roles|content|info|text)\\b"
     },
     "entity-keyword": {
-      "name": "keyword.control.ruse",
+      "name": "keyword.control.rue",
       "match": "\\b(new|remove)\\s+entity\\b|\\brecord\\b(?=\\s*\\()"
     },
     "aggregator": {
-      "name": "support.function.ruse",
+      "name": "support.function.rue",
       "match": "\\b(sum|avg|min|max|count|random)\\b"
     },
     "numeric-function": {
-      "name": "support.function.ruse",
+      "name": "support.function.rue",
       "match": "\\b(abs|clamp|pow)\\b(?=\\s*\\()"
     },
     "modifier-keyword": {
-      "name": "keyword.operator.word.ruse",
+      "name": "keyword.operator.word.rue",
       "match": "\\b(not|then(?:\\[\\d+\\])?)\\b"
     },
     "operator": {
       "patterns": [
-        { "name": "keyword.operator.ruse",            "match": "=>" },
-        { "name": "keyword.operator.assignment.ruse", "match": "[+\\-]=" },
-        { "name": "keyword.operator.comparison.ruse", "match": "!=|==|>=|<=" },
-        { "name": "keyword.operator.comparison.ruse", "match": "[><]" },
-        { "name": "keyword.operator.arithmetic.ruse", "match": "[+*/]" },
-        { "name": "keyword.operator.logical.ruse",    "match": "\\^" },
-        { "name": "keyword.operator.ruse",            "match": "~" },
-        { "name": "keyword.operator.ruse",            "match": "-(?=[a-zA-Z?])" },
-        { "name": "keyword.operator.arithmetic.ruse", "match": "-" },
-        { "name": "keyword.operator.assignment.ruse", "match": "=" }
+        { "name": "keyword.operator.rue",            "match": "=>" },
+        { "name": "keyword.operator.assignment.rue", "match": "[+\\-]=" },
+        { "name": "keyword.operator.comparison.rue", "match": "!=|==|>=|<=" },
+        { "name": "keyword.operator.comparison.rue", "match": "[><]" },
+        { "name": "keyword.operator.arithmetic.rue", "match": "[+*/]" },
+        { "name": "keyword.operator.logical.rue",    "match": "\\^" },
+        { "name": "keyword.operator.rue",            "match": "~" },
+        { "name": "keyword.operator.rue",            "match": "-(?=[a-zA-Z?])" },
+        { "name": "keyword.operator.arithmetic.rue", "match": "-" },
+        { "name": "keyword.operator.assignment.rue", "match": "=" }
       ]
     },
     "pipe-delimiter": {
-      "name": "keyword.operator.ruse",
+      "name": "keyword.operator.rue",
       "match": "\\|"
     },
     "annotation": {
-      "name": "meta.annotation.ruse",
+      "name": "meta.annotation.rue",
       "begin": "\\[",
       "end": "\\]",
-      "beginCaptures": { "0": { "name": "punctuation.section.annotation.begin.ruse" } },
-      "endCaptures":   { "0": { "name": "punctuation.section.annotation.end.ruse" } },
+      "beginCaptures": { "0": { "name": "punctuation.section.annotation.begin.rue" } },
+      "endCaptures":   { "0": { "name": "punctuation.section.annotation.end.rue" } },
       "patterns": [
         {
-          "name": "keyword.other.ruse",
+          "name": "keyword.other.rue",
           "match": "\\b(ever|asserted-during|during|when|tick|ago|degrees|dist|importance|strength|name)\\b"
         },
-        { "name": "punctuation.separator.ruse", "match": ":" },
+        { "name": "punctuation.separator.rue", "match": ":" },
         { "include": "#string" },
         { "include": "#number" },
         { "include": "#variable" },
@@ -88,33 +88,33 @@
       ]
     },
     "string": {
-      "name": "string.quoted.double.ruse",
+      "name": "string.quoted.double.rue",
       "begin": "\"",
       "end": "\"",
-      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.ruse" } },
-      "endCaptures":   { "0": { "name": "punctuation.definition.string.end.ruse" } },
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.rue" } },
+      "endCaptures":   { "0": { "name": "punctuation.definition.string.end.rue" } },
       "patterns": [
-        { "name": "variable.other.ruse", "match": "\\?[A-Za-z][A-Za-z0-9_]*" }
+        { "name": "variable.other.rue", "match": "\\?[A-Za-z][A-Za-z0-9_]*" }
       ]
     },
     "variable": {
-      "name": "variable.other.ruse",
+      "name": "variable.other.rue",
       "match": "\\?[A-Za-z][A-Za-z0-9_]*"
     },
     "named-wildcard": {
-      "name": "variable.language.ruse",
+      "name": "variable.language.rue",
       "match": "(?<![a-zA-Z0-9])_[a-zA-Z0-9_]+"
     },
     "wildcard": {
-      "name": "variable.language.ruse",
+      "name": "variable.language.rue",
       "match": "(?<![a-zA-Z0-9])_(?![a-zA-Z0-9])"
     },
     "number": {
-      "name": "constant.numeric.ruse",
+      "name": "constant.numeric.rue",
       "match": "(?<![a-zA-Z0-9.])-?\\d+(\\.\\d+)?\\b"
     },
     "predicate": {
-      "name": "entity.name.function.ruse",
+      "name": "entity.name.function.rue",
       "match": "\\b[a-z][a-zA-Z0-9]*(?:\\.[a-z][a-zA-Z0-9]*)?(?=\\s*\\()"
     }
   }

@@ -61,7 +61,7 @@ The prefix is either:
 - a logical variable followed by `.` (e.g. `?X.`), or
 - a concrete entity name followed by `.` (e.g. `alice.`) when the name is a known entity
 
-```ruse
+```rue
 ?SELF.perceivedThreat(?Y, ?SELF)       // variable owner
 alice.perceivedThreat(carol, alice)    // ground owner
 ?X.friendship.strong(?Y, ?X)          // tier query against ?X's private store
@@ -73,7 +73,7 @@ alice.perceivedThreat(carol, alice)    // ground owner
 
 All four negation operators work with private-store predicates. Place `-` before the owner prefix for explicit negation:
 
-```ruse
+```rue
 rule "private belief: threat perceived"
   ?SELF.hostile(?Y, ?SELF)
   => away(?SELF, ?Y) += 6.0
@@ -106,7 +106,7 @@ A private store existing for *unrelated* reasons (some other fact was asserted t
 
 State operations in state files or on a rule RHS can target a private store with the same owner prefix:
 
-```ruse
+```rue
 => ?SELF.perceivedThreat(?SELF, ?Y)
 => ?SELF.friendship(?SELF, ?Y) += 10
 => alice.perceivedThreat(carol, alice) [strength: 0.8]

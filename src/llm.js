@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 
 // Locate project.config.json by traversing up from the current directory
 function locateConfig() {
-  const override = process.env.RUSE_CONFIG;
+  const override = process.env.RUE_CONFIG;
   if (override) return resolve(override);
   let dir = __dirname;
   while (true) {
@@ -200,7 +200,7 @@ export function callLlmSync(prompt) {
     encoding: 'utf-8',
     env: {
       ...process.env,
-      RUSE_LLM_CONFIG: JSON.stringify(config.llm || {})
+      RUE_LLM_CONFIG: JSON.stringify(config.llm || {})
     }
   });
   return stdout.trim();

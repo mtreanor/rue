@@ -1,8 +1,8 @@
-// A minimal TextMate-grammar tokenizer — just enough to reuse ruse's own
-// ruse.tmLanguage.json (served by the backend from the VS Code extension) for
+// A minimal TextMate-grammar tokenizer — just enough to reuse rue's own
+// rue.tmLanguage.json (served by the backend from the VS Code extension) for
 // read-only syntax highlighting in the browser. Line-oriented; supports
 // `include`, `match`, grouped `patterns`, and single-line `begin`/`end` rules
-// with begin/end captures and nested patterns. Not a full engine, but the ruse
+// with begin/end captures and nested patterns. Not a full engine, but the rue
 // grammar is simple and its DSL is line-based, so this is faithful in practice.
 
 export function compileGrammar(raw) {

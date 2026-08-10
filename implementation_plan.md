@@ -1,6 +1,6 @@
-# Rename `ruse` to `ruse` (Rule-primed Utility-based Selection Engine)
+# Rename `rue` to `rue` (Rule-primed Utility-based Selection Engine)
 
-This plan outlines the steps to rename the logic engine and repository from **ruse** to **ruse** (`ruse`). This includes renaming file extensions (`.ruse` $\rightarrow$ `.ruse`), environment variables, source code methods, documentation, VSCode extension settings, and test references.
+This plan outlines the steps to rename the logic engine and repository from **rue** to **rue** (`rue`). This includes renaming file extensions (`.rue` $\rightarrow$ `.rue`), environment variables, source code methods, documentation, VSCode extension settings, and test references.
 
 ---
 
@@ -8,16 +8,16 @@ This plan outlines the steps to rename the logic engine and repository from **ru
 
 > [!IMPORTANT]
 > **Breaking Changes**:
-> - File extension changes from `.ruse` to `.ruse`.
-> - Environment variable names change from `RUSE_CONFIG` / `RUSE_LLM_CONFIG` to `RUSE_CONFIG` / `RUSE_LLM_CONFIG`.
-> - Package name changes from `ruse` to `ruse` in `package.json`.
-> - Markdown code block syntax tag changes from ````ruse` to ````ruse`.
+> - File extension changes from `.rue` to `.rue`.
+> - Environment variable names change from `RUE_CONFIG` / `RUE_LLM_CONFIG` to `RUE_CONFIG` / `RUE_LLM_CONFIG`.
+> - Package name changes from `rue` to `rue` in `package.json`.
+> - Markdown code block syntax tag changes from ````rue` to ````rue`.
 
 ---
 
 ## Open Questions
 
-1. Should backward compatibility for `RUSE_CONFIG` environment variable be preserved as a fallback, or should it be strictly renamed to `RUSE_CONFIG`? (Default recommendation: strictly rename to `RUSE_CONFIG` to keep the codebase clean).
+1. Should backward compatibility for `RUE_CONFIG` environment variable be preserved as a fallback, or should it be strictly renamed to `RUE_CONFIG`? (Default recommendation: strictly rename to `RUE_CONFIG` to keep the codebase clean).
 
 ---
 
@@ -25,7 +25,7 @@ This plan outlines the steps to rename the logic engine and repository from **ru
 
 ### Automation Strategy
 To ensure all ~1,000 occurrences and 28 file renames are processed cleanly without missing subtle references or introducing syntax errors, an automated script will perform:
-1. File renames (`.ruse` $\rightarrow$ `.ruse` and specific grammar files).
+1. File renames (`.rue` $\rightarrow$ `.rue` and specific grammar files).
 2. Content replacements across JS, JSON, Markdown, and configuration files.
 3. Post-execution verification via test suite and documentation build.
 
@@ -33,87 +33,87 @@ To ensure all ~1,000 occurrences and 28 file renames are processed cleanly witho
 
 ### Package & Environment Configuration
 
-#### [MODIFY] [package.json](file:///Users/treanor/git/ruse/package.json)
-- Rename `"name": "ruse"` to `"name": "ruse"`.
+#### [MODIFY] [package.json](file:///Users/treanor/git/rue/package.json)
+- Rename `"name": "rue"` to `"name": "rue"`.
 - Update repository and homepage URLs if applicable.
 
-#### [MODIFY] [.env](file:///Users/treanor/git/ruse/.env)
-- Rename `RUSE_*` environment variables to `RUSE_*`.
+#### [MODIFY] [.env](file:///Users/treanor/git/rue/.env)
+- Rename `RUE_*` environment variables to `RUE_*`.
 
-#### [MODIFY] [project.config.json](file:///Users/treanor/git/ruse/project.config.json)
+#### [MODIFY] [project.config.json](file:///Users/treanor/git/rue/project.config.json)
 - Update references to scenario configurations if necessary.
 
 ---
 
 ### Core Engine Source
 
-#### [MODIFY] [src/Engine.js](file:///Users/treanor/git/ruse/src/Engine.js)
-- Change extension checks from `.ruse` to `.ruse`.
-- Change default file targets from `definitions.ruse` to `definitions.ruse`.
-- Rename helper methods: `scanRuseFiles` $\rightarrow$ `scanRuseFiles`, `loadRuseFile` $\rightarrow$ `loadRuseFile`.
+#### [MODIFY] [src/Engine.js](file:///Users/treanor/git/rue/src/Engine.js)
+- Change extension checks from `.rue` to `.rue`.
+- Change default file targets from `definitions.rue` to `definitions.rue`.
+- Rename helper methods: `scanRueFiles` $\rightarrow$ `scanRueFiles`, `loadRueFile` $\rightarrow$ `loadRueFile`.
 
-#### [MODIFY] [src/llm.js](file:///Users/treanor/git/ruse/src/llm.js)
-#### [MODIFY] [src/llmSyncHelper.js](file:///Users/treanor/git/ruse/src/llmSyncHelper.js)
-#### [MODIFY] [src/queryHandlers/SensorLLMQueryHandler.js](file:///Users/treanor/git/ruse/src/queryHandlers/SensorLLMQueryHandler.js)
-- Rename environment variable lookups from `RUSE_CONFIG` / `RUSE_LLM_CONFIG` to `RUSE_CONFIG` / `RUSE_LLM_CONFIG`.
+#### [MODIFY] [src/llm.js](file:///Users/treanor/git/rue/src/llm.js)
+#### [MODIFY] [src/llmSyncHelper.js](file:///Users/treanor/git/rue/src/llmSyncHelper.js)
+#### [MODIFY] [src/queryHandlers/SensorLLMQueryHandler.js](file:///Users/treanor/git/rue/src/queryHandlers/SensorLLMQueryHandler.js)
+- Rename environment variable lookups from `RUE_CONFIG` / `RUE_LLM_CONFIG` to `RUE_CONFIG` / `RUE_LLM_CONFIG`.
 
-#### [MODIFY] [src/RuleEvaluator.js](file:///Users/treanor/git/ruse/src/RuleEvaluator.js)
-#### [MODIFY] [src/loader/registerActionEntities.js](file:///Users/treanor/git/ruse/src/loader/registerActionEntities.js)
-#### [MODIFY] [src/plan/actionGraphRoles.js](file:///Users/treanor/git/ruse/src/plan/actionGraphRoles.js)
-#### [MODIFY] [src/planner/BackwardPlanner.js](file:///Users/treanor/git/ruse/src/planner/BackwardPlanner.js)
-- Update code comments and inline references from `ruse` to `ruse`.
+#### [MODIFY] [src/RuleEvaluator.js](file:///Users/treanor/git/rue/src/RuleEvaluator.js)
+#### [MODIFY] [src/loader/registerActionEntities.js](file:///Users/treanor/git/rue/src/loader/registerActionEntities.js)
+#### [MODIFY] [src/plan/actionGraphRoles.js](file:///Users/treanor/git/rue/src/plan/actionGraphRoles.js)
+#### [MODIFY] [src/planner/BackwardPlanner.js](file:///Users/treanor/git/rue/src/planner/BackwardPlanner.js)
+- Update code comments and inline references from `rue` to `rue`.
 
 ---
 
 ### VSCode Extension & Syntax Grammar
 
-#### [MODIFY] [extensions/vscode/package.json](file:///Users/treanor/git/ruse/extensions/vscode/package.json)
-- Update language ID, extension name, and file extension mapping (`.ruse`).
+#### [MODIFY] [extensions/vscode/package.json](file:///Users/treanor/git/rue/extensions/vscode/package.json)
+- Update language ID, extension name, and file extension mapping (`.rue`).
 
-#### [RENAME] `extensions/vscode/ruse.tmLanguage.json` $\rightarrow$ [extensions/vscode/ruse.tmLanguage.json](file:///Users/treanor/git/ruse/extensions/vscode/ruse.tmLanguage.json)
-- Rename file and update internal scope names (e.g., `source.ruse` $\rightarrow$ `source.ruse`, `keyword.control.ruse` $\rightarrow$ `keyword.control.ruse`).
+#### [RENAME] `extensions/vscode/rue.tmLanguage.json` $\rightarrow$ [extensions/vscode/rue.tmLanguage.json](file:///Users/treanor/git/rue/extensions/vscode/rue.tmLanguage.json)
+- Rename file and update internal scope names (e.g., `source.rue` $\rightarrow$ `source.rue`, `keyword.control.rue` $\rightarrow$ `keyword.control.rue`).
 
-#### [RENAME] `docs/.vitepress/ruse-grammar.js` $\rightarrow$ [docs/.vitepress/ruse-grammar.js](file:///Users/treanor/git/ruse/docs/.vitepress/ruse-grammar.js)
+#### [RENAME] `docs/.vitepress/rue-grammar.js` $\rightarrow$ [docs/.vitepress/rue-grammar.js](file:///Users/treanor/git/rue/docs/.vitepress/rue-grammar.js)
 - Rename file and update imported tmLanguage reference.
 
-#### [MODIFY] [docs/.vitepress/config.mjs](file:///Users/treanor/git/ruse/docs/.vitepress/config.mjs)
-- Import `ruseGrammar` and register `ruse` language highlighting.
+#### [MODIFY] [docs/.vitepress/config.mjs](file:///Users/treanor/git/rue/docs/.vitepress/config.mjs)
+- Import `rueGrammar` and register `rue` language highlighting.
 - Update site title and base paths.
 
 ---
 
-### Data & Scenario Files (28 `.ruse` files)
+### Data & Scenario Files (28 `.rue` files)
 
-#### [RENAME] All `.ruse` files under `data/` to `.ruse`
-- `data/quickstart/actionsets/social.ruse` $\rightarrow$ `.ruse`
-- `data/simple/social-actions.ruse` $\rightarrow$ `.ruse`
-- `data/simple/intent-influence-rules.ruse` $\rightarrow$ `.ruse`
-- `data/simple/definitions.ruse` $\rightarrow$ `.ruse`
-- `data/testing/*.ruse` $\rightarrow$ `*.ruse`
-- `data/demo-volition/definitions.ruse` $\rightarrow$ `.ruse`
-- `data/landing-page-demo/**/*.ruse` $\rightarrow$ `*.ruse`
-- `data/stress/**/*.ruse` $\rightarrow$ `*.ruse`
+#### [RENAME] All `.rue` files under `data/` to `.rue`
+- `data/quickstart/actionsets/social.rue` $\rightarrow$ `.rue`
+- `data/simple/social-actions.rue` $\rightarrow$ `.rue`
+- `data/simple/intent-influence-rules.rue` $\rightarrow$ `.rue`
+- `data/simple/definitions.rue` $\rightarrow$ `.rue`
+- `data/testing/*.rue` $\rightarrow$ `*.rue`
+- `data/demo-volition/definitions.rue` $\rightarrow$ `.rue`
+- `data/landing-page-demo/**/*.rue` $\rightarrow$ `*.rue`
+- `data/stress/**/*.rue` $\rightarrow$ `*.rue`
 
-#### [MODIFY] [data/simple/authoring/intent-influence-rules.session.json](file:///Users/treanor/git/ruse/data/simple/authoring/intent-influence-rules.session.json)
-- Update rule file references to `.ruse`.
+#### [MODIFY] [data/simple/authoring/intent-influence-rules.session.json](file:///Users/treanor/git/rue/data/simple/authoring/intent-influence-rules.session.json)
+- Update rule file references to `.rue`.
 
 ---
 
 ### Documentation & Repository Meta
 
-#### [MODIFY] [README.md](file:///Users/treanor/git/ruse/README.md)
-#### [MODIFY] [AGENTS.md](file:///Users/treanor/git/ruse/AGENTS.md)
-#### [MODIFY] [CLAUDE.md](file:///Users/treanor/git/ruse/CLAUDE.md)
-#### [MODIFY] [.claude/skills/author-utility-rules/SKILL.md](file:///Users/treanor/git/ruse/.claude/skills/author-utility-rules/SKILL.md)
+#### [MODIFY] [README.md](file:///Users/treanor/git/rue/README.md)
+#### [MODIFY] [AGENTS.md](file:///Users/treanor/git/rue/AGENTS.md)
+#### [MODIFY] [CLAUDE.md](file:///Users/treanor/git/rue/CLAUDE.md)
+#### [MODIFY] [.claude/skills/author-utility-rules/SKILL.md](file:///Users/treanor/git/rue/.claude/skills/author-utility-rules/SKILL.md)
 #### [MODIFY] All markdown files under `docs/`
-- Replace title, text references, command line invocations, and code blocks (` ```ruse ` $\rightarrow$ ` ```ruse `).
+- Replace title, text references, command line invocations, and code blocks (` ```rue ` $\rightarrow$ ` ```rue `).
 
 ---
 
 ### Test Suites & Examples
 
 #### [MODIFY] Test files under `tests/`
-- Update file paths (`.ruse`), temporary folder prefix names (`ruse-*`), and test assertions.
+- Update file paths (`.rue`), temporary folder prefix names (`rue-*`), and test assertions.
 
 #### [MODIFY] Example scripts under `examples/`
 - Update comments and temp folder paths.
@@ -127,4 +127,4 @@ To ensure all ~1,000 occurrences and 28 file renames are processed cleanly witho
 - Run `npm run docs:build` to verify Vitepress builds clean without broken grammar links or missing assets.
 
 ### Manual Verification
-- Run `node src/repl.js` to ensure the REPL boots up and loads the renamed scenario files (`definitions.ruse`, etc.) without error.
+- Run `node src/repl.js` to ensure the REPL boots up and loads the renamed scenario files (`definitions.rue`, etc.) without error.

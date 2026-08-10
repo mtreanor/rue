@@ -1,6 +1,6 @@
-# Formal semantics of ruse
+# Formal semantics of RUE
 
-This document defines the semantics of ruse precisely. It covers the domain, the structure of fact stores and world state, the four-valued truth layer, all predicate forms, the numeric accumulation layer, derived predicates, and the forward chaining procedure.
+This document defines the semantics of RUE precisely. It covers the domain, the structure of fact stores and world state, the four-valued truth layer, all predicate forms, the numeric accumulation layer, derived predicates, and the forward chaining procedure.
 
 ---
 
@@ -78,7 +78,7 @@ A **negated** assertion (p, ā, −) does not own the slot: it conflicts only wi
 
 ## 4. The two-layer architecture
 
-ruse evaluation operates across two distinct layers that do not interfere with each other:
+RUE evaluation operates across two distinct layers that do not interfere with each other:
 
 **Layer 1 — four-valued deductive layer.** Determines whether predicates hold. Uses Belnap's four-valued logic (FOUR) to handle the full range of epistemic states a store can be in. Applies to boolean predicates and all predicate forms built from them: negation, historical queries, temporal chains, derived predicates, private-store queries.
 
@@ -371,7 +371,7 @@ Forward chaining runs iterative passes over all rules:
 
 ### Cycle prevention
 
-Boolean-assertion effects can in principle create cycles (rule A asserts p when q holds; rule B asserts q when p holds; neither converges). ruse prevents this through static analysis at load time:
+Boolean-assertion effects can in principle create cycles (rule A asserts p when q holds; rule B asserts q when p holds; neither converges). RUE prevents this through static analysis at load time:
 
 The engine constructs a **predicate dependency graph** where an edge R → p means rule R's effects can assert or retract predicate p, and an edge p → R means predicate p appears in rule R's LHS. A potential firing cycle exists when following these edges produces a cycle. Rule sets containing potential firing cycles are **rejected at load time**.
 
@@ -381,7 +381,7 @@ Runtime visited-binding tracking (skipping (rule, binding) pairs already fired i
 
 ### Limitation: retractions and monotonicity
 
-Datalog's fixpoint theorem relies on monotonicity — the derivation operator only adds facts, so the least fixed point is well-defined and iteration terminates on a finite domain. ruse relaxes this by permitting retract effects, which remove facts. Retraction breaks monotonicity: a fact asserted in one pass may be retracted in a subsequent pass, and the system may not converge if rules are authored to cause oscillating assertions and retractions.
+Datalog's fixpoint theorem relies on monotonicity — the derivation operator only adds facts, so the least fixed point is well-defined and iteration terminates on a finite domain. RUE relaxes this by permitting retract effects, which remove facts. Retraction breaks monotonicity: a fact asserted in one pass may be retracted in a subsequent pass, and the system may not converge if rules are authored to cause oscillating assertions and retractions.
 
 The cycle detector prevents the most direct non-termination patterns — rules that could cycle on boolean assertions. It does not account for all possible interactions involving retractions.
 

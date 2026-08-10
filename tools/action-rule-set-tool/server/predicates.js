@@ -93,7 +93,7 @@ function buildDef({ type, args, config = {} }) {
   }
   if (Array.isArray(config.singleValued) && config.singleValued.length) def.singleValued = config.singleValued;
   // Arbitrary host-application data (PredicateModal's "App data" field) —
-  // opaque to ruse, carried through verbatim. Already a parsed JS value by the
+  // opaque to rue, carried through verbatim. Already a parsed JS value by the
   // time it's here: the request body arrived as JSON, and the editor parses the
   // textarea's JSON text client-side before it's ever put on the wire.
   if (config.app !== undefined) def.app = config.app;
