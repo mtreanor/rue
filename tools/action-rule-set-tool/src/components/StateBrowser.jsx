@@ -115,7 +115,7 @@ export default function StateBrowser({
         : (
           <div className="state-add">
             <DslInput
-              className="state-add-input" placeholder="add a fact…" value={newFact}
+              className="state-add-input dsl-search" placeholder="add a fact…" value={newFact}
               onChange={setNewFact}
               predicates={predicates} entityNames={entityNames}
               highlighter={highlighter} insertMode="replace"
@@ -132,7 +132,7 @@ export default function StateBrowser({
             focus instead, so whichever was focused most recently wins; this is
             just the fallback the sidebar falls back to otherwise. */}
         <DslInput
-          className="state-filter"
+          className="state-filter dsl-search"
           placeholder="filter or query…"
           value={filter}
           onChange={setFilter}

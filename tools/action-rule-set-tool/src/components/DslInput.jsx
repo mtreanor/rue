@@ -264,11 +264,11 @@ export default function DslInput({
   };
 
   return (
-    <div className="dsl-wrap">
+    <div className={`dsl-wrap ${className}`}>
       {showHighlight && (
         <pre
           ref={highlightRef}
-          className={`dsl-highlight-layer ${multiline ? '' : 'single-line'}`}
+          className={`dsl-highlight-layer ${multiline ? '' : 'single-line'} ${className}`}
           aria-hidden="true"
           // focusMode: hide while the textarea is focused; pointer-events:none lets
           // clicks fall through to the textarea beneath (which then triggers onFocus

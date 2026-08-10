@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ActionCard from './ActionCard.jsx';
 import { api } from '../api.js';
+import { buildTagColorMap } from '../tagColor.js';
 
 // Browse actions across one or more actionsets. No structural search (the
 // matcher only understands rule shape, not action roles/preconditions/utility/
@@ -11,6 +12,7 @@ import { api } from '../api.js';
 export default function ActionsetsTab({ scenario, data, highlighter, onChanged, onEdit, nameQuery, onNameQueryChange, focusActionset }) {
   const allActionsetNames = data.actionsets.map(as => as.name);
   const [selected, setSelected] = useState(allActionsetNames);
+  const tagColorMap = useMemo(() => buildTagColorMap(allActionsetNames), [data]);
   const setNameQuery = onNameQueryChange;
   const [sort, setSort] = useState('source');
   const [dir, setDir] = useState('asc');
@@ -70,22 +72,30 @@ export default function ActionsetsTab({ scenario, data, highlighter, onChanged, 
   return (
     <div className="inspect">
       <div className="ruleset-filter">
-        <span className="filter-label">Actionsets:</span>
-        <button className="btn tiny" title="Create a new actionset" onClick={async () => {
-          const name = prompt('New actionset name:');
-          if (!name?.trim()) return;
-          try { await api.createSet(scenario, 'actionset', name.trim()); onChanged(); }
-          catch (e) { alert(e.message); }
-        }}>+ set</button>
-        <button className="btn tiny ghost" onClick={() => setSelected(allActionsetNames)}>All</button>
-        <button className="btn tiny ghost" onClick={() => setSelected([])}>None</button>
-        {data.actionsets.map(as => (
-          <label key={as.name} className="check">
-            <input type="checkbox" checked={selected.includes(as.name)} onChange={() => toggleActionset(as.name)} />
-            {as.name} <span className="dim">({as.actions.length})</span>
-            {as.fileError && <span className="badge err">missing</span>}
-          </label>
-        ))}
+        <div className="ruleset-filter-controls">
+          <span className="filter-label">Actionsets</span>
+          <button className="btn tiny ghost" onClick={() => setSelected(allActionsetNames)}>All</button>
+          <button className="btn tiny ghost" onClick={() => setSelected([])}>None</button>
+          <button className="btn tiny" title="Create a new actionset" onClick={async () => {
+            const name = prompt('New actionset name:');
+            if (!name?.trim()) return;
+            try { await api.createSet(scenario, 'actionset', name.trim()); onChanged(); }
+            catch (e) { alert(e.message); }
+          }}>+ set</button>
+        </div>
+        <div className="ruleset-chip-row">
+          {data.actionsets.map(as => (
+            <button
+              key={as.name}
+              className={'ruleset-chip ' + tagColorMap[as.name] + (selected.includes(as.name) ? ' active' : '')}
+              onClick={() => toggleActionset(as.name)}
+              aria-pressed={selected.includes(as.name)}
+            >
+              {as.name} <span className="chip-count">{as.actions.length}</span>
+              {as.fileError && <span className="badge err">missing</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="search-row">
@@ -118,7 +128,7 @@ export default function ActionsetsTab({ scenario, data, highlighter, onChanged, 
 
       <div className="rule-list">
         {actions.map(action => (
-          <ActionCard key={action.id} action={action} highlighter={highlighter} onEdit={onEdit} onDelete={del} />
+          <ActionCard key={action.id} action={action} highlighter={highlighter} onEdit={onEdit} onDelete={del} tagColorMap={tagColorMap} />
         ))}
         {actions.length === 0 && <div className="empty">No actions to show.</div>}
       </div>

@@ -52,7 +52,7 @@ export default function StateTab({ scenario, data, highlighter, entityTypes = []
                 entityNames={data?.entityNames ?? []}
                 highlighter={highlighter}
                 multiline rows={1}
-                insertMode="replace"
+                insertMode="replace" className="dsl-search"
                 placeholder="add a fact…"
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSubmit(newFact); setNewFact(''); } }}
               />

@@ -3,6 +3,7 @@ import DslInput from './DslInput.jsx';
 import RuleCard from './RuleCard.jsx';
 import { api } from '../api.js';
 import { useDebounced } from '../hooks.js';
+import { buildTagColorMap } from '../tagColor.js';
 
 // Inspect / search rules across one or more rulesets. The search box takes DSL:
 // a rule matches if it structurally contains every typed predicate (co-reference
@@ -11,6 +12,7 @@ import { useDebounced } from '../hooks.js';
 export default function InspectTab({ scenario, data, highlighter, onChanged, onEdit, query, onQueryChange, nameQuery, onNameQueryChange, focusRuleset }) {
   const allRulesetNames = data.rulesets.map(rs => rs.name);
   const [selected, setSelected] = useState(allRulesetNames);
+  const tagColorMap = useMemo(() => buildTagColorMap(allRulesetNames), [data]);
   const setQuery = onQueryChange;
   const setNameQuery = onNameQueryChange;
   const [sort, setSort] = useState('source');
@@ -81,28 +83,36 @@ export default function InspectTab({ scenario, data, highlighter, onChanged, onE
   return (
     <div className="inspect">
       <div className="ruleset-filter">
-        <span className="filter-label">Rulesets:</span>
-        <button className="btn tiny" title="Create a new ruleset" onClick={async () => {
-          const name = prompt('New ruleset name:');
-          if (!name?.trim()) return;
-          try { await api.createSet(scenario, 'ruleset', name.trim()); onChanged(); }
-          catch (e) { alert(e.message); }
-        }}>+ set</button>
-        <button className="btn tiny ghost" onClick={() => setSelected(allRulesetNames)}>All</button>
-        <button className="btn tiny ghost" onClick={() => setSelected([])}>None</button>
-        {data.rulesets.map(rs => (
-          <label key={rs.name} className="check">
-            <input type="checkbox" checked={selected.includes(rs.name)} onChange={() => toggleRuleset(rs.name)} />
-            {rs.name} <span className="dim">({rs.rules.length})</span>
-            {rs.fileError && <span className="badge err">missing</span>}
-          </label>
-        ))}
+        <div className="ruleset-filter-controls">
+          <span className="filter-label">Rulesets</span>
+          <button className="btn tiny ghost" onClick={() => setSelected(allRulesetNames)}>All</button>
+          <button className="btn tiny ghost" onClick={() => setSelected([])}>None</button>
+          <button className="btn tiny" title="Create a new ruleset" onClick={async () => {
+            const name = prompt('New ruleset name:');
+            if (!name?.trim()) return;
+            try { await api.createSet(scenario, 'ruleset', name.trim()); onChanged(); }
+            catch (e) { alert(e.message); }
+          }}>+ set</button>
+        </div>
+        <div className="ruleset-chip-row">
+          {data.rulesets.map(rs => (
+            <button
+              key={rs.name}
+              className={'ruleset-chip ' + tagColorMap[rs.name] + (selected.includes(rs.name) ? ' active' : '')}
+              onClick={() => toggleRuleset(rs.name)}
+              aria-pressed={selected.includes(rs.name)}
+            >
+              {rs.name} <span className="chip-count">{rs.rules.length}</span>
+              {rs.fileError && <span className="badge err">missing</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="search-row">
         <DslInput
           value={query} onChange={setQuery} predicates={data.predicates} entityNames={data.entityNames}
-          insertMode="replace" primary
+          insertMode="replace" primary className="dsl-search"
           placeholder="search by structure…"
         />
         <input
@@ -137,7 +147,7 @@ export default function InspectTab({ scenario, data, highlighter, onChanged, onE
 
       <div className="rule-list">
         {rules.map(rule => (
-          <RuleCard key={rule.id} rule={rule} highlighter={highlighter} onEdit={onEdit} onDelete={del} />
+          <RuleCard key={rule.id} rule={rule} highlighter={highlighter} onEdit={onEdit} onDelete={del} tagColorMap={tagColorMap} />
         ))}
         {rules.length === 0 && <div className="empty">No rules to show.</div>}
       </div>

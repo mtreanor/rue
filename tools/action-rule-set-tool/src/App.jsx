@@ -17,7 +17,7 @@ export default function App() {
   const [scenarios, setScenarios] = useState([]);
   const [scenario, setScenario] = useState('');
   const [data, setData] = useState(null);
-  const [tab, setTab] = useState('rulesets');
+  const [tab, setTab] = useState('state');
   // Flow keeps its own selection and pan/zoom in local + ReactFlow-internal
   // state, both of which are lost on unmount. Rather than lift that state up,
   // Flow stays mounted (hidden via CSS) once first visited, instead of being
@@ -30,6 +30,18 @@ export default function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [highlighter, setHighlighter] = useState(null);
+
+  // Light is the default; index.html's inline bootstrap script already set
+  // data-theme on <html> before first paint (from localStorage, if the user
+  // has toggled before) so this just picks up whatever it landed on rather
+  // than flashing back to light for a frame.
+  const [theme, setTheme] = useState(
+    () => document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+  );
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('ruse:theme', theme);
+  }, [theme]);
 
   // The item currently loaded into the Add rule / Add action tab for editing
   // (null in plain "add" mode). Edit is not a popup: clicking Edit on a card
@@ -239,6 +251,23 @@ export default function App() {
               <path d="M4.5 7l3 2-3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               <line x1="9" y1="11" x2="13" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
+          </button>
+          <button
+            className="btn theme-toggle"
+            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="9" cy="9" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M9 1.5v2M9 14.5v2M16.5 9h-2M3.5 9h-2M14.3 3.7l-1.4 1.4M5.1 12.9l-1.4 1.4M14.3 14.3l-1.4-1.4M5.1 5.1L3.7 3.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M15.5 10.4A6.5 6.5 0 017.6 2.5a6.5 6.5 0 107.9 7.9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+              </svg>
+            )}
           </button>
         </header>
 

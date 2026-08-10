@@ -107,7 +107,7 @@ export default function TuneTab({ scenario, data, highlighter, onChanged }) {
         <span>Assumed conditions <em>{'(treated as the only facts; type like a rule LHS)'}</em></span>
         <DslInput
           value={conditions} onChange={setConditions} predicates={data.predicates} entityNames={data.entityNames}
-          insertMode="replace" primary
+          insertMode="replace" primary className="dsl-search"
           placeholder="e.g.  knows(?X, ?Y) ^ betrayed(?X, ?Y)"
         />
       </label>

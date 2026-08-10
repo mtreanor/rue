@@ -1,15 +1,130 @@
+/* Palette, type, radius and elevation matched directly to a reference mockup
+   (a full-page "ruse" comp supplied outside this repo — not the "Classical"
+   design-system project synced via /design, which is a different, unrelated
+   system): warm cream ground, white cards with real drop shadow, pill-radius
+   chrome, a geometric sans for UI text, a dark terminal-green well for DSL
+   code, and categorical color-coded ruleset/actionset tags (see tagColor.js)
+   in place of the old flat gray badge. The mockup only shows a light theme;
+   dark below inverts the same relationships (page/card, text/muted, hairline
+   borders standing in for shadow, which doesn't read against a dark ground)
+   rather than copying an existing dark comp.
+   Old token names (--bg, --panel, --text, ...) are kept as aliases so the
+   ~250 existing var(--*) references throughout this file don't need to
+   change. */
 :root {
-  --bg: #14161a;
-  --panel: #1b1e24;
-  --panel-2: #232833;
-  --border: #2d333f;
-  --text: #d7dce4;
-  --dim: #8b93a3;
-  --accent: #6ea8fe;
-  --ok: #4ec98a;
-  --warn: #e0b341;
-  --err: #f0685f;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+
+  --color-bg: #efe8db;
+  --color-surface: #fbf9f4;
+  --color-text: #1b1a17;
+  --color-muted: #8f8878;
+  --color-border: #ded6c5;
+
+  --color-accent: #dd5b2a;
+  --color-ok: #3f9488;
+  --color-warn: #c99a2e;
+  --color-err: #c94f4f;
+  --color-violet: #8b5fbf;
+
+  /* Categorical palette for ruleset/actionset tags (tagColor.js assigns each
+     name a distinct slot by sorted position, up to 16 — the scenario has 12
+     rulesets / 4 actionsets today) — distinct from the semantic ok/warn/err
+     roles above, which stay reserved for status meaning. 16 hues evenly
+     rotated in OKLCh (not raw HSL — hue rotation at constant HSL lightness
+     reads noticeably uneven, e.g. yellow looks much brighter than blue at
+     the same numbers), each pushed to ~92% of its own max in-gamut chroma so
+     every hue reads at comparable vividness instead of some looking muddier
+     than others, with lightness following the same per-hue-band shape
+     already implicit in the app's original 8 (gold lightest, blue/violet
+     darkest). */
+  --tag-c0: #e44a6b; --tag-c1: #ed5936; --tag-c2: #de7d24; --tag-c3: #cf9727;
+  --tag-c4: #ad9e26; --tag-c5: #7da023; --tag-c6: #25a344; --tag-c7: #259d7c;
+  --tag-c8: #239794; --tag-c9: #228fa4; --tag-c10: #1f86ba; --tag-c11: #2b74e8;
+  --tag-c12: #6d64e5; --tag-c13: #9655d4; --tag-c14: #b94eba; --tag-c15: #d44997;
+
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-weight-bold: 700;
+  --font-heading-weight: 600;
+  --mono: "Space Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 3px color-mix(in srgb, var(--color-text) 10%, transparent);
+  --shadow-md: 0 6px 18px color-mix(in srgb, var(--color-text) 10%, transparent);
+  --shadow-lg: 0 16px 40px color-mix(in srgb, var(--color-text) 16%, transparent);
+
+  /* The DSL code well — a fixed dark terminal look, deliberately the same in
+     both themes rather than theme-relative (it reads as an embedded
+     console, not a themed surface). */
+  --code-bg: #16221b;
+  --code-text: #b9f29a;
+
+  /* Syntax highlighting (TextMate scopes) inside that well — GitHub-Dark-ish,
+     since the well itself stays dark in both themes. */
+  --syn-comment: #7d8f7f;
+  --syn-kw: #e0897f;
+  --syn-pred: #c9a6f0;
+  --syn-func: #c9a6f0;
+  --syn-var: #8fc2f0;
+  --syn-string: var(--code-text);
+  --syn-num: #e0c67f;
+  --syn-op: #e0b37f;
+  --syn-type: #e0b37f;
+  --syn-anno: var(--code-text);
+  --syn-punc: #7d8f7f;
+  --syn-wild: #7d8f7f;
+
+  /* ── Derived / legacy-alias layer ── */
+  --bg: var(--color-bg);
+  --panel: var(--color-surface);
+  --panel-2: color-mix(in srgb, var(--color-surface), var(--color-text) 4%);
+  --well: var(--code-bg);
+  --border: var(--color-border);
+  --text: var(--color-text);
+  --dim: var(--color-muted);
+  --accent: var(--color-accent);
+  --ok: var(--color-ok);
+  --warn: var(--color-warn);
+  --err: var(--color-err);
+  /* Text set on a solid status/accent/tag fill — this style fills freely
+     (unlike Classical's stroke-only chrome), so white reads cleanly on every
+     role color in both themes. */
+  --on-fill: #ffffff;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg: #1c1a17;
+  --color-surface: #262320;
+  --color-text: #efe9de;
+  --color-muted: #9c9484;
+  --color-border: #3a352c;
+
+  --color-accent: #e8804a;
+  --color-ok: #5cb0a3;
+  --color-warn: #d9ac3f;
+  --color-err: #d97676;
+  --color-violet: #a67fd6;
+
+  /* Same 16 hues as the light palette, lightness bumped ~0.07 in OKLCh (and
+     rechosen to each hue's own max chroma at that lightness) so they still
+     pop against the near-black ground instead of just reusing values tuned
+     for a light one. */
+  --tag-c0: #f96781; --tag-c1: #f97c5f; --tag-c2: #f99135; --tag-c3: #eaac2e;
+  --tag-c4: #c5b42c; --tag-c5: #90b729; --tag-c6: #2ebc50; --tag-c7: #2cb58f;
+  --tag-c8: #2bafab; --tag-c9: #29a6bf; --tag-c10: #269cd8; --tag-c11: #4a8cf6;
+  --tag-c12: #817cf6; --tag-c13: #ab6cec; --tag-c14: #d064d1; --tag-c15: #ed60ad;
+
+  /* Cards read as a lighter warm-charcoal step, not a shadow — shadows
+     barely register against a dark ground, so elevation switches to a
+     hairline border (--border above) plus this surface bump. */
+  --shadow-sm: 0 1px 3px color-mix(in srgb, black 30%, transparent);
+  --shadow-md: 0 6px 18px color-mix(in srgb, black 30%, transparent);
+  --shadow-lg: 0 16px 40px color-mix(in srgb, black 40%, transparent);
 }
 
 * { box-sizing: border-box; }
@@ -17,10 +132,11 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.5 system-ui, -apple-system, sans-serif;
+  font: 14px/1.5 var(--font-sans), system-ui, sans-serif;
+  transition: background-color 0.15s, color 0.15s;
 }
-h1 { font-size: 16px; margin: 0; font-weight: 600; }
-h3 { margin: 0 0 12px; font-size: 15px; }
+h1 { font-size: 16px; margin: 0; font-weight: var(--font-weight-bold); font-family: var(--font-sans); }
+h3 { margin: 0 0 12px; font-size: 15px; font-family: var(--font-sans); font-weight: var(--font-heading-weight); }
 em { color: var(--dim); font-style: normal; font-size: 12px; }
 
 .app { max-width: 1320px; margin: 0 auto; padding: 0 20px 60px; text-align: left; }
@@ -35,30 +151,36 @@ em { color: var(--dim); font-style: normal; font-size: 12px; }
   background: var(--bg); border-bottom: 1px solid var(--border);
 }
 .scenario-pick { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+.scenario-pick select { border-radius: var(--radius-pill); background: var(--panel); box-shadow: var(--shadow-sm); }
 .tabs { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .save-file { margin-left: 12px; }
-.save-file.dirty { background: var(--accent); color: #0b1020; border-color: var(--accent); font-weight: 600; }
+.save-file.dirty { background: var(--accent); color: var(--on-fill); border-color: var(--accent); font-weight: var(--font-weight-bold); }
+/* Active tab is a solid fill (text-on-bg swap so it also inverts correctly
+   in dark mode), not a tinted panel — matches the mockup's solid black
+   "Rules" pill against otherwise plain-text/outlined tabs. */
 .tabs button {
   background: transparent; color: var(--dim); border: 1px solid transparent;
-  padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  padding: 6px 16px; border-radius: var(--radius-pill); cursor: pointer; font-size: 14px;
+  font-family: var(--font-sans); font-weight: var(--font-heading-weight);
 }
-.tabs button.active { background: var(--panel-2); color: var(--text); border-color: var(--border); }
+.tabs button.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 /* State is a standalone button but wears the same outline as the grouped tabs,
    whether or not it's selected. Placed after the rules above so it wins. */
 .tabs > button { border-color: var(--border); }
 .tab-play { color: var(--accent) !important; opacity: 0.7; }
 .tab-play.active { opacity: 1; }
 /* Rulesets/+ and Actionsets/+ are two halves of one connected control. */
-.tab-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.tab-group { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-pill); overflow: hidden; }
 .tab-group button { border: none; border-radius: 0; }
 .tab-group button + button { border-left: 1px solid var(--border); padding: 6px 12px; font-size: 16px; line-height: 1; }
-.tab-group button.active { background: var(--panel-2); color: var(--text); }
+.tab-group button.active { background: var(--text); color: var(--bg); }
 
-/* All typing inputs share one recessed color; filter boxes (below) use a
-   slightly darker fill so "search" and "edit" fields read differently. */
+/* All typing inputs are bordered white fields on the cream ground — not a
+   recessed well (DSL-aware fields override this to the dark code well; see
+   .dsl-input below). */
 select, input:not([type]), input[type=text], input[type=number], input[type=search], textarea {
-  background: var(--panel-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px;
   font-size: 13px; font-family: inherit;
 }
 textarea { resize: vertical; font-family: var(--mono); }
@@ -69,7 +191,46 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 .sidebar-filter, .state-filter { background: var(--panel); }
 
 /* ── Inspect ── */
-.ruleset-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 12px; }
+.ruleset-filter { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+/* Bulk actions (All/None/+set) on their own row, separate from the
+   individual toggles below — the old layout ran both together in one
+   wrapping row, so "select everything" and "select this one" read as the
+   same kind of control. */
+.ruleset-filter-controls { display: flex; align-items: center; gap: 8px; }
+.ruleset-filter-controls .filter-label { color: var(--text); font-weight: var(--font-weight-bold); margin-right: 2px; }
+.ruleset-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Each ruleset/actionset is a toggle in its tagColorClass() color — the same
+   hue as its badge on every card below, so a chip's color is a direct
+   pointer to which cards it's filtering. Selected = solid fill; deselected
+   = a light tint outline in the same hue, not just grayed out, so the color
+   coding still reads while off. */
+.ruleset-chip {
+  --chip: var(--tag-c0);
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--chip); color: var(--chip);
+  background: color-mix(in srgb, var(--chip) 10%, transparent);
+  border-radius: var(--radius-pill); padding: 5px 13px; font-size: 12.5px;
+  font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+}
+.ruleset-chip:hover { background: color-mix(in srgb, var(--chip) 22%, transparent); }
+.ruleset-chip.active { background: var(--chip); color: var(--on-fill); font-weight: var(--font-heading-weight); }
+.ruleset-chip .chip-count { opacity: 0.7; font-variant-numeric: tabular-nums; }
+.ruleset-chip.tag-c0 { --chip: var(--tag-c0); }
+.ruleset-chip.tag-c1 { --chip: var(--tag-c1); }
+.ruleset-chip.tag-c2 { --chip: var(--tag-c2); }
+.ruleset-chip.tag-c3 { --chip: var(--tag-c3); }
+.ruleset-chip.tag-c4 { --chip: var(--tag-c4); }
+.ruleset-chip.tag-c5 { --chip: var(--tag-c5); }
+.ruleset-chip.tag-c6 { --chip: var(--tag-c6); }
+.ruleset-chip.tag-c7 { --chip: var(--tag-c7); }
+.ruleset-chip.tag-c8 { --chip: var(--tag-c8); }
+.ruleset-chip.tag-c9 { --chip: var(--tag-c9); }
+.ruleset-chip.tag-c10 { --chip: var(--tag-c10); }
+.ruleset-chip.tag-c11 { --chip: var(--tag-c11); }
+.ruleset-chip.tag-c12 { --chip: var(--tag-c12); }
+.ruleset-chip.tag-c13 { --chip: var(--tag-c13); }
+.ruleset-chip.tag-c14 { --chip: var(--tag-c14); }
+.ruleset-chip.tag-c15 { --chip: var(--tag-c15); }
 .filter-label { color: var(--dim); }
 .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .dim { color: var(--dim); }
@@ -80,29 +241,63 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 .result-count { color: var(--dim); margin: 10px 2px; font-size: 12px; }
 
 .rule-list { display: flex; flex-direction: column; gap: 10px; }
-.rule-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.rule-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow-sm); }
 .rule-head { display: flex; align-items: center; gap: 8px; }
-.rule-name { font-weight: 600; }
-.badge { font-size: 11px; background: var(--panel-2); color: var(--dim); border-radius: 6px; padding: 2px 7px; }
-.badge.err { background: #3a1f1f; color: var(--err); }
+.rule-name { font-weight: var(--font-weight-bold); }
+.badge {
+  font-size: 10.5px; font-weight: var(--font-weight-bold); letter-spacing: 0.04em; text-transform: uppercase;
+  background: var(--panel-2); color: var(--dim); border-radius: var(--radius-pill); padding: 4px 11px;
+}
+.badge.err { background: color-mix(in srgb, var(--err) 18%, transparent); color: var(--err); }
+/* Categorical ruleset/actionset tag colors — see tagColor.js. Solid fill,
+   white text, unlike the neutral default .badge above. */
+.badge.tag-c0 { background: var(--tag-c0); color: var(--on-fill); }
+.badge.tag-c1 { background: var(--tag-c1); color: var(--on-fill); }
+.badge.tag-c2 { background: var(--tag-c2); color: var(--on-fill); }
+.badge.tag-c3 { background: var(--tag-c3); color: var(--on-fill); }
+.badge.tag-c4 { background: var(--tag-c4); color: var(--on-fill); }
+.badge.tag-c5 { background: var(--tag-c5); color: var(--on-fill); }
+.badge.tag-c6 { background: var(--tag-c6); color: var(--on-fill); }
+.badge.tag-c7 { background: var(--tag-c7); color: var(--on-fill); }
+.badge.tag-c8 { background: var(--tag-c8); color: var(--on-fill); }
+.badge.tag-c9 { background: var(--tag-c9); color: var(--on-fill); }
+.badge.tag-c10 { background: var(--tag-c10); color: var(--on-fill); }
+.badge.tag-c11 { background: var(--tag-c11); color: var(--on-fill); }
+.badge.tag-c12 { background: var(--tag-c12); color: var(--on-fill); }
+.badge.tag-c13 { background: var(--tag-c13); color: var(--on-fill); }
+.badge.tag-c14 { background: var(--tag-c14); color: var(--on-fill); }
+.badge.tag-c15 { background: var(--tag-c15); color: var(--on-fill); }
 .counts { font-size: 11px; color: var(--dim); }
 .spacer { flex: 1; }
-.rule-comment { color: var(--dim); font-style: italic; margin: 6px 0 4px; white-space: pre-wrap; }
+.rule-comment-details { margin: 6px 0 4px; }
+.rule-comment-details > summary { cursor: pointer; color: var(--dim); font-size: 11px; }
+.rule-comment-details > summary:hover { color: var(--text); }
+.rule-comment-details[open] > summary { margin-bottom: 2px; }
+.rule-comment { color: var(--dim); font-style: italic; margin: 0; white-space: pre-wrap; }
 .rule-body {
-  margin: 8px 0 0; padding: 10px; background: #0f1115; border-radius: 8px;
-  font-family: var(--mono); font-size: 12.5px; color: #c8d0dd; overflow-x: auto; white-space: pre;
+  margin: 8px 0 0; padding: 12px 14px; background: var(--well); border-radius: var(--radius-md);
+  font-family: var(--mono); font-size: 12.5px; color: var(--code-text); overflow-x: auto; white-space: pre;
 }
 .rule-parseerr { margin-top: 6px; color: var(--err); font-size: 12px; }
 .empty { color: var(--dim); padding: 30px; text-align: center; }
 
 /* ── Buttons ── */
-.btn { border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
-  border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn.primary { background: var(--accent); color: #0b1020; border-color: var(--accent); font-weight: 600; }
-.btn.ghost { background: transparent; }
-.btn.tiny { padding: 3px 10px; font-size: 12px; }
-.btn.danger, .btn.tiny.danger { color: var(--err); }
+/* .primary is a solid fill (the mockup's "Save to File"); plain .btn is a
+   bordered pill matching the inactive nav tabs / dropdown chrome; .danger
+   stays outline-only so delete actions don't shout from every row. */
+.btn { border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  border-radius: var(--radius-pill); padding: 7px 16px; cursor: pointer; font-size: 13px;
+  font-family: var(--font-sans); font-weight: var(--font-heading-weight); }
+.btn:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 6%, var(--panel)); }
+.btn:active:not(:disabled) { background: color-mix(in srgb, var(--text) 12%, var(--panel)); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--on-fill); border-color: var(--accent); font-weight: var(--font-weight-bold); }
+.btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 85%, black); }
+.btn.primary:active:not(:disabled) { background: color-mix(in srgb, var(--accent) 70%, black); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.tiny { padding: 3px 12px; font-size: 12px; }
+.btn.danger, .btn.tiny.danger { color: var(--err); border-color: var(--err); background: transparent; }
+.btn.danger:hover:not(:disabled), .btn.tiny.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--err) 12%, transparent); }
 
 /* ── Editor ── */
 .editor { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
@@ -120,10 +315,10 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 .role-type { width: 140px; font-family: var(--mono); }
 
 /* ── Banners ── */
-.banner { border-radius: 8px; padding: 8px 12px; font-size: 13px; }
-.banner.ok { background: #16301f; color: var(--ok); }
-.banner.error { background: #331d1c; color: var(--err); }
-.banner.warn { background: #322a15; color: var(--warn); }
+.banner { border-radius: var(--radius-lg); padding: 8px 12px; font-size: 13px; }
+.banner.ok { background: color-mix(in srgb, var(--ok) 16%, var(--bg)); color: var(--ok); }
+.banner.error { background: color-mix(in srgb, var(--err) 16%, var(--bg)); color: var(--err); }
+.banner.warn { background: color-mix(in srgb, var(--warn) 16%, var(--bg)); color: var(--warn); }
 .banner.hint { background: var(--panel); color: var(--dim); }
 .banner.global { margin-bottom: 12px; }
 .validation { display: flex; flex-direction: column; gap: 6px; }
@@ -148,6 +343,11 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
   width: 100%; line-height: 20px; font-size: 13px;
   word-break: keep-all; overflow-wrap: break-word;
   font-variant-ligatures: none; font-kerning: none; letter-spacing: 0; tab-size: 2;
+  /* Matches .dsl-highlight-layer so the focused (overlay-hidden) and blurred
+     (overlay-visible) states of the field look identical — same dark well
+     the read-only rule/action bodies render in. */
+  background: var(--well); color: var(--code-text); caret-color: var(--code-text);
+  border-color: transparent;
 }
 
 /* Live syntax highlighting. Two modes depending on field type:
@@ -162,8 +362,8 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
      No continuous sync, no overlay drift, no cursor misalignment. */
 .dsl-highlight-layer {
   position: absolute; inset: 0; margin: 0;
-  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--panel); color: var(--text);
+  padding: 8px 10px; border: 1px solid transparent; border-radius: var(--radius-md);
+  background: var(--well); color: var(--code-text);
   font-family: var(--mono); font-size: 13px; line-height: 20px;
   white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word;
   overflow: auto; scrollbar-width: none;
@@ -179,51 +379,89 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 input.dsl-input-highlighted {
   position: relative; background: transparent; border-color: transparent;
   color: transparent; -webkit-text-fill-color: transparent;
-  caret-color: var(--text); font-family: var(--mono);
+  caret-color: var(--code-text); font-family: var(--mono);
 }
+
+/* Search/filter fields (rule & action structural search, the Tune "assumed
+   conditions" box, State's filter and add-fact fields, Play's watch query)
+   reuse DslInput for its autocomplete, but they're queries, not code being
+   saved to disk — they read as a normal field on the page, not the dark
+   terminal well the actual rule/action body editors render in. */
+.dsl-search.dsl-input {
+  background: var(--panel); color: var(--text); caret-color: var(--text);
+  border: 1px solid var(--border);
+}
+.dsl-search.dsl-highlight-layer { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+.dsl-search.dsl-input-highlighted { caret-color: var(--text); }
 
 .dsl-suggest {
   position: absolute; z-index: 20; left: 0; right: 0; top: 100%;
   margin: 4px 0 0; padding: 4px; list-style: none;
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
-  max-height: 260px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  max-height: 260px; overflow-y: auto; box-shadow: var(--shadow-lg);
 }
-.dsl-suggest li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.dsl-suggest li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-md); cursor: pointer; }
 .dsl-suggest li.active { background: var(--panel); }
 .sug-label { font-family: var(--mono); }
 .sug-detail { color: var(--dim); font-size: 11px; font-family: var(--mono); margin-left: auto; }
-.tag { font-size: 10px; text-transform: uppercase; border-radius: 4px; padding: 1px 5px; color: #0b1020; }
+.tag { font-size: 10px; text-transform: uppercase; border-radius: var(--radius-md); padding: 1px 5px; color: var(--on-fill); }
 .tag-pred { background: var(--accent); }
 .tag-tier { background: var(--warn); }
 .tag-entity { background: var(--ok); }
-.tag-var { background: #b58cf0; }
+.tag-var { background: var(--color-violet); }
 
 /* ── Sort direction & name search ── */
 .search-row .sort-dir { padding: 8px 12px; font-size: 15px; line-height: 1; }
 .name-search { width: 170px; flex-shrink: 0; }
 
 /* ── DSL syntax highlighting (TextMate scopes) ── */
-.tm-comment { color: #8b949e; font-style: italic; }
-.tm-kw      { color: #ff7b72; }
-.tm-pred    { color: #d2a8ff; }
-.tm-func    { color: #d2a8ff; }
-.tm-var     { color: #79c0ff; }
-.tm-string  { color: #7ee787; }
-.tm-num     { color: #f2cc60; }
-.tm-op      { color: #ffa657; }
-.tm-type    { color: #ffa657; }
-.tm-anno    { color: #7ee787; }
-.tm-punc    { color: #8b949e; }
-.tm-wild    { color: #8b949e; }
+.tm-comment { color: var(--syn-comment); font-style: italic; }
+.tm-kw      { color: var(--syn-kw); }
+.tm-pred    { color: var(--syn-pred); }
+.tm-func    { color: var(--syn-func); }
+.tm-var     { color: var(--syn-var); }
+.tm-string  { color: var(--syn-string); }
+.tm-num     { color: var(--syn-num); }
+.tm-op      { color: var(--syn-op); }
+.tm-type    { color: var(--syn-type); }
+.tm-anno    { color: var(--syn-anno); }
+.tm-punc    { color: var(--syn-punc); }
+.tm-wild    { color: var(--syn-wild); }
+
+/* The --syn-* set above is tuned for the dark code well (comments/predicates/
+   etc. as pale pastels meant to sit on near-black). .predicate-expr — every
+   fact row in the State tab, and the provenance inspector — renders the same
+   highlighted tokens straight on the page's own surface instead, no dark
+   backing; .dsl-search is the light-field search/filter variant just above.
+   In light mode that surface is cream/white, where the well's pastels read
+   as washed-out (this is the "light pink" predicate names case) — override
+   to a deeper, page-readable set here. Dark mode's near-black surfaces
+   already match the well closely enough that no override is needed there. */
+:root:not([data-theme='dark']) .predicate-expr,
+:root:not([data-theme='dark']) .dsl-search {
+  --syn-comment: #7d766a;
+  --syn-kw: #a23e6e;
+  --syn-pred: #6b4fa0;
+  --syn-func: #6b4fa0;
+  --syn-var: #2b6ca3;
+  --syn-string: #3c7a45;
+  --syn-num: #9a6a15;
+  --syn-op: #a15c1f;
+  --syn-type: #a15c1f;
+  --syn-anno: #3c7a45;
+  --syn-punc: #7d766a;
+  --syn-wild: #7d766a;
+}
 
 /* ── Predicate sidebar ── */
 .sidebar { position: sticky; top: 70px; flex-shrink: 0; align-self: flex-start; }
 .sidebar.closed { width: 34px; }
 .sidebar.open { width: 288px; display: flex; flex-direction: column; max-height: calc(100vh - 90px);
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden;
+  box-shadow: var(--shadow-sm); }
 .sidebar-toggle {
   width: 34px; height: 140px; cursor: pointer; color: var(--dim);
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
 }
 .sidebar-toggle .vlabel { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; letter-spacing: 0.5px; }
 .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--border); }
@@ -236,31 +474,31 @@ input.dsl-input-highlighted {
 .pred-item { padding: 1px 0; }
 .pred-insert {
   display: flex; align-items: baseline; gap: 6px; width: 100%; text-align: left;
-  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-md);
   padding: 4px 6px; cursor: pointer; color: var(--text); font-family: var(--mono); font-size: 12.5px;
 }
 .pred-insert:hover { background: var(--panel-2); border-color: var(--border); }
 .pred-name { color: var(--accent); }
 .pred-sig { color: var(--dim); font-size: 11px; }
-.pred-flag { color: #b58cf0; font-size: 10px; margin-left: auto; }
+.pred-flag { color: var(--color-violet); font-size: 10px; margin-left: auto; }
 .pred-tiers { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 4px 10px; }
 .tier-chip {
   background: var(--panel-2); color: var(--warn); border: 1px solid var(--border);
-  border-radius: 5px; padding: 1px 7px; font-size: 11px; cursor: pointer; font-family: var(--mono);
+  border-radius: var(--radius-md); padding: 1px 7px; font-size: 11px; cursor: pointer; font-family: var(--mono);
 }
 .tier-chip:hover { border-color: var(--warn); }
 .value-tier {
   margin-left: 6px; background: var(--panel-2); color: var(--warn); border: 1px solid var(--border);
-  border-radius: 5px; padding: 1px 7px; font-size: 11px; font-family: var(--mono);
+  border-radius: var(--radius-md); padding: 1px 7px; font-size: 11px; font-family: var(--mono);
 }
 
 /* ── Tune ── */
 .tune { display: flex; flex-direction: column; gap: 14px; }
 .tune .field { max-width: 720px; }
-.totals-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.totals-panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; box-shadow: var(--shadow-sm); }
 .totals-title { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
 .totals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.totals-pred { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.totals-pred { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px 10px; }
 .totals-pred-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 5px; }
 .totals-pred-name { font-weight: 600; }
 .totals-target { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; padding: 1px 0; }
@@ -274,16 +512,16 @@ input.dsl-input-highlighted {
 .tune-meta { color: var(--dim); font-size: 12px; }
 .tune-effects { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .tune-effect { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.eff-name { font-family: var(--mono); color: #d2a8ff; }
+.eff-name { font-family: var(--mono); color: var(--color-violet); }
 .eff-op { color: var(--dim); font-family: var(--mono); }
 .eff-delta { width: 72px; text-align: right; }
 .eff-targets { color: var(--dim); font-size: 12px; font-family: var(--mono); }
 .tune-bindings { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.binding-chip { font-size: 11px; font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; color: var(--dim); }
+.binding-chip { font-size: 11px; font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1px 7px; color: var(--dim); }
 
 /* ── Modal ── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; z-index: 1000; overflow-y: auto; }
-.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 100%; max-width: 760px; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; width: 100%; max-width: 760px; box-shadow: var(--shadow-lg); }
 
 /* ── State viewer ── */
 .state-tab { display: flex; align-items: flex-start; gap: 18px; }
@@ -361,20 +599,23 @@ input.dsl-input-highlighted {
 }
 .ent-type-head:hover .ent-type-actions,
 .ent-instance:hover .ent-inst-actions { opacity: 1; pointer-events: auto; }
-.ent-badge { font-size: 9px; background: var(--panel-2); color: var(--accent); border-radius: 4px; padding: 1px 4px; margin-left: 4px; letter-spacing: 0; text-transform: none; }
+.ent-badge { font-size: 9px; background: var(--panel-2); color: var(--accent); border-radius: var(--radius-md); padding: 1px 4px; margin-left: 4px; letter-spacing: 0; text-transform: none; }
 .ent-badge.dim { color: var(--dim); }
-.row-icon { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.row-icon { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: var(--radius-md); }
 .row-icon:hover { color: var(--text); background: var(--panel-2); }
 .row-icon.del:hover { color: var(--err); }
 /* Inline delete confirmation (replaces the native confirm() dialog, which
    stranded row :hover state and stuck the action buttons visible). */
 .confirm-del { display: inline-flex; gap: 2px; }
 .row-icon.confirm-yes { color: var(--err); }
-.row-icon.confirm-yes:hover { color: var(--err); background: #3a1f1f; }
+.row-icon.confirm-yes:hover { color: var(--err); background: color-mix(in srgb, var(--err) 18%, transparent); }
 .row-icon.confirm-no { color: var(--dim); }
 .ent-instance { display: flex; align-items: center; position: relative; }
 .ent-instance .pred-insert { flex: 1; min-width: 0; }
-.ent-add-inst { display: block; width: 100%; text-align: left; border: 1px dashed var(--border); background: none; color: var(--dim); cursor: pointer; border-radius: 6px; padding: 4px 8px; margin-top: 2px; font-size: 12px; }
+/* Entity names read as plain text, not accent — unlike the predicate list,
+   where accent marks "this identifier is code you can insert". */
+.ent-instance .pred-name { color: var(--text); font-weight: 500; }
+.ent-add-inst { display: block; width: 100%; text-align: left; border: 1px dashed var(--border); background: none; color: var(--dim); cursor: pointer; border-radius: var(--radius-md); padding: 4px 8px; margin-top: 2px; font-size: 12px; }
 .ent-add-inst:hover { color: var(--text); border-color: var(--accent); }
 .ent-inline-input { width: 100%; margin-top: 2px; font-family: var(--mono); font-size: 13px; }
 .ent-modal { max-width: 420px; display: flex; flex-direction: column; gap: 14px; }
@@ -402,7 +643,7 @@ input.dsl-input-highlighted {
 .pred-modal-row { display: flex; gap: 12px; }
 .pred-modal-row .ent-field { flex: 1; }
 .pred-default-val { margin-left: auto; opacity: 0.35; font-size: 11px; }
-.tier-chip-default { border-color: rgba(255,255,255,0.3); }
+.tier-chip-default { border-color: color-mix(in srgb, var(--text) 30%, transparent); }
 .ent-field.grow { flex: 2; }
 .mono { font-family: var(--mono); }
 .pred-arg-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
@@ -416,7 +657,7 @@ input.dsl-input-highlighted {
 /* Stage nodes — three-section design (pre-hooks / stage / post-hooks) */
 .stage-node {
   background: var(--panel-2); border: 1px solid var(--border);
-  border-radius: 8px; overflow: hidden;
+  border-radius: var(--radius-lg); overflow: hidden;
   cursor: default; user-select: none;
   transition: border-color 0.1s;
 }
@@ -426,8 +667,8 @@ input.dsl-input-highlighted {
 
 /* Clickable sections */
 .stage-section { cursor: pointer; transition: background 0.1s; }
-.stage-section:hover       { background: rgba(255,255,255,0.04); }
-.stage-section.section-active { background: rgba(110,168,254,0.10); }
+.stage-section:hover       { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.stage-section.section-active { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
 /* Hook sections (pre / post) */
 .hooks-pre  { border-bottom: 1px solid var(--border); }
@@ -460,8 +701,8 @@ input.dsl-input-highlighted {
 
 .stage-box-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--dim); }
 .stage-actionset { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
-.stage-routing { background: var(--border); border-radius: 4px; padding: 1px 5px; font-size: 10px; }
-.stage-routing.collect { background: #2a1f3a; color: #b98cf0; }
+.stage-routing { background: var(--border); border-radius: var(--radius-md); padding: 1px 5px; font-size: 10px; }
+.stage-routing.collect { background: color-mix(in srgb, var(--color-violet) 20%, transparent); color: var(--color-violet); }
 
 /* Per-action routing section — bottom of the stage node, only when opted in */
 .stage-actions {
@@ -486,7 +727,7 @@ input.dsl-input-highlighted {
 /* ── Detail panel (right side) — no scroll, grows with content ── */
 .actionGraph-panel {
   width: 360px; flex-shrink: 0;
-  border: 1px solid var(--border); border-left: none; border-radius: 0 8px 8px 0;
+  border: 1px solid var(--border); border-left: none; border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   background: var(--panel);
   /* No overflow: auto — page scrolls naturally */
 }
@@ -499,7 +740,7 @@ input.dsl-input-highlighted {
 }
 .stage-name-input {
   flex: 1; font-size: 14px; font-weight: 600;
-  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-md);
   color: var(--text); padding: 4px 6px;
 }
 .stage-name-input:hover, .stage-name-input:focus { border-color: var(--border); background: var(--panel-2); }
@@ -537,7 +778,7 @@ input.dsl-input-highlighted {
   width: 100%; box-sizing: border-box; resize: vertical;
   font-family: inherit; font-size: 13px; line-height: 1.5;
   color: var(--text); background: var(--panel-2);
-  border: 1px solid var(--border); border-radius: 6px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
   padding: 7px 9px;
 }
 
@@ -562,7 +803,7 @@ input.dsl-input-highlighted {
    so fields get more usable width by using that vertical space instead. */
 .hook-row {
   display: flex; flex-direction: column; gap: 5px;
-  background: var(--panel-2); border-radius: 6px; padding: 6px 8px;
+  background: var(--panel-2); border-radius: var(--radius-md); padding: 6px 8px;
 }
 .hook-row-head { display: flex; align-items: center; gap: 6px; }
 .hook-type { flex: 1; font-size: 12px; min-width: 0; }
@@ -597,14 +838,14 @@ input.dsl-input-highlighted {
 .play .spacer { flex: 1; }
 .play-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 
-.banner.warn { background: #3a3320; color: var(--warn); border: 1px solid #5a4d28; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
+.banner.warn { background: color-mix(in srgb, var(--warn) 16%, var(--bg)); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); border-radius: var(--radius-lg); padding: 8px 12px; margin-bottom: 12px; }
 
 /* Play's left watch sidebar — a wider variant of the generic .sidebar (query
    text and result rows run longer than the predicate/entity names the base
    width was tuned for), watches stacked one per .play-watch card. */
 .play-watch-sidebar.open { width: 360px; }
 .play-watch {
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: 10px 12px; margin-bottom: 10px;
 }
 .play-watch-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
@@ -622,43 +863,43 @@ input.dsl-input-highlighted {
 
 .watch-form {
   display: flex; flex-direction: column; gap: 8px;
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: 10px 12px; margin-bottom: 10px;
 }
 
-.play-control-config { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+.play-control-config { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 14px; margin-bottom: 12px; }
 .play-chip-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 3px 0; }
 .chip {
   background: var(--panel-2); color: var(--dim); border: 1px solid var(--border);
   border-radius: 999px; padding: 2px 11px; font-size: 12px; cursor: pointer;
 }
-.chip.on { background: var(--accent); color: #0b1020; border-color: var(--accent); font-weight: 600; }
+.chip.on { background: var(--accent); color: var(--on-fill); border-color: var(--accent); font-weight: 600; }
 .tiny-note { font-size: 11px; }
 
 .play-trace-area { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
 .play-timeline { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 
-.play-choice { background: #23282e; border: 1px solid var(--warn); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.play-choice { background: var(--panel); border: 1px solid var(--warn); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 14px; }
 .play-choice-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.badge.choice { background: var(--warn); color: #0b1020; font-weight: 600; }
+.badge.choice { background: var(--warn); color: var(--on-fill); font-weight: 600; }
 .play-choice .play-candidates { margin: 0; }
 .cand-select { margin: 0 2px 0 0; }
 .play-choice-actions { display: flex; gap: 10px; margin-top: 10px; }
 
-.play-phase { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+.play-phase { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 14px; margin-bottom: 12px; }
 .play-phase-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; cursor: default; }
 .play-phase details > summary { cursor: pointer; list-style-position: outside; }
 
-.play-story-run { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; margin-bottom: 10px; }
+.play-story-run { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px 14px; margin-bottom: 10px; }
 .play-story-run-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-summary.play-story-run-head { border-radius: 6px; padding: 2px 4px; }
+summary.play-story-run-head { border-radius: var(--radius-md); padding: 2px 4px; }
 summary.play-story-run-head:hover { background: var(--panel-2); }
 .play-story-run-hooks-tag { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--dim); opacity: 0.25; }
 summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 .play-story-empty { padding: 2px 0 2px 4px; }
 .play-story-line { border-top: 1px solid var(--border); padding: 4px 0; }
 .play-story-line:first-of-type { border-top: none; }
-.play-story-line > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+.play-story-line > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 3px 6px; border-radius: var(--radius-md); }
 .play-story-line > summary:hover { background: var(--panel-2); }
 .story-actionname { flex: 0 0 150px; text-align: left; color: var(--text); font-weight: 600; font-size: 12px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .story-score { flex: 0 0 44px; text-align: right; font-family: var(--mono); font-size: 12.5px; color: var(--warn); margin-left: auto; }
@@ -669,12 +910,12 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 
 .play-section-label { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); opacity: 0.6; padding: 4px 6px 2px; }
 .play-other-candidates { margin: 4px 8px 8px 22px; }
-.play-other-candidates > summary { font-size: 12px; color: var(--dim); padding: 2px 6px; border-radius: 6px; }
+.play-other-candidates > summary { font-size: 12px; color: var(--dim); padding: 2px 6px; border-radius: var(--radius-md); }
 .play-other-candidates > summary:hover { background: var(--panel-2); }
 .play-candidates { margin: 6px 0; }
-.play-cand { border-radius: 6px; }
-.play-cand:nth-child(even) { background: rgba(255,255,255,0.025); }
-.play-cand > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+.play-cand { border-radius: var(--radius-md); }
+.play-cand:nth-child(even) { background: color-mix(in srgb, var(--text) 3%, transparent); }
+.play-cand > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 2px 6px; border-radius: var(--radius-md); font-size: 13px; }
 .play-cand > summary:hover { background: var(--panel-2); }
 .play-cand.winner > summary { color: var(--ok); }
 .play-cand.below-floor > summary { opacity: 0.45; }
@@ -696,11 +937,11 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 .bd-rule-matches { padding: 4px 0 4px 18px; }
 .bd-rule-match { border-left: 2px solid var(--border); padding: 3px 0 3px 10px; margin: 5px 0; }
 
-.badge.occ { background: #2a3a2f; color: var(--ok); }
-.effect-chip { font-size: 11.5px; font-family: var(--mono); background: var(--panel); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; }
+.badge.occ { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.effect-chip { font-size: 11.5px; font-family: var(--mono); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1px 7px; }
 
 .play-hooks { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 12px; padding: 2px 0; }
-.hook-chip { font-size: 11.5px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 8px; color: var(--dim); cursor: pointer; }
+.hook-chip { font-size: 11.5px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1px 8px; color: var(--dim); cursor: pointer; }
 .hook-chip.skipped { opacity: 0.45; cursor: default; }
 .hook-firing[open] .hook-chip { color: var(--accent); }
 .play-apps { padding: 6px 0 4px 14px; }
@@ -727,7 +968,7 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 
 /* ── Play — embedded state browser ────────────────────────────────────────── */
 
-.play-state-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.play-state-panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 14px; }
 .play-state-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 
 /* ── Play — inline phase-invocation editor (PhaseRoleFields, shared with Flow) ── */
@@ -741,6 +982,8 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 
 .interp-toggle { padding: 6px 8px; }
 .interp-toggle.active { background: var(--panel-2); border-color: var(--border); color: var(--accent); }
+
+.theme-toggle { padding: 6px 8px; }
 
 .interp-backdrop {
   position: fixed; inset: 0; z-index: 49;
@@ -808,7 +1051,7 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 .prov-insp-crumb {
   background: transparent; border: none; cursor: pointer;
   font-family: var(--mono); font-size: 11.5px; color: var(--accent);
-  padding: 1px 5px; border-radius: 5px; max-width: 220px;
+  padding: 1px 5px; border-radius: var(--radius-md); max-width: 220px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .prov-insp-crumb:hover { background: var(--panel-2); }
@@ -824,7 +1067,7 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 .prov-insp-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
 .prov-insp-row {
   display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
-  padding: 3px 6px; border-radius: 6px; font-size: 12.5px; box-sizing: border-box;
+  padding: 3px 6px; border-radius: var(--radius-md); font-size: 12.5px; box-sizing: border-box;
 }
 .prov-insp-row.link { background: transparent; border: 1px solid transparent; cursor: pointer; color: var(--text); }
 .prov-insp-row.link:hover { background: var(--panel-2); border-color: var(--border); }
@@ -837,8 +1080,8 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 .prov-insp-desc { font-family: var(--mono); }
 .prov-insp-leaf { color: var(--dim); font-size: 12.5px; padding: 4px 0; }
 .prov-insp-error { color: var(--err); font-size: 12.5px; }
-.badge.action { background: #2a3a2f; color: var(--ok); }
-.badge.rule { background: #2a2f3a; color: var(--accent); }
+.badge.action { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.badge.rule { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 
 /* Explain Button Hover Logic */
 .explain-btn {
@@ -876,13 +1119,13 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 
 /* Ruleset Execution Card Styling */
 .play-ruleset-execution { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 6px 14px; width: 100%; box-sizing: border-box; }
-.play-rule-exec-card { border: 1px solid var(--border); border-radius: 6px; background: var(--panel); overflow: hidden; }
+.play-rule-exec-card { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--panel); overflow: hidden; }
 .play-rule-exec-card.fired { border-left: 3px solid var(--ok); }
 .play-rule-exec-card.not-fired { border-left: 3px solid var(--border); opacity: 0.75; }
 .play-rule-exec-summary { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; font-size: 12px; cursor: pointer; user-select: none; }
 .play-rule-exec-summary:hover { background: var(--panel-2); }
 .play-rule-exec-body { padding: 8px 10px; background: var(--panel-2); border-top: 1px solid var(--border); font-size: 12px; }
-.play-rule-code { margin: 0; padding: 6px 8px; font-family: var(--mono); font-size: 11.5px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; overflow-x: auto; white-space: pre-wrap; color: var(--dim); }
+.play-rule-code { margin: 0; padding: 6px 8px; font-family: var(--mono); font-size: 11.5px; background: var(--well); border: none; border-radius: var(--radius-sm); overflow-x: auto; white-space: pre-wrap; color: var(--code-text); }
 .play-app-instance { padding: 4px 0; }
 .play-app-instance + .play-app-instance { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
 .hook-firing.skipped { opacity: 0.75; }
@@ -898,13 +1141,13 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 }
 
 .tickplan-flow-main { flex: 1; min-height: 0; display: flex; align-items: stretch; gap: 0; margin-top: 12px; }
-.tickplan-flow-canvas { flex: 1; min-width: 0; position: relative; border-radius: 10px 0 0 10px; overflow: hidden; border: 1px solid var(--border); }
+.tickplan-flow-canvas { flex: 1; min-width: 0; position: relative; border-radius: var(--radius-lg) 0 0 var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
 /* Full rounding when nothing's selected and the side panel isn't rendered
    at all (see TickPlanFlowTab.jsx) — the canvas is then the only child of
    .tickplan-flow-main, so :last-child picks that up without threading
    selection state into a className just for this. */
 .tickplan-flow-canvas:has(.empty),
-.tickplan-flow-main > .tickplan-flow-canvas:last-child { border-radius: 10px; }
+.tickplan-flow-main > .tickplan-flow-canvas:last-child { border-radius: var(--radius-lg); }
 
 /* The right-side editing panel (ActionGraphSettings / StagePanel / HooksPanel
    / ActionRoutesPanel from actionGraphEditing.jsx). Needs its
@@ -912,7 +1155,7 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
    bounded container), not a naturally page-scrolling one. */
 .tickplan-flow-panel {
   width: 360px; flex-shrink: 0; overflow-y: auto;
-  border: 1px solid var(--border); border-left: none; border-radius: 0 10px 10px 0;
+  border: 1px solid var(--border); border-left: none; border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   background: var(--panel);
 }
 
@@ -925,8 +1168,8 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 .tickplan-flow-add-pin {
   position: absolute; bottom: 14px; right: 14px; z-index: 5;
   display: flex; flex-direction: column; gap: 8px; width: 340px; max-width: calc(100% - 28px);
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-  padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 10px; box-shadow: var(--shadow-lg);
 }
 .tickplan-flow-add-row { display: flex; align-items: center; gap: 6px; }
 .tickplan-flow-add-row select { min-width: 0; flex: 1; }
@@ -942,8 +1185,8 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
 .tickplan-flow-canvas .react-flow__node { pointer-events: auto !important; }
 
 .flow-phase-group, .flow-ruleset-phase {
-  width: 100%; height: 100%; border: 1.5px solid var(--border); border-radius: 10px;
-  background: rgba(35, 40, 51, 0.55); position: relative; cursor: default;
+  width: 100%; height: 100%; border: 1.5px solid var(--border); border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--panel) 55%, transparent); position: relative; cursor: default;
 }
 .flow-phase-group.missing { border-color: var(--err); border-style: dashed; }
 .flow-phase-group.selected { border-color: var(--accent); }
@@ -953,7 +1196,7 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
    graph. */
 .flow-stage-add-pin {
   position: absolute; bottom: 8px; right: 8px; z-index: 2;
-  font-size: 11px; padding: 3px 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  font-size: 11px; padding: 3px 8px; box-shadow: var(--shadow-md);
   opacity: 0.32; transition: opacity 0.12s;
 }
 .flow-phase-group:hover .flow-stage-add-pin,
@@ -968,8 +1211,8 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
    own actionGraph settings moved to the ⚙ in .flow-phase-controls, which
    stops propagation so it doesn't also toggle the header. */
 .flow-phase-header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12.5px; flex-wrap: nowrap; white-space: nowrap; cursor: pointer; transition: background 0.1s; }
-.flow-phase-header:hover { background: rgba(255,255,255,0.04); }
-.flow-phase-header.open { background: rgba(110,168,254,0.10); }
+.flow-phase-header:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.flow-phase-header.open { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .flow-phase-header.missing { cursor: default; }
 .flow-phase-header.missing:hover { background: none; }
 .flow-phase-index {
@@ -986,7 +1229,7 @@ summary.play-story-run-head:hover .play-story-run-hooks-tag { opacity: 0.8; }
    own click target (the whole header is), just a label for what clicking
    here does and the open/closed caret. */
 .flow-phase-expand-hint {
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-md);
   padding: 1px 7px; font-size: 11px; color: var(--dim);
   display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
 }

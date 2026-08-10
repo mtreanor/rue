@@ -157,7 +157,7 @@ export default function PlayWatchSidebar({ scenario, hasSession, tick, highlight
             />
             <DslInput
               value={form.query} onChange={v => setForm(f => ({ ...f, query: v }))}
-              predicates={predicates} highlighter={highlighter}
+              predicates={predicates} highlighter={highlighter} className="dsl-search"
               placeholder="predicate(?A, ?B) ^ ..."
             />
             {whenVar && (
