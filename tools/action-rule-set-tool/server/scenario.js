@@ -170,6 +170,11 @@ export function schemaForClient(schema) {
       tierRanges: def.tiers ?? null,
       singleValued: def.singleValued ?? null,
       ephemeral: !!def.annotations?.ephemeral,
+      // Arbitrary host-application data on the predicate spec — ruse itself
+      // never reads this key, it's just carried through so the editor can show
+      // and round-trip whatever the host project has attached (see predicates.js
+      // buildDef and PredicateModal's "App data" field).
+      app: def.app ?? null,
     });
   }
   predicates.sort((a, b) => a.name.localeCompare(b.name));

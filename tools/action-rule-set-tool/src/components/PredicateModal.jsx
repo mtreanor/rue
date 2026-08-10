@@ -55,7 +55,17 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
   const [ephemeral, setEphemeral] = useState(!!initial?.ephemeral);
   const [tiers, setTiers] = useState(tiersToRows(initial?.tierRanges));
   const [premises, setPremises] = useState(extractPremises(initial?.define));
+  const [appText, setAppText] = useState(initial?.app != null ? JSON.stringify(initial.app, null, 2) : '');
   const [busy, setBusy] = useState(false);
+
+  // Live validation as the JSON is typed, so a parse error is visible before
+  // Save is attempted. Blank means "no app data" (the common case, and the
+  // default for a brand-new predicate) — distinct from a parse failure.
+  const appError = useMemo(() => {
+    if (!appText.trim()) return null;
+    try { JSON.parse(appText); return null; }
+    catch (e) { return e.message; }
+  }, [appText]);
 
   const [sensorFiles, setSensorFiles] = useState([]);
   const [sensorFile, setSensorFile] = useState(initial?.sensorFile ?? '');
@@ -92,7 +102,7 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
 
   const submit = async () => {
     const nm = name.trim();
-    if (!nm) return;
+    if (!nm || appError) return;
     const isLLM = type === 'sensor-llm' || type === 'sensor-llm-numeric';
     const payload = {
       name: nm,
@@ -102,6 +112,9 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
       config: {
         symmetric: type === 'boolean' && symmetric && args.length === 2,
         ...(NUMERIC.has(type) ? { minValue, maxValue, default: def, tiers: rowsToTiers(tiers), ephemeral } : {}),
+        // Parsed here, not on the server: the textarea is the only place this
+        // free-text JSON is ever text, so this is where it's validated.
+        ...(appText.trim() ? { app: JSON.parse(appText) } : {}),
       },
       define: type === 'derived' ? buildDefineBlock(nm, args.length, premises) : '',
     };
@@ -201,9 +214,22 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
           </div>
         )}
 
+        <div className="ent-field">
+          <span>App data <span className="dim">(JSON — opaque to ruse; the host application's own data)</span></span>
+          <textarea
+            className="pred-app-data mono"
+            rows={4}
+            spellCheck={false}
+            placeholder={'{\n  "group": "trait"\n}'}
+            value={appText}
+            onChange={e => setAppText(e.target.value)}
+          />
+          {appError && <div className="banner error">{appError}</div>}
+        </div>
+
         <div className="modal-actions">
           <button className="btn ghost" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={submit} disabled={busy || !name.trim() || args.length === 0}>
+          <button className="btn primary" onClick={submit} disabled={busy || !name.trim() || args.length === 0 || !!appError}>
             {editing ? 'Save' : 'Add predicate'}
           </button>
         </div>
