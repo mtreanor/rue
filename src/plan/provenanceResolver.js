@@ -89,6 +89,7 @@ function resolvePredicate(engine, { name, args = [], owner = null, tick = null }
 }
 
 function numericNode(engine, name, args, owner, tick) {
+  const ephemeral = !!engine.schema.getDefinition(name)?.annotations?.ephemeral;
   const record = engine.world.queryHandlers.getHandler('numeric')
     ?.getRecord(name, args, scopedContext(engine, owner)) ?? null;
   const events = record ? (tick == null ? record.events : record.events.filter(e => e.tick <= tick)) : [];
@@ -103,13 +104,41 @@ function numericNode(engine, name, args, owner, tick) {
       value:     event.value,
       via:       provenanceKind(event.provenance),
       binding:   provenanceBinding(event.provenance),
-      // A 'given' seed has no producing rule/action to drill into; anything
-      // adjusted by a rule/action does.
-      address:   sourceIsDrillable(event.provenance)
-        ? { kind: 'adjustment-source', numeric: { name, args, owner }, tick: event.tick, eventIndex }
-        : null,
+      address:   adjustmentAddress(name, args, owner, event, eventIndex, ephemeral),
     })),
   };
+}
+
+// A 'given' seed has no producing rule/action to drill into; anything
+// adjusted by a rule/action does (sourceIsDrillable).
+//
+// Durable numerics (warmth, resentment, ...) get the live-lookup address,
+// {kind:'adjustment-source', tick, eventIndex} — re-resolved against the
+// engine's own retained history on drill, per this module's stateless design.
+//
+// Ephemeral numerics (judge-<reading> impulses, wiped every tick) can't use
+// that: by the time the record is drilled, the live engine has no history
+// left to look up (reproduced directly — drilling a past-tick judgement's
+// rule contributor 400s with "No numeric event #N for judge-kind(...)",
+// since getRecord/eventIndex finds nothing once the tick that created it has
+// passed). The event's own provenance is right here, though, and rules/
+// actions are durable *definitions* — resolving one by name+binding doesn't
+// depend on the ephemeral fact's history still existing. So an ephemeral
+// numeric's adjustment gets a self-contained {kind:'rule'|'action', name,
+// binding} address instead, built from the provenance already in hand.
+function adjustmentAddress(name, args, owner, event, eventIndex, ephemeral) {
+  const provenance = event.provenance;
+  if (!sourceIsDrillable(provenance)) return null;
+  if (!ephemeral) return { kind: 'adjustment-source', numeric: { name, args, owner }, tick: event.tick, eventIndex };
+  if (provenance.type === 'rule-effect') {
+    return { kind: 'rule', name: provenance.rule?.name ?? null, binding: provenanceBinding(provenance) };
+  }
+  if (provenance.type === 'action-effect') {
+    return { kind: 'action', name: provenance.actionRecord?.action?.name ?? null, binding: provenanceBinding(provenance) };
+  }
+  // derived-fact can't actually reach a numeric adjustment (derived facts are
+  // boolean-only, evaluated rather than adjusted) -- no case needed here.
+  return null;
 }
 
 function booleanNode(engine, name, args, owner, tick) {
@@ -259,26 +288,32 @@ function actionDetail(engine, action, binding, tick) {
 // drill, so it doesn't need the deduped inline histories). Returns null rather
 // than throwing when there's nothing to score or scoring fails: an action
 // detail without utility is still useful, a 500 isn't.
+//
+// Scores the action directly (Action.scoreWithBreakdown) rather than going
+// through engine.scoreActionset: that path re-enumerates the whole actionset
+// and keeps only candidates whose preconditions *currently* hold — exactly
+// wrong here, since we already know which action and which binding we want.
+// scoreWithBreakdown is a pure function of the utility sources; unlike
+// arePreconditionsMet it was never about *whether this action is a live
+// candidate*, so it doesn't care that the action already fired. That distinction
+// matters for exactly this inspector: an action being inspected has, by
+// definition, already happened — and for some actions (any with a "not already
+// done" precondition, e.g. judge-as-X's own `not judged(...)`, permanently
+// true the instant it fires) that means arePreconditionsMet will now always
+// return false, which used to make the *utility* vanish along with it even
+// though the utility breakdown itself never depended on the precondition at
+// all — the very thing this inspector exists to show.
 function utilityFor(engine, action, bindingObj) {
   if (!bindingObj || Object.keys(bindingObj).length === 0) return null;
-  const setName = setNameForAction(engine, action.name);
-  if (!setName) return null;
   try {
-    const candidates = engine.scoreActionset(setName, bindingObj);
-    const match = candidates.find(c => c.action.name === action.name);
-    if (!match?.breakdown) return null;
+    const binding = action.bindImplicitVariables(engine.resolveBinding(bindingObj), engine.world);
+    const ctx = engine.world.createEvaluationContext();
+    const { breakdown } = action.scoreWithBreakdown(binding, engine.world.entityRegistry, ctx);
     const registry = new Map();
-    return match.breakdown.map(b => serializeBreakdown(b, registry));
+    return breakdown.map(b => serializeBreakdown(b, registry));
   } catch {
     return null;
   }
-}
-
-function setNameForAction(engine, actionName) {
-  for (const [setName, actions] of engine.actionsets.entries()) {
-    if (actions.some(a => a.name === actionName)) return setName;
-  }
-  return null;
 }
 
 // A define rule (DerivationRule) has no `.effects` — its single conclusion is

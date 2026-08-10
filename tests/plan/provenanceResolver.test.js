@@ -174,6 +174,45 @@ describe('provenanceResolver — step 1', () => {
     assert.equal(node.utility ?? null, null);
   });
 
+  it('still shows the utility breakdown for an action whose own effect now blocks its own precondition', () => {
+    // Some actions are self-excluding by design (e.g. reception's
+    // judge-as-<reading>, gated on `not judged(...)` and whose own effect
+    // asserts `judged(...)`): once fired, arePreconditionsMet(binding) will
+    // never again return true for that exact occurrence. scoreWithBreakdown
+    // is a pure function of the utility sources, not of arePreconditionsMet,
+    // so the utility breakdown must still be there when re-inspecting an
+    // action that has, by definition, already happened.
+    const engine = new Engine({
+      predicates: { predicates: {
+        sealed: { type: 'boolean', args: ['agent'] },
+        buzz:   { type: 'numeric', args: ['agent'], minValue: 0, maxValue: 10, default: 0 },
+      } },
+      entities: { agent: { alice: {} } },
+    });
+    engine.loadActions(`
+      actionset "sealing"
+        action "seal"
+          roles: ?SELF: agent
+          preconditions
+            not sealed(?SELF)
+          utility buzz(?SELF)
+          effects
+            sealed(?SELF)
+    `);
+    engine.assert('buzz(alice) = 4');
+    const [c] = engine.scoreActionset('sealing', { SELF: 'alice' });
+    engine.execute(c); // asserts sealed(alice) — "not sealed(?SELF)" can never hold again
+
+    assert.equal(engine.scoreActionset('sealing', { SELF: 'alice' }).length, 0,
+      'sanity check: the action is no longer a live candidate at all');
+
+    const { node } = resolveProvenanceNode(engine, { kind: 'action', name: 'seal', binding: { SELF: 'alice' } });
+    assert.ok(Array.isArray(node.utility) && node.utility.length > 0,
+      'utility breakdown survives even though the action can never fire again');
+    const leaf = node.utility.find(n => n.type === 'predicate' && n.name === 'buzz');
+    assert.equal(leaf.value, 4);
+  });
+
   it('includes the utility breakdown, drillable to the numeric its priming set', () => {
     const engine = makeEngine();
     engine.assert('present(alice)');
