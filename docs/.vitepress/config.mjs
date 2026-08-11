@@ -72,5 +72,10 @@ export default defineConfig({
     ],
 
     socialLinks: [],
+
+    footer: {
+      message: 'Created by <a href="https://mtreanor.com" target="_blank" rel="noopener">Mike Treanor</a>',
+      copyright: 'Released under the MIT License.'
+    }
   },
 });

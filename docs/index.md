@@ -1,6 +1,6 @@
 # RUE
 
-RUE is a logic engine built for authorship and explainable simulation. It represents lessons learned over 15 years of designing and developing four predecessor logic engines used in games and academic research.
+RUE is a logic engine built for authorship and explainable simulation, created by [Mike Treanor](https://mtreanor.com). It represents lessons learned over 15 years of designing and developing four predecessor logic engines used in games and academic research.
 
 RUE is built with a focus on:
 
