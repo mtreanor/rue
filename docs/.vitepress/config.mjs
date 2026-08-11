@@ -3,8 +3,8 @@ import mathjax3 from 'markdown-it-mathjax3';
 import rueGrammar from './rue-grammar.js';
 
 export default defineConfig({
-  title: 'rue',
-  description: 'A logic engine built for authorship and explainable simulation',
+  title: 'RUE',
+  description: 'Rule Utility Engine — a logic engine built for authorship and explainable simulation',
   base: '/rue/',
 
   // Scratch/archive notes that are not part of the published site. Keeping
@@ -28,7 +28,7 @@ export default defineConfig({
     sidebar: [
       {
         items: [
-          { text: 'What is rue?', link: '/' },
+          { text: 'What is RUE?', link: '/' },
           { text: 'History', link: '/history' },
         ],
       },

@@ -1,6 +1,6 @@
 # Quickstart
 
-A tiered path into rue. Each tier is self-contained and runnable, and they build on one another:
+A tiered path into RUE (Rule Utility Engine). Each tier is self-contained and runnable, and they build on one another:
 
 | Tier | Page | You'll learn |
 |------|------|--------------|
@@ -11,7 +11,7 @@ A tiered path into rue. Each tier is self-contained and runnable, and they build
 
 Tier 1 is meant to be effortless. Tier 2 (actions) is a small step up.
 
-Everything here goes through the **`Engine`** — rue's single entry point. You create one, then call `query`, `assert`, `selectAction`, `execute`, `why`, and so on. You rarely need anything else.
+Everything here goes through the **`Engine`** — RUE's single entry point. You create one, then call `query`, `assert`, `selectAction`, `execute`, `why`, and so on. You rarely need anything else.
 
 ## The scenario
 

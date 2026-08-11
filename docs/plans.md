@@ -230,7 +230,7 @@ const validators = [
     let snap = initialSnapshot;
     for (const { action, binding } of steps) snap = snap.apply(action, binding);
 
-    // ...then evaluate full rue queries against it.
+    // ...then evaluate full RUE queries against it.
     const ctx = snap.createEvaluationContext();
     const b   = new Binding();
     return new DerivedFactPredicate('trustedAlly', 'alice', 'carol').evaluate(b, ctx)

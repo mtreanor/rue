@@ -1,11 +1,11 @@
 # action-rule-set-tool
 
-An authoring & visualization tool for rue scenarios. It reads scenarios from the
+An authoring & visualization tool for RUE scenarios. It reads scenarios from the
 repo's `project.config.json` and provides tabs for **inspecting, searching, and
 editing** rules and actions, **browsing world state**, **browsing actionGraphs**, and
 **running scenarios interactively** in Play mode.
 
-The backend imports rue's own `RuleParser`, `RuleLoader`, `RuleSerializer`, and
+The backend imports RUE's own `RuleParser`, `RuleLoader`, `RuleSerializer`, and
 `RuleCycleDetector` directly from `../../src`, so parsing, validation, and cycle
 detection always match the engine — there is no second implementation to drift.
 
@@ -26,14 +26,14 @@ together. Open http://localhost:5173.
 The tool edits the scenario's rule files **in place** on disk. It only rewrites
 the specific rule block you add/edit/delete; every other rule is byte-preserved.
 
-## Using rue as a git submodule
+## Using RUE as a git submodule
 
-If you vendor rue as a **git submodule** and keep your own scenarios/data in
+If you vendor RUE as a **git submodule** and keep your own scenarios/data in
 the parent repo, put a `project.config.json` at your repo root — the tool
 **discovers it automatically** (via the submodule's superproject) and reads and
-writes your data there. No configuration needed. rue-shipped assets (the engine
+writes your data there. No configuration needed. RUE-shipped assets (the engine
 and the syntax-highlighting grammar) always load from the submodule, so nothing
-about rue needs editing.
+about RUE needs editing.
 
 Config resolution order:
 
@@ -45,9 +45,9 @@ Config resolution order:
    ```
    To set it once without retyping, create a gitignored `tools/action-rule-set-tool/.env`
    with `RUE_CONFIG=/abs/path/to/project.config.json`.
-2. **The host repo's `project.config.json`**, auto-discovered when rue is a
+2. **The host repo's `project.config.json`**, auto-discovered when RUE is a
    submodule.
-3. **rue's own `project.config.json`** (standalone development).
+3. **RUE's own `project.config.json`** (standalone development).
 
 Scenario paths in the config are resolved **relative to the config file's own
 directory**, so the config sits with its data anywhere on disk. The server prints
@@ -55,7 +55,7 @@ the resolved config path on startup, so you can confirm which one is in use.
 
 ## Embedding in a host app (shared live engine)
 
-A host application that already runs a live rue `Engine` can mount this tool
+A host application that already runs a live RUE `Engine` can mount this tool
 **against that same engine**, so the tool inspects and drives the host's running
 session rather than building its own from files. The reception project's game
 does exactly this — pause the game, open the tool, and it's already at the
@@ -110,7 +110,7 @@ only, terms before it match conditions only.
 With no `=>`, terms match anywhere in the rule.
 
 There's also a plain **rule name** box next to the structural search — filter by
-name substring (combines with the structural filter). Rules are shown with rue
+name substring (combines with the structural filter). Rules are shown with RUE
 DSL **syntax highlighting**, reusing the TextMate grammar from
 `extensions/vscode/rue.tmLanguage.json` verbatim (served by the backend at
 `/api/grammar`), so the tool's colors always match the editor extension.

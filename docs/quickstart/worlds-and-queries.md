@@ -4,7 +4,7 @@ The basics: where your authored data lives, how to load it, how to ask questions
 
 ## Where authored data goes
 
-A rue world is four plain files in a directory. Here is the entire quickstart scenario.
+A RUE world is four plain files in a directory. Here is the entire quickstart scenario.
 
 **`predicates.json`** — the schema. Every predicate the world knows about, its type, and its argument types.
 
