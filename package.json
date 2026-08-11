@@ -2,7 +2,7 @@
   "name": "rue",
   "version": "0.1.0",
   "type": "module",
-  "description": "A predicate logic engine for authoring rules about relationships, beliefs, and history",
+  "description": "A logic engine built for authorship and explainable simulation",
   "keywords": ["logic", "rules", "social-simulation", "datalog", "predicate", "game-ai", "narrative"],
   "author": "Mike Treanor",
   "license": "MIT",

@@ -1,8 +1,12 @@
 # RUE
 
-A symbolic logic engine for reasoning about state. You declare predicates, assert facts, write rules, and ask questions. It supports the kind of nuanced negation and temporal reasoning that most simple fact stores don't bother with — explicit disbelief, negation as failure, historical queries, backward-chaining derivation, and numeric values with named tiers.
+RUE is a logic engine built for authorship and explainable simulation. It represents lessons learned over 15 years of designing and developing four predecessor logic engines used in games and academic research.
 
-It's designed to be embedded in applications that need to reason about agent beliefs, relationships, or world state — but it doesn't know anything about agents, simulation ticks, or narrative. That's the application's job.
+RUE is built with a focus on:
+
+* **Authorship**: Represent ideas using high-level terms that attempt to align with an author's view of a scenario. Rules are modular and self-contained, letting developers organize logic around their own domain vocabulary.
+* **Recursive Explanations**: Trace the lineage of any fact back to its origin. Rather than just recording that a fact is true, RUE’s first-class provenance logs the specific rules, bindings, or actions that caused it. This lets you construct a full explanation tree on demand (e.g., proving *why* two agents are rivals by tracing back to the past events and rules that established their hostility).
+* **Nuanced Knowledge Representation**: RUE's rich DSL natively supports active disbelief, private epistemic stores (agent-relative belief states), continuous numeric values with named tiers, temporal history (historical event checks, point-in-time state checks, and sequential temporal chains), bounded transitive closure, and more.
 
 ---
 

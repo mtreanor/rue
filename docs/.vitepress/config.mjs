@@ -4,7 +4,7 @@ import rueGrammar from './rue-grammar.js';
 
 export default defineConfig({
   title: 'rue',
-  description: 'A symbolic logic engine for reasoning about state',
+  description: 'A logic engine built for authorship and explainable simulation',
   base: '/rue/',
 
   // Scratch/archive notes that are not part of the published site. Keeping
