@@ -6,7 +6,8 @@ RUE is built with a focus on:
 
 * **Authorship**: Represent ideas using high-level terms that attempt to align with an author's view of a scenario. Rules are modular and self-contained, letting developers organize logic around their own domain vocabulary.
 * **Recursive Explanations**: Trace the lineage of any fact back to its origin. Rather than just recording that a fact is true, RUE’s first-class provenance logs the specific rules, bindings, or actions that caused it. This lets you construct a full explanation tree on demand (e.g., proving *why* two agents are rivals by tracing back to the past events and rules that established their hostility).
-* **Nuanced Knowledge Representation**: RUE's rich DSL natively supports active disbelief, private epistemic stores (agent-relative belief states), continuous numeric values with named tiers, temporal history (historical event checks, point-in-time state checks, and sequential temporal chains), bounded transitive closure, and more.
+* **Expressive Query Language**: A declarative DSL built to support complex conditions. It provides native support for active disbelief, private epistemic stores, numeric comparison thresholds, point-in-time state checks, sequential event chains, bounded reach, and more.
+* **Configurable Logic Pipelines**: Chain rules and actions into custom execution flows. RUE scales from simple state updates and procedural content generation to complex, multi-phase loops driving nuanced and custom simulation dynamics.
 
 ---
 
@@ -23,12 +24,18 @@ RUE is built with a focus on:
 | **Numeric values**        | Continuous values with named tiers (`friendship.strong`) and comparison operators |
 | **Derived predicates**    | Named inferences computed by backward chaining; cached per tick                   |
 | **Sensor predicates**     | Boolean or numeric values computed by application-layer code at query time        |
+| **LLM-powered sensors**   | Dynamic sensors queried from Large Language Models with prompt generators         |
+| **Actuator predicates**   | Run side-effect code (audio, UI, analytics) when effects are executed             |
+| **Bounded reach**         | `pred(?X, ?Y) [degrees: N]` — bounded transitive closure within N hops             |
+| **Actions**               | Define scoreable behaviors with roles, preconditions, utility, and effects        |
 | **Private stores**        | Per-entity fact stores, separate from the shared world store                      |
 | **Contradiction policy**  | `lastWins`, `allow`, or `block` — per store                                       |
 | **Strength**              | Every fact carries a 0–1 strength value                                           |
 | **Backdating**            | Assert facts at past ticks to establish history                                   |
 | **Temporal chains**       | `pred1 then pred2` — events in order, with optional window                        |
 | **Count queries**         | `|pred(args)| > N` — count matching facts and compare                             |
+| **Aggregates**            | `avg`, `sum`, `max`, `min` over matching variables                                 |
+| **Advanced expressions**  | Arithmetic expressions and math functions in comparisons and effects              |
 | **Logical variables**     | `?X`, `?Y`, … — enumerated over entity registries                                 |
 | **Wildcards**             | `_` — matches anything, not bound                                                 |
 | **Symmetric predicates**  | `knows(alice, bob)` ↔ `knows(bob, alice)`                                         |
@@ -143,6 +150,120 @@ define "can have need met"
   ^ canSatisfy(?Y, ?X, ?N)
   => canHaveNeedMet(?X, ?Y)
 ```
+
+---
+
+## Actions
+
+Actions are scoreable, executable behaviors. The engine evaluates candidates, scores them using a utility formula, and chooses the winning action to run.
+
+```rue
+action "offer help"
+  roles: ?SELF: agent, ?Y: agent
+  preconditions
+    knows(?SELF, ?Y)
+    ^ not hostile(?SELF, ?Y)
+  utility
+    friendship(?SELF, ?Y)
+    rule "need bonus"
+      hasNeed(?Y, _)
+      => 3.0
+  content text: "?SELF offers to help ?Y"
+  effects
+    helpful(?SELF, ?Y)
+    toward(?SELF, ?Y) += 5
+```
+
+Utility is calculated by summing numeric predicates, rules, constants, or aggregates. You can score and fetch sorted candidates by calling:
+
+```javascript
+const candidates = engine.scoreActionset('dialogue', { SELF: 'alice' });
+// [{ action, binding, score }, ...]
+```
+
+---
+
+## Actuators
+
+Actuators are special predicates used in rule or action **effects (RHS)** to trigger external side effects (e.g., UI updates, playing sound effects) rather than mutating the fact store.
+
+* **Boolean Actuators (`type: "actuator"`)**: Fired on assertion/retraction.
+* **Numeric Actuators (`type: "actuator-numeric"`)**: Fired on assignment or adjustment.
+
+```json
+"playSound": {
+  "type": "actuator",
+  "args": ["string"]
+}
+```
+
+```rue
+rule "applause on success"
+  repaired(?X, ?Y)
+  => playSound("cheer")
+```
+
+---
+
+## LLM Sensors
+
+LLM sensors evaluate truth values or numeric scores dynamically by querying a Large Language Model (such as Gemini, OpenAI, or Claude), structuring prompt generation and parsing via a standalone JavaScript logic file.
+
+```json
+"mainCharacterInMovie": {
+  "type": "sensor-llm",
+  "args": ["agent"],
+  "sensorFile": "mainCharacterInMovie.js"
+}
+```
+
+Implement the sensor file in `data/sensors/llm/mainCharacterInMovie.js`:
+
+```javascript
+export const sensorName = "mainCharacterInMovie";
+export function generatePrompt(args) {
+  return `Was the character "${args[0]}" the main character in a movie? Answer with ONLY "yes" or "no".`;
+}
+export function parseResponse(response) {
+  return response.trim().toLowerCase().startsWith('y');
+}
+```
+
+---
+
+## Bounded reach (Transitive closure)
+
+RUE supports bounded transitive closure using the `[degrees: N]` syntax to walk relationships within a fixed hop bound (evaluated via frontier BFS).
+
+```rue
+rule "friend of friend introduction"
+  knows(?SELF, ?OTHER) [degrees: 2]
+  => couldBeIntroduced(?SELF, ?OTHER)
+```
+
+* **Distance:** Attach `[dist: ?d]` to bind the shortest hop distance, e.g., `knows(?SELF, ?OTHER) [degrees: 6] [dist: ?d] ^ ?d <= 2`.
+* **Context:** Extra arguments are carried through every hop, e.g., `trades(?X, ?Y, wine) [degrees: 3]`.
+
+---
+
+## Advanced Expressions & Aggregates
+
+Query conjunctions and effects can include complex arithmetic and aggregates:
+
+* **Numeric Expressions:** Use infix operators (`+ - * /`) and math functions (`min`, `max`, `abs`, `clamp`, `pow`) on predicates, variables, or literals:
+  ```rue
+  health(?X) - health(?Y) > 10
+  ```
+* **Bare Variable Comparisons:** Perform pure filters on bound variables:
+  ```rue
+  ?SELF != ?ENEMY
+  ```
+* **Aggregates:** Reduce numeric predicates using `avg`, `sum`, `max`, or `min` over matching variables:
+  ```rue
+  avg|warmth(_, ?SELF)| > 60
+  ```
+* **Named Wildcards:** Use `_name` to join wildcards across multiple occurrences in a conjunction.
+* **Importance Weights:** Scale satisfaction scores by appending `[importance: N]` to individual premises.
 
 ---
 
