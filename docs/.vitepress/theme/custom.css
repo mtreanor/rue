@@ -1,0 +1,216 @@
+/* Re-skin of the default VitePress theme to match the action-rule-set-tool's
+   palette (tools/action-rule-set-tool/src/styles.css): warm cream ground,
+   white/charcoal surfaces, pill-radius chrome, Space Grotesk + Space Mono,
+   and the same dark terminal-green "well" for rue DSL code. Token names and
+   values below are pulled straight from that file so the two stay in sync;
+   dark mode inverts the same relationships the tool uses (shadow → hairline
+   border) rather than a separate design pass. */
+
+:root {
+  --color-bg: #efe8db;
+  --color-surface: #fbf9f4;
+  --color-surface-2: #ece6d8;
+  --color-text: #1b1a17;
+  --color-muted: #8f8878;
+  --color-muted-soft: #b8b0a0;
+  --color-border: #ded6c5;
+
+  --color-accent: #dd5b2a;
+  --color-accent-hover: #c94f21;
+  --color-accent-active: #b3441c;
+  --color-ok: #3f9488;
+  --color-warn: #c99a2e;
+  --color-err: #c94f4f;
+  --color-violet: #8b5fbf;
+
+  --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'Space Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --code-bg: #16221b;
+  --code-text: #b9f29a;
+
+  /* ── VitePress token layer ── */
+  --vp-c-bg: var(--color-bg);
+  --vp-c-bg-alt: var(--color-surface);
+  --vp-c-bg-elv: var(--color-surface);
+  --vp-c-bg-soft: var(--color-surface-2);
+
+  --vp-c-text-1: var(--color-text);
+  --vp-c-text-2: var(--color-muted);
+  --vp-c-text-3: var(--color-muted-soft);
+
+  --vp-c-border: var(--color-border);
+  --vp-c-divider: var(--color-border);
+  --vp-c-gutter: var(--color-border);
+
+  --vp-c-gray-1: var(--color-muted);
+  --vp-c-gray-2: var(--color-border);
+  --vp-c-gray-3: var(--color-surface-2);
+  --vp-c-gray-soft: color-mix(in srgb, var(--color-muted) 14%, transparent);
+
+  --vp-c-indigo-1: var(--color-accent);
+  --vp-c-indigo-2: var(--color-accent-hover);
+  --vp-c-indigo-3: var(--color-accent-active);
+  --vp-c-indigo-soft: color-mix(in srgb, var(--color-accent) 14%, transparent);
+
+  --vp-c-green-1: var(--color-ok);
+  --vp-c-green-2: color-mix(in srgb, var(--color-ok) 85%, black);
+  --vp-c-green-3: color-mix(in srgb, var(--color-ok) 70%, black);
+  --vp-c-green-soft: color-mix(in srgb, var(--color-ok) 14%, transparent);
+
+  --vp-c-yellow-1: var(--color-warn);
+  --vp-c-yellow-2: color-mix(in srgb, var(--color-warn) 85%, black);
+  --vp-c-yellow-3: color-mix(in srgb, var(--color-warn) 70%, black);
+  --vp-c-yellow-soft: color-mix(in srgb, var(--color-warn) 14%, transparent);
+
+  --vp-c-red-1: var(--color-err);
+  --vp-c-red-2: color-mix(in srgb, var(--color-err) 85%, black);
+  --vp-c-red-3: color-mix(in srgb, var(--color-err) 70%, black);
+  --vp-c-red-soft: color-mix(in srgb, var(--color-err) 14%, transparent);
+
+  --vp-c-purple-1: var(--color-violet);
+  --vp-c-purple-2: color-mix(in srgb, var(--color-violet) 85%, black);
+  --vp-c-purple-3: color-mix(in srgb, var(--color-violet) 70%, black);
+  --vp-c-purple-soft: color-mix(in srgb, var(--color-violet) 14%, transparent);
+
+  --vp-font-family-base: var(--font-sans);
+  --vp-font-family-mono: var(--mono);
+
+  --vp-code-color: var(--color-accent);
+  --vp-code-link-color: var(--color-accent);
+  --vp-code-link-hover-color: var(--color-accent-hover);
+  --vp-code-bg: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --vp-code-block-bg: var(--color-surface-2);
+
+  --vp-shadow-1: 0 1px 3px color-mix(in srgb, var(--color-text) 8%, transparent);
+  --vp-shadow-2: 0 6px 18px color-mix(in srgb, var(--color-text) 10%, transparent);
+  --vp-shadow-3: 0 12px 32px color-mix(in srgb, var(--color-text) 12%, transparent);
+  --vp-shadow-4: 0 16px 40px color-mix(in srgb, var(--color-text) 14%, transparent);
+  --vp-shadow-5: 0 20px 56px color-mix(in srgb, var(--color-text) 16%, transparent);
+
+  --vp-sidebar-bg-color: var(--color-surface);
+  --vp-nav-bg-color: var(--color-bg);
+  --vp-local-nav-bg-color: var(--color-bg);
+  --vp-input-border-color: var(--color-border);
+  --vp-input-bg-color: var(--color-surface);
+  --vp-backdrop-bg-color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-bg: #1c1a17;
+  --color-surface: #262320;
+  --color-surface-2: #2c2822;
+  --color-text: #efe9de;
+  --color-muted: #9c9484;
+  --color-muted-soft: #6f6a5c;
+  --color-border: #3a352c;
+
+  --color-accent: #e8804a;
+  --color-accent-hover: #f0955f;
+  --color-accent-active: #d97239;
+  --color-ok: #5cb0a3;
+  --color-warn: #d9ac3f;
+  --color-err: #d97676;
+  --color-violet: #a67fd6;
+
+  /* Cards read as a lighter warm-charcoal step, not a shadow — shadows barely
+     register against a dark ground, so elevation switches to a hairline
+     border plus a surface bump, same swap the tool makes. */
+  --vp-shadow-1: 0 1px 3px color-mix(in srgb, black 30%, transparent);
+  --vp-shadow-2: 0 6px 18px color-mix(in srgb, black 30%, transparent);
+  --vp-shadow-3: 0 12px 32px color-mix(in srgb, black 35%, transparent);
+  --vp-shadow-4: 0 16px 40px color-mix(in srgb, black 40%, transparent);
+  --vp-shadow-5: 0 20px 56px color-mix(in srgb, black 45%, transparent);
+}
+
+body {
+  font-optical-sizing: auto;
+}
+
+/* ── Pill-radius chrome ─────────────────────────────────────────────── */
+
+.VPButton {
+  border-radius: 999px !important;
+}
+
+.VPNavBarMenuLink,
+.VPFlyout .button,
+.VPSocialLink,
+.VPSwitchAppearance {
+  border-radius: 999px;
+}
+
+.VPNavBarMenuLink:hover,
+.VPFlyout .button:hover {
+  background-color: var(--vp-c-gray-soft);
+}
+
+.VPSidebarItem.level-0 > .item > .link {
+  border-radius: 8px;
+}
+
+.VPSidebarItem .link:hover {
+  background-color: var(--vp-c-gray-soft);
+}
+
+.VPSidebarItem.is-active > .item .text {
+  color: var(--color-accent) !important;
+  font-weight: 600;
+}
+
+/* ── Code blocks ────────────────────────────────────────────────────── */
+
+.vp-doc div[class*='language-'] {
+  border-radius: 12px;
+  border: 1px solid var(--vp-c-divider);
+}
+
+.vp-doc [class*='language-'] > button.copy {
+  border-radius: 6px;
+}
+
+/* rue DSL fences render as the tool's dark terminal-green "well" — a fixed
+   look deliberately the same in both site themes (it reads as an embedded
+   console, not a themed surface), matching --code-bg / --code-text and the
+   tool's own .rule-body / .dsl-input. Shiki bakes both a light- and a
+   dark-mode color into each token as inline vars; forcing --shiki-dark here
+   keeps tokens legible against the always-dark well regardless of site
+   theme. */
+.vp-doc div.language-rue {
+  background-color: var(--code-bg);
+  border-color: color-mix(in srgb, var(--code-text) 18%, transparent);
+}
+
+.vp-doc div.language-rue .lang {
+  color: color-mix(in srgb, var(--code-text) 60%, transparent);
+}
+
+.vp-doc div.language-rue .vp-code span {
+  color: var(--shiki-dark, inherit) !important;
+}
+
+/* ── Custom containers (::: tip, ::: warning, …) ───────────────────── */
+
+.custom-block {
+  border-radius: 12px;
+}
+
+/* ── Inline code ────────────────────────────────────────────────────── */
+
+.vp-doc :not(pre) > code {
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* ── Search / dialogs ───────────────────────────────────────────────── */
+
+.DocSearch-Button,
+.VPNavBarSearch .DocSearch-Button {
+  border-radius: 999px !important;
+}
