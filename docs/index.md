@@ -4,10 +4,10 @@ RUE (Rule Utility Engine) is a logic engine built for authorship and explainable
 
 RUE is built with a focus on:
 
-* **Authorship**: Represent ideas using high-level terms that attempt to align with an author's view of a scenario. Rules are modular and self-contained, letting developers organize logic around their own domain vocabulary.
-* **Recursive Explanations**: Trace the lineage of any fact back to its origin. Rather than just recording that a fact is true, RUE’s first-class provenance logs the specific rules, bindings, or actions that caused it. This lets you construct a full explanation tree on demand (e.g., proving *why* two agents are rivals by tracing back to the past events and rules that established their hostility).
-* **Expressive Query Language**: A declarative DSL built to support complex conditions. It provides native support for active disbelief, private epistemic stores, numeric comparison thresholds, point-in-time state checks, sequential event chains, bounded reach, and more.
-* **Configurable Logic Pipelines**: Chain rules and actions into custom execution flows. RUE scales from simple state updates and procedural content generation to complex, multi-phase loops driving nuanced and custom simulation dynamics.
+* **Authorship**: Express domain logic using high-level, human-readable rules and terms. Rule definitions are modular and self-contained, enabling developers to organize simulation behavior around domain-specific vocabularies.
+* **Recursive Explanations**: Trace the lineage of facts back to their source. The engine records provenance logs for rules, bindings, and action executions, allowing the generation of full justification trees on demand.
+* **Expressive Query Language**: Query world state using a declarative DSL that supports active disbelief, private epistemic stores, numeric thresholds, temporal history checks, bounded transitive closures, and more.
+* **Configurable Logic Pipelines**: Orchestrate rules and actions into sequential execution flows. The engine supports pipelines ranging from single-step state updates and content selection to multi-phase loops that drive recurring simulation ticks.
 
 At the behavior level, RUE is a rule-based utility actionGraph where priming rules shape action scores, selected actions mutate state, later scoring adapts to those mutations, and every step is provenance-traceable.
 

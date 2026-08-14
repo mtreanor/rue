@@ -206,7 +206,7 @@ export default function App() {
     <InsertContext.Provider value={insertApi}>
       <div className="app">
         <header className="topbar">
-          <h1>rue · action-rule-set-tool</h1>
+          <h1>RUE</h1>
           <label className="scenario-pick">
             Scenario
             <select value={scenario} onChange={e => setScenario(e.target.value)}>
