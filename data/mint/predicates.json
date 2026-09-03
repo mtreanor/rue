@@ -1,0 +1,180 @@
+{
+  "predicates": {
+    "likes": {
+      "type": "numeric",
+      "args": ["agent", "interest"],
+      "minValue": -5,
+      "maxValue": 5,
+      "default": 0
+    },
+    "annoyed-with": {
+      "type": "boolean",
+      "args": ["agent", "agent"]
+    },
+    "furious-with": {
+      "type": "boolean",
+      "args": ["agent", "agent"]
+    },
+    "siblings": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": ["agent", "agent"]
+    },
+    "friends": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": ["agent", "agent"]
+    },
+    "enemies": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": ["agent", "agent"]
+    },
+    "protective-of": {
+      "type": "boolean",
+      "args": ["agent", "agent"]
+    },
+    "enamored": {
+      "type": "boolean",
+      "args": ["agent", "agent"]
+    },
+    "friend": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 10,
+      "default": 5,
+      "tiers": {
+        "dislikes": [0, 3],
+        "average": [3, 6],
+        "likes": [6, 9],
+        "awesome": [9, 10]
+      }
+    },
+    "romance": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 10,
+      "default": 0,
+      "tiers": {
+        "not-interested": [0, 3],
+        "average": [3, 6],
+        "attracted": [6, 8],
+        "enamored": [8, 10]
+      }
+    },
+    "met": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 10,
+      "default": 0,
+      "tiers": {
+        "stranger": [0, 1],
+        "little": [1, 3],
+        "acquainted": [3, 6],
+        "lots": [6, 10]
+      }
+    },
+    "partners": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": ["agent", "agent"]
+    },
+    "coworkers": {
+      "type": "boolean",
+      "symmetric": true,
+      "args": ["agent", "agent"]
+    },
+
+    "intent-kind": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-fun": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-connection": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-romance": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-boost-status": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-duty": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-self-preservation": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-jealous": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-confront": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-bond": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    },
+    "intent-chaos": {
+      "type": "numeric",
+      "args": ["agent", "agent"],
+      "minValue": 0,
+      "maxValue": 999,
+      "default": 0,
+      "annotations": { "ephemeral": true }
+    }
+  }
+}

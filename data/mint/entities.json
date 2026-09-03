@@ -1,0 +1,41 @@
+{
+  "agent": {
+    "distinct": true,
+    "alexandra": {},
+    "aaron": {},
+    "bo": {},
+    "ben": {},
+    "brianna": {},
+    "carol": {},
+    "dusty": {},
+    "katie": {},
+    "mark-jr": {},
+    "kaya": {},
+    "mely": {},
+    "raquelle": {},
+    "elora": {}
+  },
+  "interest": {
+    "distinct": false,
+    "art": {},
+    "books": {},
+    "computers": {},
+    "movies": {},
+    "animals": {},
+    "outdoors": {},
+    "politics": {},
+    "celebrities": {},
+    "philosophy": {},
+    "science": {},
+    "plants": {},
+    "sports": {},
+    "travel": {},
+    "fitness": {},
+    "food": {},
+    "luxury": {},
+    "crime": {},
+    "fashion": {},
+    "music": {},
+    "dancing": {}
+  }
+}
