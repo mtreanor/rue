@@ -1,6 +1,6 @@
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { loadProjectConfig, configPath, resolveScenarioPaths } from './config.js';
+import { loadProjectConfig, configPath, resolveScenarioPaths } from '../../../src/server/config.js';
 import { workingPath } from './workspace.js';
 
 const NAME_RE = /^[A-Za-z_][\w-]*$/;

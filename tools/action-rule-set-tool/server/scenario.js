@@ -1,11 +1,10 @@
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { pathToFileURL } from 'url';
 import { PredicateSchema } from '../../../src/PredicateSchema.js';
 import { EntityNameValidator } from '../../../src/EntityNameValidator.js';
 import { RuleParser } from '../../../src/loader/RuleParser.js';
 import { ActionParser } from '../../../src/loader/ActionParser.js';
-import { loadProjectConfig, resolveScenarioPaths } from './config.js';
+import { loadProjectConfig, resolveScenarioPaths } from '../../../src/server/config.js';
 import { parseRuleBlocks } from './ruleFile.js';
 import { parseActionBlocks, splitActionSections } from './actionFile.js';
 
@@ -339,34 +338,4 @@ export function loadJSHooks(ctx) {
     if (m) hooks.push({ name: m[1], file });
   }
   return hooks;
-}
-
-// The other half of the hooks/ contract: actually running one. Unlike
-// loadJSHooks above (a passive regex scan, safe to run on every scenario
-// listing/reload), this dynamically import()s the file and executes its
-// top-level code — real code execution, deliberately gated to only ever
-// happen when a Play session actually starts (server/play.js), a single
-// explicit action against a scenario already being run for real, not
-// something that fires on incidental browsing or polling.
-//
-// A hook file must export both `hookName` (string) and `handler`
-// (function) for registration — `handler` is the piece loadJSHooks' static
-// scan can't discover (a regex can find a string literal, not which export
-// is "the function"), so it's a fixed, required name rather than inferred.
-// A file missing either is skipped, not treated as an error — same
-// non-fatal convention as loadJSHooks.
-export async function registerScenarioJSHooks(engine, hooksDir) {
-  if (!hooksDir) return;
-  let files;
-  try {
-    files = readdirSync(hooksDir).filter(f => f.endsWith('.js'));
-  } catch {
-    return;
-  }
-  for (const file of files) {
-    const module = await import(pathToFileURL(join(hooksDir, file)).href);
-    if (typeof module.hookName === 'string' && typeof module.handler === 'function') {
-      engine.registerJSHook(module.hookName, module.handler);
-    }
-  }
 }

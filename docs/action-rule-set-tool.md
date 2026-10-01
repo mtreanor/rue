@@ -10,13 +10,15 @@ npm run dev
 
 It reads scenarios from a `project.config.json` and edits the scenario files that config points at, in place.
 
+The tool is a front end plus a set of authoring routes; it has no server of its own. `npm run dev` starts the [RUE server](server-api.md) with those routes mounted on it (port 5174) alongside the Vite dev server (port 5173), so the Play tab drives the same sessions any other client of the server sees.
+
 See `tools/action-rule-set-tool/README.md` for full setup and usage notes.
 
 ---
 
 ## Pointing it at the right config
 
-The tool resolves its `project.config.json` in this order:
+The RUE server (and so the tool) resolves its `project.config.json` in this order:
 
 1. **`RUE_CONFIG`** — an explicit override. Set it to a `project.config.json` path (or a directory containing one):
 

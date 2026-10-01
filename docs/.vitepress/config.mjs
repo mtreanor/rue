@@ -78,6 +78,7 @@ export default defineConfig({
       {
         text: 'Tools',
         items: [
+          { text: 'RUE server', link: '/server-api' },
           { text: 'action-rule-set-tool', link: '/action-rule-set-tool' },
         ],
       },

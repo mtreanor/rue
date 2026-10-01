@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { loadProjectConfig, resolveScenarioPaths } from './config.js';
+import { loadProjectConfig, resolveScenarioPaths } from '../../../src/server/config.js';
 
 // Resolve name → shadow path for every actionGraph in a scenario. The paths from
 // resolveScenarioPaths already live inside the scenario's mirrored shadow tree,

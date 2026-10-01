@@ -1,11 +1,16 @@
-import { router } from './routes.js';
+import './env.js';
+import { Router } from 'express';
+import { router as rueRouter } from '../../../src/server/routes.js';
+import { attachPlaySession } from '../../../src/server/play.js';
+import { router as toolRouter } from './routes.js';
 import { injectEngine } from './state.js';
-import { attachPlaySession } from './play.js';
+import { installTool } from './install.js';
 
 // The embedding seam. An embedding host (the reception game server) builds ONE
 // live engine + TickPlan, calls this, and mounts the returned router on its own
-// Express app alongside its own routes. Both chokepoints where the tool would
-// otherwise build an engine from files are seeded with the host's engine
+// Express app alongside its own routes. The router carries both the RUE
+// server's Play API and the tool's authoring routes. Both chokepoints where the
+// tool would otherwise build an engine from files are seeded with the host's engine
 // instead: the State tab / inspection routes (injectEngine) and the Play session
 // (attachPlaySession). The tool therefore reads and writes the exact same engine
 // the game is driving — it "follows the same sim" because there is one sim.
@@ -21,7 +26,8 @@ import { attachPlaySession } from './play.js';
 // "reception"), so the tool's scenario-scoped routes resolve to the shared
 // engine. See reception's docs/adr/0002-shared-session-embedded-tool.md.
 export function createToolRouter({ engine, tickPlan, scenarioName }) {
+  installTool();
   injectEngine(scenarioName, engine);
   attachPlaySession(scenarioName, { engine, tickPlan });
-  return router;
+  return Router().use(rueRouter).use(toolRouter);
 }

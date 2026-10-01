@@ -6,6 +6,8 @@ The foundation of the engine. Pure symbolic reasoning with no knowledge of agent
 
 **Never credit Claude/AI in commit messages.** No `Co-Authored-By: Claude`, no `Claude-Session`, no "Generated with Claude" trailers, no attribution of any kind. Commits are authored by the human committer alone.
 
+`src/server/` is the exception: the HTTP layer that serves a running RUE (Play sessions, queries, provenance) to programs and to the authoring tool. It depends on the logic layer; nothing in the logic layer depends on it. See `docs/server-api.md`.
+
 ## Responsibilities
 
 - Store and query facts (`FactStore`, `Fact`, `FactRecord`)

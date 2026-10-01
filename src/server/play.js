@@ -1,21 +1,19 @@
 import { readFileSync, readdirSync } from 'fs';
-import { Engine } from '../../../src/Engine.js';
-import { TickPlan } from '../../../src/plan/TickPlan.js';
-import { actionGraphFromJSON } from '../../../src/plan/ActionGraphLoader.js';
-import { serializeTickTrace, serializeCandidate } from '../../../src/plan/serializeTrace.js';
-import { resolveProvenanceNode } from '../../../src/plan/provenanceResolver.js';
-import { entryStageRoles, entryStageRolesPlain } from '../../../src/plan/actionGraphRoles.js';
+import { Engine } from '../Engine.js';
+import { TickPlan } from '../plan/TickPlan.js';
+import { actionGraphFromJSON } from '../plan/ActionGraphLoader.js';
+import { serializeTickTrace, serializeCandidate } from '../plan/serializeTrace.js';
+import { resolveProvenanceNode } from '../plan/provenanceResolver.js';
+import { entryStageRoles, entryStageRolesPlain } from '../plan/actionGraphRoles.js';
 import { loadProjectConfig, resolveScenarioPaths } from './config.js';
 import { defaultTickPlanName, loadTickPlan } from './tickplans.js';
-import { loadWatches } from './watch.js';
 import {
-  onReload,
   ensureScenarioFiles,
   listFactsForEngine, listEntitiesForEngine, runQueryForEngine,
   assertFactForEngine, deleteFactForEngine,
   whyFactForEngine, explainFactForEngine,
-} from './state.js';
-import { registerScenarioJSHooks } from './scenario.js';
+} from './engineView.js';
+import { registerScenarioJSHooks } from './scenarioHooks.js';
 
 // Play mode: a live engine stepped tick by tick through the scenario's own
 // TickPlan (the `play` section of its project-config entry), recording a full
@@ -25,15 +23,12 @@ import { registerScenarioJSHooks } from './scenario.js';
 // mid-run (the runner's generator parks on an unresolved promise) until
 // /choose supplies the winner(s).
 //
-// One session per scenario, same lifecycle as state.js's engines. A session
-// goes stale when authoring edits any of the scenario's files — this module
-// subscribes to state.js's reload event (rather than state.js importing this
-// module) so state.js, which entities.js and predicates.js also depend on,
-// carries no dependency on Play; traces recorded against the old content are
-// not silently mixed with new — the UI shows a stale banner and offers reset.
+// One session per scenario. A session goes stale when authoring edits any of
+// the scenario's files — the authoring tool calls markPlaySessionsStale when
+// it does, so traces recorded against the old content are not silently mixed
+// with new; the UI shows a stale banner and offers reset.
 
 const sessions = new Map();
-onReload(name => markPlaySessionsStale(name));
 
 function deferred() {
   let resolve;
@@ -363,39 +358,6 @@ class PlaySession {
   // to grow or invalidate — a stale session just fails the next lookup, same
   // as every other Play state call.
   resolveProvenance(address) { return resolveProvenanceNode(this.engine, address); }
-
-  // A scenario declares `watches` in data/<scenario>/tool/watches.json:
-  // named, always-on queries (label + DSL text) re-run against this
-  // session's live engine — "who's in which group," "what's each group's
-  // active topic," and so on, rendered generically by the Play tab's left
-  // sidebar via the same PredicateView/explain machinery every fact row
-  // already uses (see PlayWatchSidebar.jsx). Nothing scenario-specific
-  // lives in the tool itself — a watch is just a query the scenario author
-  // wrote, the same way a rule or an action is. Read fresh from disk on
-  // every call (not cached on the session) so a watch created or deleted
-  // mid-session shows up on the next poll without a session reset.
-  //
-  // `tickBound`, when set on a watch, pre-binds that query variable to the
-  // session's current tick — e.g. `{ query: "judged(?J, ?O) [when: ?t]",
-  // tickBound: "t" }` becomes "judged this tick, exactly," not "ever judged."
-  // Plain pass-through into engine.query()'s existing partialBinding
-  // mechanism (runQueryForEngine), not a new query feature.
-  runWatches() {
-    const watches = loadWatches(this.scenarioName);
-    const tick    = this.engine.world.tickTracker.currentTick;
-    return watches.map(watch => {
-      const partialBinding = watch.tickBound ? { [watch.tickBound]: tick } : {};
-      // label/query/kind pass straight through from the config — the client
-      // needs `query` itself (WatchCard derives the predicate name from it
-      // to render each row) and `kind` (routes 'judgements' watches to the
-      // rollup component), not just this run's results.
-      return {
-        label: watch.label, query: watch.query, kind: watch.kind ?? null,
-        details: watch.details,
-        ...runQueryForEngine(this.engine, watch.query, null, partialBinding, { includeValues: true }),
-      };
-    });
-  }
 
   _serializeRequest(request) {
     // One shared registry across every candidate in this request, same

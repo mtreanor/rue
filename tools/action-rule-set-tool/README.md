@@ -5,9 +5,14 @@ repo's `project.config.json` and provides tabs for **inspecting, searching, and
 editing** rules and actions, **browsing world state**, **browsing actionGraphs**, and
 **running scenarios interactively** in Play mode.
 
-The backend imports RUE's own `RuleParser`, `RuleLoader`, `RuleSerializer`, and
-`RuleCycleDetector` directly from `../../src`, so parsing, validation, and cycle
-detection always match the engine — there is no second implementation to drift.
+The tool has no server of its own. Its `server/` folder holds only the
+authoring routes (file editing, validation, search, Tune, watches, the shadow
+workspace), which it mounts onto the RUE server in `../../src/server/` — one
+process, one port. Play sessions, queries, and provenance are the RUE server's
+own API (see `docs/server-api.md`). The authoring routes import RUE's own
+`RuleParser`, `RuleLoader`, `RuleSerializer`, and `RuleCycleDetector` directly
+from `../../src`, so parsing, validation, and cycle detection always match the
+engine — there is no second implementation to drift.
 
 ## Running
 
@@ -17,10 +22,10 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts the API (port 5174) and the Vite dev server (port 5173)
-together. Open http://localhost:5173.
+`npm run dev` starts the RUE server with the tool's routes mounted (port 5174)
+and the Vite dev server (port 5173) together. Open http://localhost:5173.
 
-- `npm run server` — API only
+- `npm run server` — the RUE server with the tool's routes, no front end
 - `npm run build` / `npm run preview` — production frontend build
 
 The tool edits the scenario's rule files **in place** on disk. It only rewrites
@@ -70,7 +75,9 @@ app.use('/tool/api', createToolRouter({ engine, tickPlan, scenarioName: 'recepti
 
 `createToolRouter` seeds both places the tool would otherwise build an engine —
 the State/inspection routes and the Play session — with the host's engine, and
-returns the normal API router. The host keeps ownership of the engine, its JS
+returns one router carrying both the RUE server's Play API and the tool's
+authoring routes. A host that also needs the session object itself imports
+`getPlaySession` from `src/server/play.js`. The host keeps ownership of the engine, its JS
 hooks, and the tick clock; the tool is a guest driver/inspector. A **rule** edit
 then hot-reloads straight into that live engine (`Engine.reloadRules`, no
 rebuild); schema/actionset edits still fall back to a rebuild. Serve the built

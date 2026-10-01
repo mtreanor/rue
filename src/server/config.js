@@ -2,28 +2,29 @@ import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from 'fs
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
-import { workingPath } from './workspace.js';
 
-// tools/action-rule-set-tool/server → the RUE repo root is three levels up. This is
-// used for RUE-shipped assets (the engine in src/, the TextMate grammar) and
-// is fixed regardless of where the project config lives.
-export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const toolRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// src/server → the RUE repo root is two levels up. Used for RUE-shipped assets
+// and for locating RUE's own project config; fixed regardless of where the
+// project config lives.
+export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// Optional local .env (gitignored) so a submodule host can persist RUE_CONFIG
-// without editing tracked files. Only KEY=VALUE lines; existing env wins.
-(function loadDotEnv() {
-  const envPath = join(toolRoot, '.env');
-  if (!existsSync(envPath)) return;
-  for (const line of readFileSync(envPath, 'utf-8').split('\n')) {
-    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
-    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
-})();
+// Where the server reads scenario files from. By default, the real files on
+// disk. A host can install a resolver that redirects reads — the authoring
+// tool installs its shadow workspace here, so Play sessions run its staged,
+// unsaved edits. Every scenario path and the project config go through it.
+let pathResolver = (realPath) => realPath;
+
+export function setPathResolver(fn) {
+  pathResolver = fn;
+}
+
+export function resolveReadPath(realPath) {
+  return realPath ? pathResolver(realPath) : realPath;
+}
 
 // When RUE is vendored as a git submodule, the host repo's working tree is its
 // "superproject". If that host has a project.config.json, it's the one the user
-// means — so the tool discovers it automatically, no configuration needed.
+// means — so the server discovers it automatically, no configuration needed.
 // Returns null when RUE is standalone or the host has no config.
 function superprojectConfig() {
   try {
@@ -69,26 +70,27 @@ export function loadProjectConfig() {
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, JSON.stringify(empty, null, 2) + '\n');
   }
-  // Read the config through the shadow so `+ set` edits stay staged too. The
-  // real configPath is still used for resolving relative scenario paths below.
-  return JSON.parse(readFileSync(workingPath(configPath), 'utf-8'));
+  // Read the config through the path resolver so the tool's staged config
+  // edits are seen too. The real configPath is still used for resolving
+  // relative scenario paths below.
+  return JSON.parse(readFileSync(resolveReadPath(configPath), 'utf-8'));
 }
 
 // Resolve every path a scenario references, relative to the config's directory.
 // Scenario entries are now a single directory string; all standard files are
 // derived by convention.
 //
-// The scenario directory is mirrored into the shadow workspace as a whole tree
-// (workingPath copies it recursively on first touch), and every per-file path
-// is derived by joining onto that mirrored tree — NOT by mirroring each file as
-// its own separate flat entry. That single representation is what keeps edits
-// consistent: an edit to predicates.json / state / a ruleset and the directory
-// scans that list them all read and write the exact same shadow file, so a
-// saved change never lingers as "pending" and a newly created file is
-// immediately visible to the scans that enumerate rulesets and actionGraphs.
+// The scenario directory is resolved as a whole tree (through the path
+// resolver — under the authoring tool, its shadow copies the directory
+// recursively on first touch), and every per-file path is derived by joining
+// onto that one tree, NOT by resolving each file separately. That single
+// representation is what keeps edits consistent: an edit to predicates.json /
+// state / a ruleset and the directory scans that list them all read and write
+// the exact same file, so a newly created file is immediately visible to the
+// scans that enumerate rulesets and actionGraphs.
 export function resolveScenarioPaths(scenario) {
   const realDir = resolve(configDir, typeof scenario === 'string' ? scenario : scenario.dir ?? '');
-  const dir = workingPath(realDir);      // the shadow tree root for this scenario
+  const dir = resolveReadPath(realDir);  // the (possibly shadowed) tree root for this scenario
   const sub = (name) => join(dir, name); // every file lives inside that one tree
   return {
     dir,

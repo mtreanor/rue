@@ -3,7 +3,15 @@
   "version": "0.1.0",
   "type": "module",
   "description": "A logic engine built for authorship and explainable simulation",
-  "keywords": ["logic", "rules", "social-simulation", "datalog", "predicate", "game-ai", "narrative"],
+  "keywords": [
+    "logic",
+    "rules",
+    "social-simulation",
+    "datalog",
+    "predicate",
+    "game-ai",
+    "narrative"
+  ],
   "author": "Mike Treanor (https://mtreanor.com)",
   "license": "MIT",
   "repository": {
@@ -20,6 +28,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "server": "node src/server/main.js",
     "tool": "npm run --prefix tools/action-rule-set-tool start",
     "tool:dev": "npm run --prefix tools/action-rule-set-tool dev",
     "demo": "node src/repl.js",
@@ -34,5 +43,8 @@
   "devDependencies": {
     "markdown-it-mathjax3": "^4.3.2",
     "vitepress": "^1.6.4"
+  },
+  "dependencies": {
+    "express": "^4.22.3"
   }
 }

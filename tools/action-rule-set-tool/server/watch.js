@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { loadProjectConfig, resolveScenarioPaths } from './config.js';
+import { loadProjectConfig, resolveScenarioPaths } from '../../../src/server/config.js';
+import { runQueryForEngine } from '../../../src/server/engineView.js';
 
 // A scenario's Play-mode "watches" — named, always-on queries (label + DSL
 // text, optionally pinned to the current tick) shown in Play's left sidebar.
@@ -71,3 +72,34 @@ export function deleteWatch(scenarioName, { label }) {
   if (!watches.some(v => v.label === label)) throw new Error(`Unknown watch "${label}"`);
   return saveWatches(scenarioName, watches.filter(v => v.label !== label));
 }
+
+// Re-run a scenario's watches against a Play session's live engine — named,
+// always-on queries ("who's in which group," "what's each group's active
+// topic") rendered generically by the Play tab's left sidebar via the same
+// PredicateView/explain machinery every fact row already uses (see
+// PlayWatchSidebar.jsx). Read fresh from disk on every call (not cached on the
+// session) so a watch created or deleted mid-session shows up on the next poll
+// without a session reset.
+//
+// `tickBound`, when set on a watch, pre-binds that query variable to the
+// session's current tick — e.g. `{ query: "judged(?J, ?O) [when: ?t]",
+// tickBound: "t" }` becomes "judged this tick, exactly," not "ever judged."
+// Plain pass-through into engine.query()'s existing partialBinding
+// mechanism (runQueryForEngine), not a new query feature.
+export function runWatches(session) {
+  const watches = loadWatches(session.scenarioName);
+  const tick    = session.engine.world.tickTracker.currentTick;
+  return watches.map(watch => {
+    const partialBinding = watch.tickBound ? { [watch.tickBound]: tick } : {};
+    // label/query/kind pass straight through from the config — the client
+    // needs `query` itself (WatchCard derives the predicate name from it to
+    // render each row) and `kind` (routes 'judgements' watches to the rollup
+    // component), not just this run's results.
+    return {
+      label: watch.label, query: watch.query, kind: watch.kind ?? null,
+      details: watch.details,
+      ...runQueryForEngine(session.engine, watch.query, null, partialBinding, { includeValues: true }),
+    };
+  });
+}
+

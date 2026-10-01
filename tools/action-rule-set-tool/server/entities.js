@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
-import { loadProjectConfig, resolveScenarioPaths } from './config.js';
+import { loadProjectConfig, resolveScenarioPaths } from '../../../src/server/config.js';
 import { reloadStateEngine } from './state.js';
 
 // Entity-definition CRUD. Unlike the runtime fact edits (in-memory), these
