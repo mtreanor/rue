@@ -116,10 +116,11 @@ function numericNode(engine, name, args, owner, tick) {
 // {kind:'adjustment-source', tick, eventIndex} — re-resolved against the
 // engine's own retained history on drill, per this module's stateless design.
 //
-// Ephemeral numerics (judge-<reading> impulses, wiped every tick) can't use
-// that: by the time the record is drilled, the live engine has no history
-// left to look up (reproduced directly — drilling a past-tick judgement's
-// rule contributor 400s with "No numeric event #N for judge-kind(...)",
+// Ephemeral numerics (judgementImpulse(agent, occurrence, reading) impulses,
+// wiped every tick) can't use that: by the time the record is drilled, the
+// live engine has no history left to look up (reproduced directly —
+// drilling a past-tick judgement's rule contributor 400s with "No numeric
+// event #N for judgementImpulse(a, o, kind)",
 // since getRecord/eventIndex finds nothing once the tick that created it has
 // passed). The event's own provenance is right here, though, and rules/
 // actions are durable *definitions* — resolving one by name+binding doesn't

@@ -149,7 +149,7 @@ export default function ActionEditor({
         <DslInput
           value={utility} onChange={setUtility} predicates={predicates} entityNames={entityNames}
           multiline rows={3} insertMode="cursor" primary highlighter={highlighter}
-          placeholder={'0.5\nengagement-wait(?SELF)'}
+          placeholder={'0.5\nengagement(?SELF, wait)'}
         />
       </label>
 
