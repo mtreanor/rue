@@ -8,7 +8,7 @@ import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
 import { appendAction, replaceAction, deleteAction } from './actionFile.js';
 import { listFacts, listEntities, runStateQuery, assertFact, deleteFact, whyFact, explainFact, reloadStateEngine, clearStateEngines, stateTick, stateDegree, stateRulesets, stateRules, stateActionsets, stateActions, stateRun, stateScore, stateSelect, hotReloadRuleset, embeddedScenarios } from './state.js';
 import { getPlaySession } from '../../../src/server/play.js';
-import { listActionGraphs, saveActionGraph, deleteActionGraph } from './actiongraphs.js';
+import { listActionGraphs, saveActionGraph, deleteActionGraph } from './actionGraphs.js';
 import { listTickPlans, loadTickPlan } from '../../../src/server/tickplans.js';
 import { saveTickPlan, createTickPlan } from './tickplans.js';
 import { listWatches, createWatch, updateWatch, deleteWatch, runWatches } from './watch.js';
