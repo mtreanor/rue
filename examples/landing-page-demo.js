@@ -10,14 +10,7 @@ import { Engine } from '../src/Engine.js';
 
 const dataDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'landing-page-demo');
 
-const engine = new Engine({
-  predicates:  join(dataDir, 'predicates.json'),
-  entities:    join(dataDir, 'entities.json'),
-  state:       join(dataDir, 'state'),
-  definitions: join(dataDir, 'definitions'),
-  rulesets:    { main: join(dataDir, 'rules') },
-  actionsets:  { social: join(dataDir, 'actions') },
-});
+const engine = new Engine(dataDir);
 
 const FACT = 'friendship(carol, alice)';
 const rules = engine.rulesets.get('main');

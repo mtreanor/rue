@@ -40,20 +40,21 @@ writeFileSync(join(dir, 'entities.json'), JSON.stringify({
 writeFileSync(join(dir, 'state'), 'world\nknows(alice, bob)\nknows(bob, carol)\nknows(carol, alice)\n');
 
 writeFileSync(join(dir, 'actions'), `
-  action "give"
-    roles: ?SELF: agent, ?Y: agent
-    preconditions knows(?SELF, ?Y)
-    effects
-      record(?occ)
-      helped(?SELF, ?Y)
+  actionset "social"
+    action "give"
+      roles: ?SELF: agent, ?Y: agent
+      preconditions knows(?SELF, ?Y)
+      effects
+        record(?occ)
+        helped(?SELF, ?Y)
 
-  action "reluctant give"
-    roles: ?SELF: agent, ?Y: agent
-    preconditions knows(?SELF, ?Y)
-    effects
-      record(?occ)
-      helped(?SELF, ?Y)
-      reluctant(?occ)
+    action "reluctant give"
+      roles: ?SELF: agent, ?Y: agent
+      preconditions knows(?SELF, ?Y)
+      effects
+        record(?occ)
+        helped(?SELF, ?Y)
+        reluctant(?occ)
 `);
 
 const engine = new Engine({

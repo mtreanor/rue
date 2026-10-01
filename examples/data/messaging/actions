@@ -2,20 +2,21 @@
 #   introduce — A, who knows both B and C, makes B acquainted with C
 #   deliver   — A hands its message to someone A knows, then no longer has it
 
-action "introduce"
-  roles: ?A, ?B, ?C
-  preconditions
-    knows(?A, ?B)
-    ^ knows(?A, ?C)
-    ^ not knows(?B, ?C)
-  effects
-    knows(?B, ?C)
+actionset "messaging"
+  action "introduce"
+    roles: ?A: agent, ?B: agent, ?C: agent
+    preconditions
+      knows(?A, ?B)
+      ^ knows(?A, ?C)
+      ^ not knows(?B, ?C)
+    effects
+      knows(?B, ?C)
 
-action "deliver"
-  roles: ?A, ?B
-  preconditions
-    hasMessage(?A)
-    ^ knows(?A, ?B)
-  effects
-    messageDelivered(?A, ?B)
-    not hasMessage(?A)
+  action "deliver"
+    roles: ?A: agent, ?B: agent
+    preconditions
+      hasMessage(?A)
+      ^ knows(?A, ?B)
+    effects
+      messageDelivered(?A, ?B)
+      not hasMessage(?A)

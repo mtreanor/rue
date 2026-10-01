@@ -2,32 +2,33 @@
 # ?this_action refers to the action being defined, so each declaration reads exactly
 # like the query that would later find it.
 
-action "give"
-  roles: ?SELF, ?Y
-  info:
-    tag(?this_action, generous)
-    tag(?this_action, social)
-    tag(?this_action, reversible)
-    targets(?this_action, agent)
-  preconditions
-    knows(?SELF, ?Y)
-  effects
-    gave(?SELF, ?Y)
+actionset "social"
+  action "give"
+    roles: ?SELF: agent, ?Y: agent
+    info:
+      tag(?this_action, generous)
+      tag(?this_action, social)
+      tag(?this_action, reversible)
+      targets(?this_action, agent)
+    preconditions
+      knows(?SELF, ?Y)
+    effects
+      gave(?SELF, ?Y)
 
-action "share a kind word"
-  roles: ?SELF, ?Y
-  info:
-    tag(?this_action, social)
-    targets(?this_action, agent)
-  preconditions
-    knows(?SELF, ?Y)
-  effects
-    helped(?SELF, ?Y)
+  action "share a kind word"
+    roles: ?SELF: agent, ?Y: agent
+    info:
+      tag(?this_action, social)
+      targets(?this_action, agent)
+    preconditions
+      knows(?SELF, ?Y)
+    effects
+      helped(?SELF, ?Y)
 
-action "insult"
-  roles: ?SELF, ?Y
-  info:
-    tag(?this_action, aggressive)
-    targets(?this_action, agent)
-  effects
-    helped(?SELF, ?Y)
+  action "insult"
+    roles: ?SELF: agent, ?Y: agent
+    info:
+      tag(?this_action, aggressive)
+      targets(?this_action, agent)
+    effects
+      helped(?SELF, ?Y)
