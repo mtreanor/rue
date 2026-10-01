@@ -39,7 +39,7 @@ Predicate names must not collide with entity type names or entity instance names
 |------|-------------|
 | `boolean` | Currently true or false. Stored in a fact store. Supports explicit negation. |
 | `derived` | Computed at query time via backward chaining. Never stored as a fact. |
-| `numeric` | A continuous value in `[minValue, maxValue]`, queryable by named tier or direct comparison. |
+| `numeric` | A continuous value in `[minValue, maxValue]`, queryable by named tier or direct comparison. `minValue`, `maxValue` and `default` are optional: an omitted bound leaves that side unbounded, and an omitted default is `0`. |
 | `sensor` | Boolean truth computed on demand by application-layer code. Never stored. |
 | `sensor-numeric` | Numeric value computed on demand by application-layer code. Never stored. Queryable by tier and comparison. |
 | `sensor-llm` | Boolean truth evaluated by an LLM prompt. Never stored. Prompt/response history captured in provenance. |

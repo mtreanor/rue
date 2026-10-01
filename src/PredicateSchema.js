@@ -64,12 +64,14 @@ export class PredicateSchema {
 
   // --- Numeric predicate helpers ---
 
+  // A numeric predicate with no declared default starts at 0.
   getDefault(name) {
-    return this.definitions.get(name).default;
+    return this.definitions.get(name).default ?? 0;
   }
 
+  // An omitted minValue or maxValue leaves that side unbounded.
   clamp(name, value) {
-    const { minValue, maxValue } = this.definitions.get(name);
+    const { minValue = -Infinity, maxValue = Infinity } = this.definitions.get(name);
     return Math.min(maxValue, Math.max(minValue, value));
   }
 

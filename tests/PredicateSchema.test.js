@@ -19,6 +19,8 @@ const schemaData = {
       },
     },
     knows: { type: 'boolean', args: ['agent', 'agent'] },
+    urge: { type: 'numeric', args: ['agent'] },
+    floor: { type: 'numeric', args: ['agent'], minValue: 0 },
   },
 };
 
@@ -46,6 +48,26 @@ describe('PredicateSchema', () => {
 
     it('clamps values above maxValue to maxValue', () => {
       assert.equal(schema.clamp('friendship', 110), 100);
+    });
+
+    it('leaves values unbounded when minValue and maxValue are omitted', () => {
+      assert.equal(schema.clamp('urge', 1e9), 1e9);
+      assert.equal(schema.clamp('urge', -1e9), -1e9);
+    });
+
+    it('bounds only the declared side', () => {
+      assert.equal(schema.clamp('floor', -3), 0);
+      assert.equal(schema.clamp('floor', 1e9), 1e9);
+    });
+  });
+
+  describe('getDefault', () => {
+    it('defaults to 0 when no default is declared', () => {
+      assert.equal(schema.getDefault('urge'), 0);
+    });
+
+    it('returns the declared default', () => {
+      assert.equal(schema.getDefault('friendship'), 50);
     });
   });
 
