@@ -59,17 +59,43 @@ export function defineTextByPredicate(scenario) {
   return out;
 }
 
-// Replace every define block concluding predName with the given text (or drop
-// them when text is empty). Preserves all other blocks verbatim.
+// Replace the define blocks concluding predName with the given text (or drop
+// them when text is empty). Edits the file in place: the first matching block's
+// lines become the new text, later matches are cut out, and every other line —
+// other blocks, section comments, blank-line spacing — is left as written. With
+// no matching block, the new text is appended.
 function setDefineBlocks(scenario, predName, defineText) {
   const defPath = paths(scenario).definitions;
   if (!defPath) throw new Error(`Scenario "${scenario}" has no definitions file for derived predicates`);
   const text = existsSync(defPath) ? readFileSync(defPath, 'utf-8') : '';
-  const kept = parseBlocks(text, 'define')
-    .filter(b => conclusionOf(b.bodyText ?? b.blockText) !== predName)
-    .map(b => b.blockText.trimEnd());
-  if (defineText && defineText.trim()) kept.push(defineText.trim());
-  writeFileSync(defPath, kept.length ? kept.join('\n\n') + '\n' : '');
+  const replacement = defineText && defineText.trim() ? defineText.trim() : null;
+  const updated = spliceDefineBlocks(text, predName, replacement);
+  if (updated !== text) writeFileSync(defPath, updated);
+}
+
+// The file text with predName's define blocks replaced by `replacement` (or
+// removed when it is null). Each removed block takes the blank lines after it,
+// so cutting a block doesn't leave a double gap.
+function spliceDefineBlocks(text, predName, replacement) {
+  const lines = text.split('\n');
+  const matches = parseBlocks(text, 'define').filter(b => conclusionOf(b.bodyText ?? b.blockText) === predName);
+  if (matches.length === 0) {
+    if (replacement === null) return text;
+    const body = text.replace(/\s+$/, '');
+    return (body ? `${body}\n\n` : '') + replacement + '\n';
+  }
+  // Work bottom-up so earlier line indices stay valid.
+  for (let m = matches.length - 1; m >= 0; m--) {
+    const { commentStart, endLine } = matches[m];
+    if (m === 0 && replacement !== null) {
+      lines.splice(commentStart, endLine - commentStart + 1, ...replacement.split('\n'));
+      continue;
+    }
+    let end = endLine + 1;
+    while (end < lines.length - 1 && /^\s*$/.test(lines[end])) end++;
+    lines.splice(commentStart, end - commentStart);
+  }
+  return lines.join('\n');
 }
 
 function num(v, fallback) {
@@ -77,11 +103,19 @@ function num(v, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-// Assemble a predicates.json entry from the editor's config.
-function buildDef({ type, args, config = {} }) {
+// Keys the predicate editor owns. Any other key on an existing entry (such as
+// privateFallback) is not shown in the editor and is carried through on save.
+const EDITOR_KEYS = new Set(['type', 'symmetric', 'args', 'minValue', 'maxValue', 'default', 'tiers', 'singleValued', 'annotations', 'app', 'toString']);
+
+// Assemble a predicates.json entry from the editor's config. `existing` is the
+// entry being edited ({} for a new predicate): its keys keep their order, and
+// keys and annotations the editor doesn't manage are kept.
+function buildDef({ type, args, config = {} }, existing = {}) {
   const def = { type };
   if (type === 'boolean' && config.symmetric) def.symmetric = true;
   def.args = args;
+  // The editor manages only the ephemeral annotation, and only for numerics.
+  const annotations = { ...existing.annotations };
   if (NUMERIC.has(type)) {
     def.minValue = num(config.minValue, 0);
     def.maxValue = num(config.maxValue, 100);
@@ -89,8 +123,10 @@ function buildDef({ type, args, config = {} }) {
     const tiers = config.tiers ?? {};
     if (Object.keys(tiers).length) def.tiers = tiers;
     // Ephemeral numerics are wiped at the start of every tick (Engine.advanceTick).
-    if (config.ephemeral) def.annotations = { ...def.annotations, ephemeral: true };
+    if (config.ephemeral) annotations.ephemeral = true;
+    else delete annotations.ephemeral;
   }
+  if (Object.keys(annotations).length) def.annotations = annotations;
   if (Array.isArray(config.singleValued) && config.singleValued.length) def.singleValued = config.singleValued;
   // Arbitrary host-application data (PredicateModal's "App data" field) —
   // opaque to rue, carried through verbatim. Already a parsed JS value by the
@@ -101,7 +137,19 @@ function buildDef({ type, args, config = {} }) {
   // `toString` (docs/schema.md#tostring). The editor sends them as textTemplates.
   const templates = Object.entries(config.textTemplates ?? {}).filter(([key]) => key.trim());
   if (templates.length) def.toString = Object.fromEntries(templates.map(([key, text]) => [key.trim(), text]));
-  return def;
+  for (const [key, value] of Object.entries(existing)) {
+    if (!EDITOR_KEYS.has(key)) def[key] = value;
+  }
+  return inExistingOrder(def, existing);
+}
+
+// Reorder def's keys to follow existing's, so a save rewrites only what
+// changed; keys existing lacks go after, in def's own order.
+function inExistingOrder(def, existing) {
+  const ordered = {};
+  for (const key of Object.keys(existing)) if (Object.hasOwn(def, key)) ordered[key] = def[key];
+  for (const key of Object.keys(def)) if (!Object.hasOwn(ordered, key)) ordered[key] = def[key];
+  return ordered;
 }
 
 function validate(name, type, args) {
@@ -146,8 +194,11 @@ export function editPredicate(scenario, { oldName, name, type, args = [], config
   if (!data.predicates[oldName]) throw new Error(`Unknown predicate "${oldName}"`);
   if (name !== oldName && data.predicates[name]) throw new Error(`Predicate "${name}" already exists`);
   transaction(scenario, () => {
-    delete data.predicates[oldName];
-    data.predicates[name] = buildDef({ type, args, config });
+    // Rebuilt rather than deleted and re-added, so the entry keeps its place
+    // in predicates.json (under its new name, if renamed).
+    const edited = buildDef({ type, args, config }, data.predicates[oldName]);
+    data.predicates = Object.fromEntries(Object.entries(data.predicates).map(
+      ([key, def]) => key === oldName ? [name, edited] : [key, def]));
     writeSchema(scenario, data);
     if (name !== oldName) removeDefineBlocks(scenario, oldName);
     if (type === 'derived') setDefineBlocks(scenario, name, define);
@@ -170,8 +221,7 @@ export function deletePredicate(scenario, { name }) {
 function removeDefineBlocks(scenario, predName) {
   const defPath = paths(scenario).definitions;
   if (!defPath || !existsSync(defPath)) return;
-  const kept = parseBlocks(readFileSync(defPath, 'utf-8'), 'define')
-    .filter(b => conclusionOf(b.bodyText ?? b.blockText) !== predName)
-    .map(b => b.blockText.trimEnd());
-  writeFileSync(defPath, kept.length ? kept.join('\n\n') + '\n' : '');
+  const text = readFileSync(defPath, 'utf-8');
+  const updated = spliceDefineBlocks(text, predName, null);
+  if (updated !== text) writeFileSync(defPath, updated);
 }
