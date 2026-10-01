@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { loadScenarioContext, listScenarios, schemaForClient, loadRulesets, loadActionsets, loadJSHooks, findSetFile } from './scenario.js';
+import { loadScenarioContext, listScenarios, schemaForClient, loadRulesets, loadActionsets, loadJSHooks, findSetFile, findActionFile } from './scenario.js';
 import { buildQueryMatchers, ruleDescriptors, matchAll } from './matcher.js';
 import { validateRule, validateAction } from './validate.js';
 import { appendRule, replaceRule, deleteRule } from './ruleFile.js';
@@ -390,7 +390,7 @@ router.post('/action', h((req, res) => {
 router.put('/action', h((req, res) => {
   const { scenario, actionset, originalName, name, comment, roles, info, preconditions, utility, content, effects } = req.body;
   const ctx = loadScenarioContext(scenario);
-  const actionsetPath = requireActionsetPath(ctx, actionset);
+  const actionsetPath = requireActionFilePath(ctx, actionset, originalName);
 
   const result = validateAction({ ctx, name, comment, roles, info, preconditions, utility, content, effects });
   if (!result.ok) return res.status(400).json({ error: 'Validation failed', ...result });
@@ -402,14 +402,26 @@ router.put('/action', h((req, res) => {
 router.delete('/action', h((req, res) => {
   const { scenario, actionset, name } = req.body;
   const ctx = loadScenarioContext(scenario);
-  const actionsetPath = requireActionsetPath(ctx, actionset);
+  const actionsetPath = requireActionFilePath(ctx, actionset, name);
   deleteAction(actionsetPath, name);
   res.json({ ok: true });
 }));
 
+// Create has no existing block to locate, so any file declaring the
+// actionset is a fine home for a brand-new action.
 function requireActionsetPath(ctx, actionset) {
   const path = findSetFile(ctx.paths.dir, 'actionset', actionset);
   if (!path) throw new Error(`Scenario "${ctx.name}" has no actionset named "${actionset}"`);
+  return path;
+}
+
+// Edit/delete target an existing action, which has to be found in whichever
+// file actually contains it — an actionset name can span several files (see
+// loadActionsets/findActionFile in scenario.js), so "any file declaring this
+// actionset" (requireActionsetPath, above) isn't good enough here.
+function requireActionFilePath(ctx, actionset, actionName) {
+  const path = findActionFile(ctx.paths.dir, actionset, actionName);
+  if (!path) throw new Error(`Scenario "${ctx.name}" has no action "${actionName}" in actionset "${actionset}"`);
   return path;
 }
 

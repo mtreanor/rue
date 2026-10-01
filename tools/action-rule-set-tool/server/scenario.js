@@ -259,7 +259,20 @@ export function parseActionBlock(actionParser, block) {
 
 // Load every action from a scenario's actionsets, as blocks enriched with
 // parse output and the raw section text the editor prefills on Edit.
-// Returns [{ name, path, folder, actions: [...], fileError }].
+// Returns [{ name, path, paths, folder, actions: [...], fileError }].
+//
+// An actionset name can be declared across several files — rue's own
+// Engine.loadActions/addActionset merges same-named actionsets at runtime
+// (individual-acts.rue and social-acts.rue both declare `actionset
+// "social-acts"`, and the simulation sees all of their actions as one set).
+// This has to merge the same way: each file's actions are appended onto the
+// shared byName entry, not written over it, or whichever file the directory
+// scan reaches last would silently hide every other file's actions from the
+// tool while the engine itself still runs them fine. `path`/`folder` are
+// kept (first file seen) for whatever already reads them; `paths` lists
+// every contributing file. Each action also carries its own `path` — needed
+// so edit/delete can find the actual file a given action lives in (see
+// findActionFile below) rather than assuming one file per actionset name.
 export function loadActionsets(ctx) {
   if (!ctx.paths.dir) return [];
   const byName = new Map();
@@ -285,11 +298,21 @@ export function loadActionsets(ctx) {
     const actionsetBlocks = parseActionsetBlocks(text);
     for (const { asName, bodyText } of actionsetBlocks) {
       const blocks = fileError ? [] : parseActionBlocks(bodyText);
-      const actions = blocks.map((b, i) => {
+      let entry = byName.get(asName);
+      if (!entry) {
+        entry = { name: asName, path: filePath, paths: [], folder, actions: [], fileError: null };
+        byName.set(asName, entry);
+      }
+      entry.paths.push(filePath);
+      entry.fileError = entry.fileError || fileError;
+      for (const b of blocks) {
         const { parsed, parseError } = parseActionBlock(ctx.actionParser, b);
-        return {
-          id: `${asName}::${i}`,
+        // id/index count across every contributing file, not just this one,
+        // so merged actions still get unique ids.
+        entry.actions.push({
+          id: `${asName}::${entry.actions.length}`,
           actionset: asName,
+          path: filePath,
           name: b.name,
           comment: b.comment,
           bodyText: b.bodyText,
@@ -300,12 +323,39 @@ export function loadActionsets(ctx) {
           sections: splitActionSections(b.bodyText),
           parsed,
           parseError,
-        };
-      });
-      byName.set(asName, { name: asName, path: filePath, folder, actions, fileError });
+        });
+      }
     }
   }
   return [...byName.values()];
+}
+
+// Find the specific file that contains a named action's block, scoped to
+// files declaring the given actionset — needed because loadActionsets above
+// (and the real rue engine) can spread one actionset across several files.
+// findSetFile's "first file that declares this actionset name" answers a
+// different question and isn't reliable here: for "social-acts" it resolves
+// to individual-acts.rue (alphabetically first), which doesn't contain
+// create-topic/change-topic/contribute-to-topic/challenge-topic at all —
+// editing or deleting any of those would fail with "no action found in
+// file" even though the action plainly exists. Used by edit/delete, which
+// have an existing block to locate; create still uses findSetFile, since a
+// brand-new action has no existing block to find a home for.
+export function findActionFile(dir, actionsetName, actionName) {
+  if (!dir) return null;
+  try {
+    for (const file of scanRueFiles(dir)) {
+      if (file.endsWith('definitions.rue')) continue;
+      const text = readFileSync(file, 'utf-8');
+      for (const { asName, bodyText } of parseActionsetBlocks(text)) {
+        if (asName !== actionsetName) continue;
+        if (parseActionBlocks(bodyText).some(b => b.name === actionName)) return file;
+      }
+    }
+  } catch {
+    // directory missing etc.
+  }
+  return null;
 }
 
 // Load every JS hook registered under a scenario's hooks/ directory —
