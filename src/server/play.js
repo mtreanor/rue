@@ -11,7 +11,7 @@ import {
   ensureScenarioFiles,
   listFactsForEngine, listEntitiesForEngine, runQueryForEngine,
   assertFactForEngine, deleteFactForEngine,
-  whyFactForEngine, explainFactForEngine,
+  whyFactForEngine, explainFactForEngine, templatesForEngine,
 } from './engineView.js';
 import { registerScenarioJSHooks } from './scenarioHooks.js';
 
@@ -350,6 +350,8 @@ class PlaySession {
   assertFact(text)          { return assertFactForEngine(this.engine, text); }
   deleteFact(fact)          { return deleteFactForEngine(this.engine, fact); }
   whyFact(fact)             { return whyFactForEngine(this.engine, fact); }
+  renderFacts(template, owner) { return this.engine.renderFacts(template, { owner }); }
+  templates()               { return templatesForEngine(this.engine); }
   explainFact(fact)         { return explainFactForEngine(this.engine, fact); }
 
   // One level of the provenance inspector's backward walk, resolved against

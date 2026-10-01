@@ -59,6 +59,45 @@ An optional object for application-layer metadata. The logic engine stores and p
 }
 ```
 
+### `toString`
+
+`toString` gives a predicate any number of **named text templates** for rendering its facts as text, the way an action's `content text:` renders the action. The names are yours: RUE attaches no meaning to them, and an application asks for whichever name it needs (one template for an agent's briefing, another for a log, and so on).
+
+```json
+"warmth": {
+  "type": "numeric", "args": ["agent", "agent"],
+  "minValue": 0, "maxValue": 10, "default": 5,
+  "tiers": { "cold": [0, 4], "warm": [4, 8], "close": [8, 10] },
+  "toString": {
+    "briefing": "{args[0]} has {tier} feelings of warmth toward {args[1]}",
+    "log": "warmth({args[0]}, {args[1]}) = {value}"
+  }
+}
+```
+
+A template can use:
+
+| Placeholder | Fills in |
+|-------------|----------|
+| `{args[N]}` | The fact's Nth argument (counting from 0), as an entity name |
+| `{value}` | The fact's value: the number for a numeric fact; `true`, or `false` for an explicitly negated boolean (`-pred(...)`) |
+| `{tier}` | The name of the tier a numeric value falls in (empty when it falls in none) |
+
+Anything else in braces, including an `{args[N]}` past the predicate's last argument, is left in the text exactly as written. Only the shape of `toString` is checked at load: it must be an object whose values are strings.
+
+Rendering, from code or over HTTP:
+
+```javascript
+engine.renderFact({ name: 'warmth', args: ['alice', 'bob'], value: 9 }, 'briefing');
+// 'alice has close feelings of warmth toward bob'
+
+engine.renderFacts('briefing');                      // every active world fact with a "briefing" template
+engine.renderFacts('briefing', { owner: 'alice' });  // the same, from alice's private store
+// [{ name, args, value, negated, text }, ...]
+```
+
+`renderFact` returns `null` when the predicate has no template by that name, and `renderFacts` skips such facts. The [RUE server](server-api.md) exposes the same through `/templates` and `/render`, and the action-rule-set-tool's predicate editor edits templates under "Text templates".
+
 ### `symmetric`
 
 Setting `"symmetric": true` on a two-argument predicate means that `knows(alice, carol)` and `knows(carol, alice)` are treated as equivalent. Asserting or retracting one direction propagates to the other. Only one direction needs to be declared in the state file.

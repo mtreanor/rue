@@ -7,6 +7,8 @@ const NUMERIC = new Set(['numeric', 'sensor-numeric', 'sensor-llm-numeric']);
 const argVar = (i) => '?' + String.fromCharCode(65 + (i % 26));
 
 const tiersToRows = (t) => Object.entries(t ?? {}).map(([name, [lo, hi]]) => ({ name, lo, hi }));
+const templatesToRows = (t) => Object.entries(t ?? {}).map(([name, text]) => ({ name, text }));
+const rowsToTemplates = (rows) => Object.fromEntries(rows.filter(r => r.name.trim()).map(r => [r.name.trim(), r.text]));
 const rowsToTiers = (rows) => Object.fromEntries(
   rows.filter(r => r.name.trim()).map(r => [r.name.trim(), [Number(r.lo) || 0, Number(r.hi) || 0]]),
 );
@@ -56,6 +58,7 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
   const [tiers, setTiers] = useState(tiersToRows(initial?.tierRanges));
   const [premises, setPremises] = useState(extractPremises(initial?.define));
   const [appText, setAppText] = useState(initial?.app != null ? JSON.stringify(initial.app, null, 2) : '');
+  const [templates, setTemplates] = useState(templatesToRows(initial?.textTemplates));
   const [busy, setBusy] = useState(false);
 
   // Live validation as the JSON is typed, so a parse error is visible before
@@ -98,6 +101,9 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
 
   const setTier = (i, k, v) => setTiers(t => t.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const addTier = () => setTiers(t => [...t, { name: '', lo: 0, hi: 0 }]);
+  const setTemplate = (i, key, v) => setTemplates(t => t.map((row, j) => (j === i ? { ...row, [key]: v } : row)));
+  const addTemplate = () => setTemplates(t => [...t, { name: '', text: '' }]);
+  const removeTemplate = (i) => setTemplates(t => t.filter((_, j) => j !== i));
   const removeTier = (i) => setTiers(t => t.filter((_, j) => j !== i));
 
   const submit = async () => {
@@ -115,6 +121,7 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
         // Parsed here, not on the server: the textarea is the only place this
         // free-text JSON is ever text, so this is where it's validated.
         ...(appText.trim() ? { app: JSON.parse(appText) } : {}),
+        textTemplates: rowsToTemplates(templates),
       },
       define: type === 'derived' ? buildDefineBlock(nm, args.length, premises) : '',
     };
@@ -213,6 +220,18 @@ export default function PredicateModal({ initial, entityTypeNames = [], predicat
             <div className="pred-conclusion mono dim">⟹ {name.trim() || 'pred'}({conclVars.join(', ')})</div>
           </div>
         )}
+
+        <div className="ent-field">
+          <span>Text templates <span className="dim">(name, template — use {'{args[0]}'}, {'{value}'}, {'{tier}'})</span></span>
+          {templates.map((t, i) => (
+            <div className="pred-template-row" key={i}>
+              <input type="text" placeholder="name" value={t.name} spellCheck={false} onChange={e => setTemplate(i, 'name', e.target.value)} />
+              <input type="text" placeholder={'{args[0]} feels {tier} toward {args[1]}'} value={t.text} spellCheck={false} onChange={e => setTemplate(i, 'text', e.target.value)} />
+              <button className="row-icon del" onClick={() => removeTemplate(i)} title="Remove template">×</button>
+            </div>
+          ))}
+          <button className="btn tiny" onClick={addTemplate}>+ template</button>
+        </div>
 
         <div className="ent-field">
           <span>App data <span className="dim">(JSON — opaque to rue; the host application's own data)</span></span>

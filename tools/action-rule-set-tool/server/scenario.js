@@ -174,6 +174,10 @@ export function schemaForClient(schema) {
       // and round-trip whatever the host project has attached (see predicates.js
       // buildDef and PredicateModal's "App data" field).
       app: def.app ?? null,
+      // The predicate's named text templates ({ name: template }), stored as
+      // `toString` in predicates.json. Sent under a different key: a property
+      // named toString on this object would shadow the method every object has.
+      textTemplates: Object.hasOwn(def, 'toString') ? def.toString : {},
     });
   }
   predicates.sort((a, b) => a.name.localeCompare(b.name));

@@ -4,6 +4,7 @@ import { World } from './World.js';
 import { Binding } from './Binding.js';
 import { LogicalVariable } from './LogicalVariable.js';
 import { PredicateSchema } from './PredicateSchema.js';
+import { renderTemplate } from './TextTemplate.js';
 import { RuleParser } from './loader/RuleParser.js';
 import { RuleLoader } from './loader/RuleLoader.js';
 import { ActionParser } from './loader/ActionParser.js';
@@ -568,6 +569,43 @@ export class Engine {
   // predicates, hiding the difference between the fact store and the numeric
   // handler. Returns [] when nothing backs the fact.
   // scopedTo: entity name — if provided, look in that entity's private store.
+  // Renders one fact through its predicate's named text template (the
+  // predicate's `toString` in predicates.json). `fact` is { name, args,
+  // value?, negated? } as listed from a store. Returns null when the predicate
+  // has no template by that name.
+  renderFact(fact, templateName) {
+    const template = this.schema.getTemplates(fact.name)[templateName];
+    if (template === undefined) return null;
+    const numeric = fact.value !== null && fact.value !== undefined;
+    return renderTemplate(template, {
+      args:  fact.args ?? [],
+      value: numeric ? fact.value : !fact.negated,
+      tier:  numeric ? this.schema.tierFor(fact.name, fact.value) ?? '' : '',
+    });
+  }
+
+  // Renders every currently active fact in one store — the world store, or an
+  // entity's private store when `owner` is given — whose predicate has a text
+  // template named `templateName`. Facts without that template are skipped.
+  // Returns [{ name, args, value, negated, text }].
+  renderFacts(templateName, { owner = null } = {}) {
+    const store = owner === null ? this.world.factStore : this.world.getPrivateStore(owner);
+    if (!store) return [];
+    const rendered = [];
+    for (const record of store.factHistory) {
+      if (!record.isCurrentlyActive()) continue;
+      const fact = {
+        name:    record.fact.name,
+        args:    record.fact.args.map(a => a?.name ?? a),
+        value:   record.fact.value ?? null,
+        negated: !!record.fact.negated,
+      };
+      const text = this.renderFact(fact, templateName);
+      if (text !== null) rendered.push({ ...fact, text });
+    }
+    return rendered;
+  }
+
   why(factText, { scopedTo = null } = {}) {
     const { name, args } = this._groundFact(factText);
 

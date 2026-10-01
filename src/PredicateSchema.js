@@ -5,6 +5,25 @@ export class PredicateSchema {
     this.definitions = new Map(Object.entries(data.predicates));
     this._validateSingleValued();
     this._validatePrivateFallback();
+    this._validateToString();
+  }
+
+  // `toString` maps arbitrary template names to template strings. Only its shape
+  // is checked here; placeholders a template can't fill are left in its text
+  // (see TextTemplate.js).
+  _validateToString() {
+    for (const [name, def] of this.definitions) {
+      if (!Object.hasOwn(def, 'toString')) continue;
+      const templates = def.toString;
+      if (templates === null || typeof templates !== 'object' || Array.isArray(templates)) {
+        throw new Error(`Predicate "${name}": toString must be an object of named template strings`);
+      }
+      for (const [key, template] of Object.entries(templates)) {
+        if (typeof template !== 'string') {
+          throw new Error(`Predicate "${name}": toString template "${key}" must be a string`);
+        }
+      }
+    }
   }
 
   // `singleValued` marks the *value* argument positions of a boolean predicate.
@@ -54,6 +73,14 @@ export class PredicateSchema {
     return def.args.map((_, i) => i).filter(i => !def.singleValued.includes(i));
   }
 
+  // The predicate's named text templates — { templateName: templateString } —
+  // or {} when it declares none. Checked as an own property: every object
+  // inherits a toString function, which is not a template.
+  getTemplates(name) {
+    const def = this.definitions.get(name);
+    return def && Object.hasOwn(def, 'toString') ? def.toString : {};
+  }
+
   hasDefinition(name) {
     return this.definitions.has(name);
   }
@@ -86,6 +113,14 @@ export class PredicateSchema {
   // consulting world. See docs/private-stores.md and src/AGENTS.md.
   getPrivateFallback(name) {
     return this.definitions.get(name)?.privateFallback ?? 'default-first';
+  }
+
+  // The name of the tier a numeric value falls in — the first declared tier that
+  // matchesTier accepts — or null when the predicate has no tiers.
+  tierFor(name, value) {
+    const tiers = this.definitions.get(name)?.tiers;
+    if (!tiers) return null;
+    return Object.keys(tiers).find(tierName => this.matchesTier(name, value, tierName)) ?? null;
   }
 
   // Returns true if the clamped value falls within the named tier's [a, b) range.

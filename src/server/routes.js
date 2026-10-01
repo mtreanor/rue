@@ -124,6 +124,17 @@ router.post('/play/:scenario/explain', h((req, res) => {
 router.post('/play/:scenario/resolve', h((req, res) => {
   res.json(getPlaySession(req.params.scenario).resolveProvenance(req.body));
 }));
+// Text templates. GET returns every predicate's named templates; POST renders the
+// currently active facts of one store through a named template. Body:
+// { template, owner? } — owner selects an entity's private store, else the
+// world store. Facts whose predicate lacks that template are skipped.
+router.get('/play/:scenario/templates', h((req, res) => {
+  res.json({ predicates: getPlaySession(req.params.scenario).templates() });
+}));
+router.post('/play/:scenario/render', h((req, res) => {
+  if (!req.body?.template) throw new Error('render expects { template, owner? }');
+  res.json({ rendered: getPlaySession(req.params.scenario).renderFacts(req.body.template, req.body.owner ?? null) });
+}));
 router.post('/play/:scenario/assert', h((req, res) => {
   res.json({ facts: getPlaySession(req.params.scenario).assertFact(req.body.text) });
 }));

@@ -42,6 +42,15 @@ A pending `request` carries the decision's `binding`, `stageNames`, `strategy`, 
 | `POST` | `/assert` | `{ text }` | Asserts one fact (for example `energy(carol) = 1`) into the live session; returns `{ facts }` |
 | `POST` | `/delete` | `{ owner?, name, args, negated? }` | Hard-deletes one fact; returns `{ facts }` |
 
+### Text templates
+
+Predicates can declare named text templates (their `toString`; see [Schema](schema.md#tostring)).
+
+| Method | Path | Body | Returns |
+|--------|------|------|---------|
+| `GET` | `/templates` | | `{ predicates }`: `{ predicateName: { args, templates } }` for every predicate that declares templates |
+| `POST` | `/render` | `{ template, owner? }` | `{ rendered }`: each active fact in the world store (or `owner`'s private store) whose predicate has that template, as `{ name, args, value, negated, text }` |
+
 ### Provenance
 
 | Method | Path | Body | Returns |

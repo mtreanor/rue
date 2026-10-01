@@ -30,7 +30,7 @@ writeFileSync(join(root, 'project.config.json'), JSON.stringify({
 
 writeFileSync(join(scenarioDir, 'predicates.json'), JSON.stringify({
   predicates: {
-    knows:  { type: 'boolean', args: ['agent', 'agent'] },
+    knows:  { type: 'boolean', args: ['agent', 'agent'], toString: { briefing: '{args[0]} knows {args[1]}' } },
     helped: { type: 'boolean', args: ['agent', 'agent'] },
     // No minValue/maxValue/default declared on purpose — exercises
     // PredicateSchema treating an omitted bound as unbounded and an
@@ -205,4 +205,20 @@ test('assert/query round-trip, and a numeric predicate with no declared bounds i
   assert.equal(bobCount, 1);
 
   await postJSON('/play/mini/reset');
+});
+
+test("templates and render: a predicate's named templates, and facts rendered through one", async () => {
+  await postJSON('/play/mini/start');
+
+  const templates = await (await fetch(`${base}/play/mini/templates`)).json();
+  assert.deepEqual(templates.predicates.knows, { args: ['agent', 'agent'], templates: { briefing: '{args[0]} knows {args[1]}' } });
+  assert.equal(templates.predicates.helped, undefined);
+
+  const res = await postJSON('/play/mini/render', { template: 'briefing' });
+  assert.equal(res.status, 200);
+  const { rendered } = await res.json();
+  assert.deepEqual(rendered.map(r => r.text), ['alice knows bob']);
+
+  const missing = await postJSON('/play/mini/render', {});
+  assert.equal(missing.status, 400);
 });

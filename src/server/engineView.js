@@ -173,3 +173,15 @@ export function runQueryForEngine(engine, text, scopedTo = null, partialBinding 
   });
   return { vars: [...vars], count: rows.length, rows };
 }
+
+// Every predicate's named text templates (its `toString`), for applications that
+// render facts themselves: { predicateName: { args, templates } }. Predicates
+// with no templates are left out.
+export function templatesForEngine(engine) {
+  const out = {};
+  for (const [name, def] of engine.schema.definitions) {
+    const templates = engine.schema.getTemplates(name);
+    if (Object.keys(templates).length) out[name] = { args: def.args ?? [], templates };
+  }
+  return out;
+}

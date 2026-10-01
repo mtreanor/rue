@@ -97,6 +97,10 @@ function buildDef({ type, args, config = {} }) {
   // time it's here: the request body arrived as JSON, and the editor parses the
   // textarea's JSON text client-side before it's ever put on the wire.
   if (config.app !== undefined) def.app = config.app;
+  // Named text templates for rendering this predicate's facts, stored as
+  // `toString` (docs/schema.md#tostring). The editor sends them as textTemplates.
+  const templates = Object.entries(config.textTemplates ?? {}).filter(([key]) => key.trim());
+  if (templates.length) def.toString = Object.fromEntries(templates.map(([key, text]) => [key.trim(), text]));
   return def;
 }
 
