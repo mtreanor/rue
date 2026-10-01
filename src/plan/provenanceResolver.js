@@ -234,7 +234,7 @@ function renderSource(engine, provenance, tick) {
   switch (provenance?.type) {
     case 'action-effect': {
       const r = provenance.actionRecord;
-      return actionDetail(engine, r.action, r.binding, r.tick ?? tick);
+      return actionDetail(engine, r.action, r.binding, r.tick ?? tick, r.choice ?? null);
     }
     case 'rule-effect':   return ruleDetail(provenance.rule, provenance.binding, tick, 'rule');
     case 'derived-fact':  return ruleDetail(provenance.defineRule, provenance.binding, tick, 'derived-rule');
@@ -264,13 +264,16 @@ function resolveActionByName(engine, { name, binding = null }) {
   return actionDetail(engine, action, engine.resolveBinding(binding ?? {}), null);
 }
 
-function actionDetail(engine, action, binding, tick) {
+function actionDetail(engine, action, binding, tick, choice = null) {
   const bindingObj = serializeBinding(binding);
   return {
     type: 'action',
     name: action.name,
     tick: tick ?? null,
     binding: bindingObj,
+    // Who selected this firing (policy, player or agent) — null for the bare
+    // authored view, or an action executed outside any selection.
+    choice,
     // The same utility breakdown the inline trace shows, re-scored against
     // current state. Its predicate leaves drill into the numeric they read,
     // whose adjustments are the priming-rule firings that set it — which is how

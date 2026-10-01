@@ -165,10 +165,12 @@ router.post('/play/:scenario/step', h(async (req, res) => {
   res.json(await getPlaySession(req.params.scenario).stepTick());
 }));
 
-// Answer the pending selection. Body: { indexes: number[] } into the pending
-// request's candidate list ([] = no winner executes). Responds like /step.
+// Answer the pending selection. Body: { indexes: number[], chooser? } — indexes
+// into the pending request's candidate list ([] = no winner executes); chooser
+// is { kind: 'player' | 'agent', id?, note? } and is recorded on each winner's
+// ActionRecord (defaults to { kind: 'player' }). Responds like /step.
 router.post('/play/:scenario/choose', h(async (req, res) => {
-  res.json(await getPlaySession(req.params.scenario).choose(req.body.indexes));
+  res.json(await getPlaySession(req.params.scenario).choose(req.body.indexes, req.body.chooser));
 }));
 
 // Update which selections the player answers, mid-session.

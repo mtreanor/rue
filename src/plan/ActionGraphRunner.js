@@ -20,8 +20,12 @@ export const TERMINAL = 'end';
 //   runInteractive() — the async driver; consults a `decide` callback per
 //                      request. decide may return a subset of
 //                      request.candidates (a player's choice — the Play tool's
-//                      mechanism), or null/undefined to accept the default.
+//                      mechanism), { winners, chooser } to also say who chose
+//                      and why, or null/undefined to accept the default.
 //                      Returning [] is a legitimate choice: no winner executes.
+//
+// Every executed winner's ActionRecord carries a `choice` describing who picked
+// it: the selection policy, or the outside chooser (see _choiceFor).
 //
 // A SelectionRequest:
 //   {
@@ -38,16 +42,33 @@ export const TERMINAL = 'end';
 // The authored selectionStrategy is never overwritten by interactive play —
 // it still computes defaultWinners; a decide callback substitutes the outcome
 // for one firing only.
+const CHOOSER_KINDS = new Set(['player', 'agent']);
+
+// A decide answer is either an array of winners (a player's pick) or
+// { winners, chooser } where chooser is { kind: 'player' | 'agent', id?, note? }.
+function normalizeDecision(decision) {
+  if (Array.isArray(decision)) return { winners: decision, chooser: { kind: 'player' } };
+  const { winners, chooser = { kind: 'player' } } = decision;
+  if (!Array.isArray(winners)) throw new Error('decide must return an array of candidates or { winners, chooser }');
+  if (!CHOOSER_KINDS.has(chooser.kind)) {
+    throw new Error(`decide chooser.kind must be "player" or "agent" (got ${JSON.stringify(chooser.kind)})`);
+  }
+  return { winners, chooser };
+}
+
 export class ActionGraphRunner {
   constructor(engine) {
     this.engine = engine;
+    // Winner candidate → the choice to record when it executes. Keyed by the
+    // candidate object itself, which selection hands back unchanged.
+    this._choices = new WeakMap();
   }
 
   run(actionGraph, initialBinding = {}, { recorder = NULL_RECORDER } = {}) {
     const generator = this._runGenerator(actionGraph, initialBinding, recorder);
     let step = generator.next();
     while (!step.done) {
-      step = generator.next({ winners: step.value.defaultWinners, source: 'engine' });
+      step = generator.next({ winners: step.value.defaultWinners, source: 'engine', chooser: null });
     }
   }
 
@@ -58,8 +79,8 @@ export class ActionGraphRunner {
       const request = step.value;
       const chosen  = decide ? await decide(request) : null;
       step = generator.next(chosen != null
-        ? { winners: chosen, source: 'player' }
-        : { winners: request.defaultWinners, source: 'engine' });
+        ? { ...normalizeDecision(chosen), source: 'player' }
+        : { winners: request.defaultWinners, source: 'engine', chooser: null });
     }
   }
 
@@ -96,7 +117,7 @@ export class ActionGraphRunner {
       // stage (Stage's constructor rejects it), so routing here is always the
       // stage's own routesTo.
       for (const winner of winners) {
-        const actionRecord = this.engine.execute(winner);
+        const actionRecord = this.engine.execute(winner, { choice: this._choices.get(winner) ?? null });
         recorder.winnerExecuted(winner, stageName, actionRecord, null);
         recorder.winnerFinished();
       }
@@ -135,7 +156,7 @@ export class ActionGraphRunner {
     const stage = actionGraph.stages[stageName];
 
     const seqBefore    = this.engine.world.occurrenceSeq ?? 0;
-    const actionRecord = this.engine.execute(candidate);
+    const actionRecord = this.engine.execute(candidate, { choice: this._choices.get(candidate) ?? null });
     const minted       = this._mintedOccurrence(seqBefore);
     recorder.winnerExecuted(candidate, stageName, actionRecord, minted != null ? (minted.name ?? String(minted)) : null);
 
@@ -218,6 +239,7 @@ export class ActionGraphRunner {
     const defaultWinners = selectCandidates(pool, strategy, this.engine);
     let winners = defaultWinners;
     let source  = 'engine';
+    let chooser = null;
     if (pool.length > 0) {
       const outcome = yield {
         kind:       'selection',
@@ -230,9 +252,28 @@ export class ActionGraphRunner {
       };
       winners = outcome.winners;
       source  = outcome.source;
+      chooser = outcome.chooser ?? null;
     }
-    recorder.selectionMade(winners, strategy, source);
+    for (const winner of winners) {
+      this._choices.set(winner, this._choiceFor(winner, strategy, defaultWinners, chooser));
+    }
+    recorder.selectionMade(winners, strategy, source, chooser);
     return winners;
+  }
+
+  // The `choice` recorded on a winner's ActionRecord. With no outside chooser
+  // the selection policy picked it. Otherwise it names the chooser, keeps the
+  // policy that ranked the candidates, and notes whether the pick agreed with
+  // what the policy would have chosen unaided.
+  _choiceFor(winner, strategy, defaultWinners, chooser) {
+    if (!chooser) return { kind: 'policy', policy: strategy };
+    return {
+      kind:          chooser.kind,
+      ...(chooser.id   != null ? { id: chooser.id } : {}),
+      ...(chooser.note != null ? { note: chooser.note } : {}),
+      policy:        strategy,
+      matchedPolicy: defaultWinners.includes(winner),
+    };
   }
 
   // Invalidate derived-fact caches. The derived query handler caches per tick on

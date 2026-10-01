@@ -375,9 +375,11 @@ const json = serializeActionGraphTrace(recorder.trace);
 **Interactive runs** — `runInteractive` consults an async `decide` callback at
 each selection point. It receives `{ actionGraph, stageNames, binding,
 candidates, strategy, defaultWinners }` and may return a subset of
-`candidates` to force (a player's choice — `[]` means no winner executes), a
-promise of one (suspending the run until it resolves), or `null` to accept
-the engine's default. The authored `selectionStrategy` still computes
+`candidates` to force (a player's choice — `[]` means no winner executes),
+`{ winners, chooser }` to also say who chose (`chooser` is `{ kind: 'player' |
+'agent', id?, note? }`), a promise of either (suspending the run until it
+resolves), or `null` to accept the engine's default. Every executed winner's
+ActionRecord records the resulting [choice](action-records.md#choice). The authored `selectionStrategy` still computes
 `defaultWinners` every time; `decide` substitutes the outcome for one firing
 only.
 

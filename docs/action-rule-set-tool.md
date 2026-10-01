@@ -64,6 +64,6 @@ Lists the actionGraphs defined in the scenario's `actionGraphs/` directory and t
 
 A live scenario runner using [TickPlan](actiongraph-tickplan.md#tracing-and-interactive-runs). Steps the scenario tick by tick, rendering the full decision trace for every actionGraph run.
 
-The **You-play** filter selects which agents you control. At each selection point for a player-controlled agent, the tab shows the scored candidates with their utility breakdown, the tier and comparison premises that contributed to each score, and which action the engine would pick by default. You choose who actually acts.
+The **You-play** filter selects which agents you control. At each selection point for a player-controlled agent, the tab shows the scored candidates with their utility breakdown, the tier and comparison premises that contributed to each score, and which action the engine would pick by default. You choose who actually acts. Your picks are recorded on each action's [choice](action-records.md#choice) as a `player` choice, and a program driving the Play API can identify itself instead by sending `chooser: { kind: 'agent', id, note }` with `/choose`.
 
 Requires a `tick-plan.json` at the scenario root. See `tools/action-rule-set-tool/README.md` for the format.

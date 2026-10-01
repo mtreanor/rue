@@ -29,8 +29,36 @@ Records are appended in the order effects fire. Only actions that have at least 
 | `binding` | `Binding` | The full variable binding the action fired with |
 | `utilityBreakdown` | `BreakdownNode[] \| null` | Per-source contribution tree; `null` if not provided |
 | `occurrence` | `string \| undefined` | The id of the reified [occurrence](actions.md#occurrences), when the action's effects include `record(?var)` |
+| `choice` | `Choice \| null` | Who selected the action and how — see [Choice](#choice); `null` when the action was executed directly, outside any selection |
 
 `action.name` gives the action's string name. `binding.resolve(variable)` returns the entity assigned to a `LogicalVariable`. Entity objects carry a `name` string.
+
+---
+
+## Choice
+
+The utility breakdown explains why an action *scored* what it did. `choice` records who actually *picked* it. An action can be picked three ways:
+
+| `kind` | Picked by | Fields |
+|--------|-----------|--------|
+| `'policy'` | The stage's selection strategy, unaided | `policy` |
+| `'player'` | A person choosing at a selection point | `policy`, `matchedPolicy`, `id?`, `note?` |
+| `'agent'` | Software choosing at a selection point (for example an LLM agent) | `policy`, `matchedPolicy`, `id?`, `note?` |
+
+- `policy` is the selection strategy that ranked the candidates, as authored (`'highestUtility'`, or `{ type, groupBy }`).
+- `matchedPolicy` says whether the pick was one the policy would have made on its own. A chooser who always follows the ranking produces `true` every time; a pick against the ranking produces `false`.
+- `id` names the chooser (for example the agent's name), and `note` is free text the chooser supplied, such as a player's or agent's stated reason. Both are optional, and RUE stores them as given.
+
+```javascript
+{ kind: 'policy', policy: 'highestUtility' }
+
+{ kind: 'agent', id: 'bob', note: 'Carol looked exhausted',
+  policy: 'highestUtility', matchedPolicy: false }
+```
+
+Actions run by an [actionGraph](actiongraph-tickplan.md) always get a choice. Under `run()` it is the policy. Under `runInteractive()` it is the policy when `decide` accepts the default, and the outside chooser when `decide` substitutes winners: a bare array of candidates records `{ kind: 'player' }`, and `{ winners, chooser }` records the given chooser. The Play API's `/choose` accepts the same `chooser` object.
+
+The choice appears in the actionGraph trace (on the selection and on each winner), in [proof trees](provenance.md#explaining-a-fact-proof-trees) as a "chosen by …" line under the action, in the tool's provenance inspector, and in snapshots.
 
 ---
 
@@ -164,7 +192,7 @@ if (best) {
 }
 ```
 
-`engine.execute()` returns the `ActionRecord`, or `null` if the action had no effects.
+`engine.execute()` returns the `ActionRecord`, or `null` if the action had no effects. Pass `{ choice }` to record who selected the candidate; without it the record's `choice` is `null`.
 
 For lower-level control, call `action.execute()` directly and pass `world` to produce an `ActionRecord`:
 

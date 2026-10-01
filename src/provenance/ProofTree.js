@@ -146,6 +146,7 @@ function expandProvenance(prov, ctx, visited) {
         support.push(new ProofNode({ statement: `?${k} = ${toFactArg(v)}`, via: 'binding' }));
       }
     }
+    if (ar?.choice) support.push(new ProofNode({ statement: describeChoice(ar.choice), via: 'choice' }));
     return { via: 'action', detail: `${ar?.action?.name ?? '?'}${plan}`, support };
   }
   if (prov.type === 'sensor') return { via: 'sensor', detail: prov.sensorName ?? null, support: [] };
@@ -283,4 +284,16 @@ function numericEventNodes(record, ctx, visited) {
 
 function describeFact(name, args) {
   return `${name}(${args.join(', ')})`;
+}
+
+// One line naming who chose an action, e.g.
+//   chosen by policy highestUtility
+//   chosen by agent bob, against policy highestUtility: "Carol looked exhausted"
+function describeChoice(choice) {
+  const policy = typeof choice.policy === 'string' ? choice.policy : JSON.stringify(choice.policy);
+  if (choice.kind === 'policy') return `chosen by policy ${policy}`;
+  const who      = choice.id != null ? `${choice.kind} ${choice.id}` : choice.kind;
+  const relation = choice.matchedPolicy ? 'agreeing with' : 'against';
+  const note     = choice.note != null ? `: ${JSON.stringify(choice.note)}` : '';
+  return `chosen by ${who}, ${relation} policy ${policy}${note}`;
 }

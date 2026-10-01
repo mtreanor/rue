@@ -99,6 +99,7 @@ export function restore(engine, snapshot) {
     binding:          a.binding,
     utilityBreakdown: a.utilityBreakdown,
     planRecord:       a.planId !== null ? { id: a.planId } : null,
+    choice:           a.choice ?? null,
   }));
 
   world.planLog = snapshot.planLog.map(p => ({
@@ -162,6 +163,7 @@ function serializeProvenance(prov) {
       type:       'action-effect',
       actionName: prov.actionRecord?.action?.name ?? null,
       planId:     prov.actionRecord?.planRecord?.id ?? null,
+      choice:     prov.actionRecord?.choice ?? null,
     };
   }
 
@@ -245,6 +247,7 @@ function serializeActionRecord(ar) {
     binding:          serializeBinding(ar.binding),
     utilityBreakdown: ar.utilityBreakdown ?? null,
     planId:           ar.planRecord?.id ?? null,
+    choice:           ar.choice ?? null,
   };
 }
 
@@ -330,6 +333,7 @@ function deserializeProvenance(data, recordsByKey) {
       actionRecord: {
         action:     { name: data.actionName },
         planRecord: data.planId !== null ? { id: data.planId } : null,
+        choice:     data.choice ?? null,
       },
     };
   }

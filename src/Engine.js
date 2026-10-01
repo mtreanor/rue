@@ -502,13 +502,18 @@ export class Engine {
   // options:
   //   queue            — a StateChangeQueue to stage effects on (deferred execution)
   //   utilityBreakdown — override the breakdown attached to the ActionRecord
-  execute(candidate, { queue = null, utilityBreakdown = null } = {}) {
+  //   choice           — who selected this candidate and how, recorded on the
+  //                      ActionRecord (see docs/action-records.md#choice). The
+  //                      ActionGraphRunner always supplies one; a direct call
+  //                      leaves it null unless the caller says otherwise.
+  execute(candidate, { queue = null, utilityBreakdown = null, choice = null } = {}) {
     const breakdown = utilityBreakdown ?? candidate.breakdown ?? null;
     const before = this.world.actionLog.length;
     candidate.action.execute(candidate.binding, this.world.queryHandlers, queue, {
       privateStores: this.world.privateStores,
       world:         this.world,
       utilityBreakdown: breakdown,
+      choice,
     });
     return this.world.actionLog.length > before ? this.world.actionLog.at(-1) : null;
   }

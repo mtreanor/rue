@@ -116,11 +116,12 @@ export class TraceRecorder {
     evaluation.candidates.push(...candidates);
   }
 
-  selectionMade(winners, strategy, source) {
+  selectionMade(winners, strategy, source, chooser = null) {
     const evaluation = this._evaluations.at(-1);
     evaluation.selection = {
       strategy,
       source,
+      chooser,
       winnerIndexes: winners.map(w => evaluation.candidates.indexOf(w)),
     };
   }

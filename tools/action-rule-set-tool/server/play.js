@@ -311,12 +311,17 @@ class PlaySession {
   }
 
   // Answer the pending selection with candidate indexes (into the request's
-  // candidate list). [] is legitimate: no winner executes. Validation happens
-  // before the pending state is consumed, so a bad index leaves the choice
-  // still answerable rather than stranding the suspended tick.
-  choose(indexes) {
+  // candidate list). [] is legitimate: no winner executes. `chooser` names who
+  // chose — { kind: 'player' | 'agent', id?, note? } — and lands on each
+  // winner's ActionRecord; it defaults to an anonymous player. Validation
+  // happens before the pending state is consumed, so a bad index or chooser
+  // leaves the choice still answerable rather than stranding the suspended tick.
+  choose(indexes, chooser = { kind: 'player' }) {
     if (!this.pending) throw new Error('No choice is pending');
     if (!Array.isArray(indexes)) throw new Error('choose expects { indexes: number[] }');
+    if (chooser.kind !== 'player' && chooser.kind !== 'agent') {
+      throw new Error(`chooser.kind must be "player" or "agent" (got ${JSON.stringify(chooser.kind)})`);
+    }
     const { request, resolve } = this.pending;
     const winners = indexes.map(i => {
       const candidate = request.candidates[i];
@@ -326,7 +331,7 @@ class PlaySession {
     });
     this.pending     = null;
     this.pauseSignal = deferred();
-    resolve(winners);
+    resolve({ winners, chooser });
     return this._settle();
   }
 

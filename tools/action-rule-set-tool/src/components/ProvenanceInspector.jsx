@@ -219,6 +219,22 @@ function DerivedView({ node, onDrill, highlighter }) {
   );
 }
 
+// Who selected an action firing: the selection policy, or a player/agent
+// (with whether they agreed with the policy, and any note they gave).
+function ChoiceLine({ choice }) {
+  const policy = typeof choice.policy === 'string' ? choice.policy : JSON.stringify(choice.policy);
+  if (choice.kind === 'policy') {
+    return <div className="dim tiny-note">chosen by policy <code>{policy}</code></div>;
+  }
+  const who = choice.id != null ? `${choice.kind} ${choice.id}` : choice.kind;
+  return (
+    <div className="dim tiny-note">
+      chosen by {who}, {choice.matchedPolicy ? 'agreeing with' : 'against'} policy <code>{policy}</code>
+      {choice.note != null && <>: “{choice.note}”</>}
+    </div>
+  );
+}
+
 // An action occurrence or a rule firing — "this firing" (binding, resolved
 // preconditions/premises, effects). The authored, syntax-highlighted source is
 // step 3; for now the resolved forms carry the detail, and each structurable
@@ -232,6 +248,7 @@ function FiringView({ node, onDrill, highlighter, kind }) {
         {node.tick != null && <span className="prov-insp-tick">@{node.tick}</span>}
       </div>
       <BindingChips binding={node.binding} />
+      {kind === 'action' && node.choice && <ChoiceLine choice={node.choice} />}
       {kind === 'action' && node.utility && node.utility.length > 0 && (
         <>
           <div className="play-section-label">utility</div>

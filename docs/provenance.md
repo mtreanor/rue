@@ -119,7 +119,7 @@ The fact was asserted or adjusted by an action's effects. See [Action records](a
 }
 ```
 
-`actionRecord.action` is the `Action` object.
+`actionRecord.action` is the `Action` object. `actionRecord.choice` says who selected the action (the selection policy, a player, or an agent, with an optional note); see [Action records → Choice](action-records.md#choice).
 
 ---
 

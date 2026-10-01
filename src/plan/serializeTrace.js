@@ -99,6 +99,7 @@ function serializeEvaluation(evaluation, historyRegistry) {
     selection:  evaluation.selection && {
       strategy:      evaluation.selection.strategy,
       source:        evaluation.selection.source,
+      chooser:       evaluation.selection.chooser ?? null,
       winnerIndexes: evaluation.selection.winnerIndexes,
     },
     winners:           evaluation.winners.map(w => serializeWinner(w, historyRegistry)),
@@ -153,6 +154,7 @@ function serializeWinner(winner, historyRegistry) {
     candidateIndex: winner.candidateIndex,
     stageName:      winner.stageName,
     occId:          winner.occId,
+    choice:         record?.choice ?? null,
     effects:        record
       ? record.action.effects.map(effect => serializeEffect(effect, record.binding))
       : [],
@@ -342,7 +344,7 @@ function describeProvenance(provenance) {
     };
   }
   if (provenance.type === 'action-effect') {
-    return { kind: 'action', name: provenance.actionRecord?.action?.name ?? null };
+    return { kind: 'action', name: provenance.actionRecord?.action?.name ?? null, choice: provenance.actionRecord?.choice ?? null };
   }
   if (provenance.type === 'derived-fact') {
     return { kind: 'derived', name: provenance.defineRule?.name ?? null };

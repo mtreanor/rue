@@ -92,7 +92,7 @@ export class Action {
     return binding.extend(new LogicalVariable(THIS_ACTION), this.entityValue(world));
   }
 
-  execute(binding, queryHandlers, stateChangeQueue = null, { privateStores = null, world = null, utilityBreakdown = null, planRecord = null } = {}) {
+  execute(binding, queryHandlers, stateChangeQueue = null, { privateStores = null, world = null, utilityBreakdown = null, planRecord = null, choice = null } = {}) {
     if (this.effects.length === 0) return;
 
     let provenance = null;
@@ -103,6 +103,7 @@ export class Action {
         binding,
         utilityBreakdown,
         planRecord,
+        choice,
       });
       world.actionLog.push(record);
       provenance = new ActionEffectProvenance(record);
