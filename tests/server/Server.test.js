@@ -36,6 +36,8 @@ writeFileSync(join(scenarioDir, 'predicates.json'), JSON.stringify({
     // PredicateSchema treating an omitted bound as unbounded and an
     // omitted default as 0 (see docs/schema.md).
     score:  { type: 'numeric', args: ['agent'] },
+    actionType: { type: 'boolean', args: ['occurrence', 'action'] },
+    role:       { type: 'boolean', args: ['occurrence', 'roleName', 'entity'] },
   },
 }));
 
@@ -221,4 +223,39 @@ test("templates and render: a predicate's named templates, and facts rendered th
 
   const missing = await postJSON('/play/mini/render', {});
   assert.equal(missing.status, 400);
+});
+
+test('external: registers an occurrence with its effects, and is refused while a tick is paused', async () => {
+  let res = await postJSON('/play/mini/start', {});
+  assert.equal(res.status, 200);
+
+  res = await postJSON('/play/mini/external', {
+    actionType: 'covered for',
+    roles: { SELF: 'bob', OTHER: 'alice' },
+    effects: ['helped(?SELF, ?OTHER)', 'score(?SELF) += 3'],
+    source: 'work', ref: 'r1',
+  });
+  assert.equal(res.status, 200);
+  const { occurrence, tick } = await res.json();
+  assert.match(occurrence, /^occ\d+$/);
+  assert.equal(tick, 0);
+
+  res = await postJSON('/play/mini/query', { text: `actionType(${occurrence}, ?k) ^ role(${occurrence}, OTHER, ?v) ^ helped(bob, alice)` });
+  const q = await res.json();
+  assert.equal(q.count, 1);
+  assert.equal(q.rows[0].k, 'covered for');
+  assert.equal(q.rows[0].v, 'alice');
+
+  res = await postJSON('/play/mini/external', { actionType: 'x', effects: ['nope(bob)'] });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /unknown predicate/);
+
+  // Pause a tick at a controlled selection; an external action is refused until it's answered.
+  await postJSON('/play/mini/start', { controlled: { agents: ['alice'] } });
+  res = await postJSON('/play/mini/step');
+  assert.equal((await res.json()).status, 'awaiting-choice');
+  res = await postJSON('/play/mini/external', { actionType: 'x' });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /tick is in progress/);
+  await postJSON('/play/mini/choose', { indexes: [] });
 });

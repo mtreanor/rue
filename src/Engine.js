@@ -25,6 +25,7 @@ import { Fact } from './Fact.js';
 import { restoreFromFile } from './Snapshot.js';
 import { toFactArg } from './entityValue.js';
 import { scopeToOwner } from './predicates/resolveOwnerScope.js';
+import { performExternal } from './externalAction.js';
 
 function scanRueFiles(dir) {
   const results = [];
@@ -517,6 +518,16 @@ export class Engine {
       choice,
     });
     return this.world.actionLog.length > before ? this.world.actionLog.at(-1) : null;
+  }
+
+  // Registers something that happened outside RUE as an external action: an
+  // occurrence with actionType/role facts, the given effects applied at the
+  // current tick, and one ActionRecord (choice kind 'external') that every
+  // changed fact's provenance points to. Nothing is declared beforehand; the
+  // effects must fit the predicate schema, and nothing changes if any doesn't.
+  // Returns { occurrence, tick, record }. See docs/actions.md#external-actions.
+  performExternal(spec) {
+    return performExternal(this, spec);
   }
 
   // Every action that has fired against this world, oldest first.

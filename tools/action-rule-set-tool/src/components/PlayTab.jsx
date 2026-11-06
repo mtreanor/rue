@@ -903,6 +903,7 @@ function HistoryEvent({ event }) {
   const viaLabel = via.kind === 'given' ? 'given'
     : via.kind === 'rule'   ? `rule: ${via.name}`
     : via.kind === 'action' ? `action: ${via.name}`
+    : via.kind === 'external' ? `external: ${via.name}`
     : via.kind;
   return (
     <div className="bd-event">

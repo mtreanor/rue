@@ -28,8 +28,9 @@ Records are appended in the order effects fire. Only actions that have at least 
 | `tick` | `number` | The world tick at the moment of execution |
 | `binding` | `Binding` | The full variable binding the action fired with |
 | `utilityBreakdown` | `BreakdownNode[] \| null` | Per-source contribution tree; `null` if not provided |
-| `occurrence` | `string \| undefined` | The id of the reified [occurrence](actions.md#occurrences), when the action's effects include `record(?var)` |
-| `choice` | `Choice \| null` | Who selected the action and how — see [Choice](#choice); `null` when the action was executed directly, outside any selection |
+| `occurrence` | `string \| undefined` | The id of the reified [occurrence](actions.md#occurrences), when the action's effects include `record(?var)` (always, for an [external action](actions.md#external-actions)). The binding then includes that variable too |
+| `choice` | `Choice \| null` | Who selected the action and how — see [Choice](#choice); `null` when the action was executed directly, outside any selection (including every external action) |
+| `external` | `{ source, ref, data } \| null` | Where an [external action](actions.md#external-actions) was reported from, each part `null` when not given; `null` for an action RUE ran itself |
 
 `action.name` gives the action's string name. `binding.resolve(variable)` returns the entity assigned to a `LogicalVariable`. Entity objects carry a `name` string.
 

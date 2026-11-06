@@ -219,6 +219,17 @@ function DerivedView({ node, onDrill, highlighter }) {
   );
 }
 
+// Where an external action (one registered from outside RUE) was reported from.
+function ExternalLine({ external }) {
+  return (
+    <div className="dim tiny-note">
+      external
+      {external.source != null && <>, from <code>{external.source}</code></>}
+      {external.ref != null && <> ({external.ref})</>}
+    </div>
+  );
+}
+
 // Who selected an action firing: the selection policy, or a player/agent
 // (with whether they agreed with the policy, and any note they gave).
 function ChoiceLine({ choice }) {
@@ -249,6 +260,7 @@ function FiringView({ node, onDrill, highlighter, kind }) {
       </div>
       <BindingChips binding={node.binding} />
       {kind === 'action' && node.choice && <ChoiceLine choice={node.choice} />}
+      {kind === 'action' && node.external && <ExternalLine external={node.external} />}
       {kind === 'action' && node.utility && node.utility.length > 0 && (
         <>
           <div className="play-section-label">utility</div>

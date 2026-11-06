@@ -138,6 +138,9 @@ router.post('/play/:scenario/render', h((req, res) => {
 router.post('/play/:scenario/assert', h((req, res) => {
   res.json({ facts: getPlaySession(req.params.scenario).assertFact(req.body.text) });
 }));
+router.post('/play/:scenario/external', h((req, res) => {
+  res.json(getPlaySession(req.params.scenario).performExternal(req.body));
+}));
 router.post('/play/:scenario/delete', h((req, res) => {
   res.json({ facts: getPlaySession(req.params.scenario).deleteFact(req.body) });
 }));

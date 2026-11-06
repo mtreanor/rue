@@ -644,3 +644,19 @@ describe('remove entity() in effects', () => {
     assert.equal(engine.world.entityRegistry.get('building').length, 0);
   });
 });
+
+describe('record(?var) on the ActionRecord', () => {
+  it('names the occurrence and binds the variable on the record', () => {
+    const { dir, actionsPath } = makeEngine();
+    const engine = new Engine({
+      predicates: join(dir, 'predicates.json'),
+      entities:   join(dir, 'entities.json'),
+      state:      join(dir, 'state'),
+      actionsets: { social: actionsPath },
+    });
+    const record = engine.execute(engine.scoreActionset('social', { SELF: 'alice', Y: 'bob' })[0]);
+    assert.equal(record.occurrence, 'occ1');
+    assert.equal(record.binding.assignments.get('occ').name, 'occ1');
+  });
+});
+

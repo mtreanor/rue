@@ -217,6 +217,15 @@ function applyRecord(operation, binding, world, action, provenance) {
     world.factStore.assert(new Fact('role', occId, roleName, value), 1.0, provenance);
   }
 
+  // The ActionRecord names the occurrence it minted, and its binding includes
+  // the occurrence variable, so an effect that annotates ?occ reads back
+  // ground (and drillable) in traces and provenance views.
+  const record = provenance?.actionRecord;
+  if (record) {
+    record.occurrence = occId;
+    record.binding = record.binding.extend(operation.bindVar, { name: occId });
+  }
+
   return occId;
 }
 

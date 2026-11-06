@@ -147,7 +147,8 @@ function expandProvenance(prov, ctx, visited) {
       }
     }
     if (ar?.choice) support.push(new ProofNode({ statement: describeChoice(ar.choice), via: 'choice' }));
-    return { via: 'action', detail: `${ar?.action?.name ?? '?'}${plan}`, support };
+    if (ar?.external) support.push(new ProofNode({ statement: describeExternal(ar.external), via: 'external' }));
+    return { via: ar?.external ? 'external' : 'action', detail: `${ar?.action?.name ?? '?'}${plan}`, support };
   }
   if (prov.type === 'sensor') return { via: 'sensor', detail: prov.sensorName ?? null, support: [] };
 
@@ -289,6 +290,14 @@ function describeFact(name, args) {
 // One line naming who chose an action, e.g.
 //   chosen by policy highestUtility
 //   chosen by agent bob, against policy highestUtility: "Carol looked exhausted"
+// Where an external action was reported from, e.g.
+//   external
+//   external, from warehouse (shipment-41)
+function describeExternal({ source = null, ref = null } = {}) {
+  if (source == null) return ref != null ? `external (${ref})` : 'external';
+  return `external, from ${source}${ref != null ? ` (${ref})` : ''}`;
+}
+
 function describeChoice(choice) {
   const policy = typeof choice.policy === 'string' ? choice.policy : JSON.stringify(choice.policy);
   if (choice.kind === 'policy') return `chosen by policy ${policy}`;

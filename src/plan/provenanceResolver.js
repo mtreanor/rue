@@ -135,6 +135,8 @@ function adjustmentAddress(name, args, owner, event, eventIndex, ephemeral) {
     return { kind: 'rule', name: provenance.rule?.name ?? null, binding: provenanceBinding(provenance) };
   }
   if (provenance.type === 'action-effect') {
+    // An external action has no authored definition to look up by name.
+    if (actionSourceKind(provenance) === 'external') return null;
     return { kind: 'action', name: provenance.actionRecord?.action?.name ?? null, binding: provenanceBinding(provenance) };
   }
   // derived-fact can't actually reach a numeric adjustment (derived facts are
@@ -235,7 +237,7 @@ function renderSource(engine, provenance, tick) {
   switch (provenance?.type) {
     case 'action-effect': {
       const r = provenance.actionRecord;
-      return actionDetail(engine, r.action, r.binding, r.tick ?? tick, r.choice ?? null);
+      return actionDetail(engine, r.action, r.binding, r.tick ?? tick, r.choice ?? null, r.external ?? null);
     }
     case 'rule-effect':   return ruleDetail(provenance.rule, provenance.binding, tick, 'rule');
     case 'derived-fact':  return ruleDetail(provenance.defineRule, provenance.binding, tick, 'derived-rule');
@@ -265,7 +267,7 @@ function resolveActionByName(engine, { name, binding = null }) {
   return actionDetail(engine, action, engine.resolveBinding(binding ?? {}), null);
 }
 
-function actionDetail(engine, action, binding, tick, choice = null) {
+function actionDetail(engine, action, binding, tick, choice = null, external = null) {
   const bindingObj = serializeBinding(binding);
   return {
     type: 'action',
@@ -275,6 +277,9 @@ function actionDetail(engine, action, binding, tick, choice = null) {
     // Who selected this firing (policy, player or agent) — null for the bare
     // authored view, or an action executed outside any selection.
     choice,
+    // Where an external action was reported from ({ source, ref, data }); null
+    // for an action RUE ran itself.
+    external,
     // The same utility breakdown the inline trace shows, re-scored against
     // current state. Its predicate leaves drill into the numeric they read,
     // whose adjustments are the priming-rule firings that set it — which is how
@@ -422,12 +427,18 @@ function findByName(setsMap, name) {
 
 function provenanceKind(provenance) {
   if (!provenance || provenance.type === 'given') return { kind: 'given', name: null };
-  if (provenance.type === 'action-effect') return { kind: 'action',  name: provenance.actionRecord?.action?.name ?? null };
+  // An external action (reported from outside RUE, not selected) is labelled
+  // as such, so the first row of a provenance view already says where it came from.
+  if (provenance.type === 'action-effect') return { kind: actionSourceKind(provenance), name: provenance.actionRecord?.action?.name ?? null };
   if (provenance.type === 'rule-effect')   return { kind: 'rule',    name: provenance.rule?.name ?? null };
   if (provenance.type === 'derived-fact')  return { kind: 'derived', name: provenance.defineRule?.name ?? null };
   if (provenance.type === 'sensor')        return { kind: 'sensor',  name: provenance.sensorName ?? null };
   if (provenance.type === 'sensor-llm')    return { kind: 'sensor-llm', name: provenance.sensorName ?? null };
   return { kind: provenance.type ?? 'unknown', name: null };
+}
+
+function actionSourceKind(provenance) {
+  return provenance.actionRecord?.external ? 'external' : 'action';
 }
 
 function describeEvent(event) {

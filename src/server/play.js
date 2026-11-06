@@ -348,6 +348,14 @@ class PlaySession {
   entities()                { return listEntitiesForEngine(this.engine); }
   runQuery(text, scopedTo)  { return runQueryForEngine(this.engine, text, scopedTo); }
   assertFact(text)          { return assertFactForEngine(this.engine, text); }
+
+  // Register something that happened outside RUE (see docs/actions.md#external-actions).
+  // Refused mid-tick, so an injected action never lands inside a paused selection.
+  performExternal(spec) {
+    if (this.pending || this.tickPromise) throw new Error('A tick is in progress — finish it before registering an external action');
+    const { occurrence, tick } = this.engine.performExternal(spec ?? {});
+    return { occurrence, tick };
+  }
   deleteFact(fact)          { return deleteFactForEngine(this.engine, fact); }
   whyFact(fact)             { return whyFactForEngine(this.engine, fact); }
   renderFacts(template, owner) { return this.engine.renderFacts(template, { owner }); }

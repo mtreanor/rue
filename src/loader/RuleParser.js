@@ -37,4 +37,14 @@ export class RuleParser {
     parser.expect('EOF');
     return op;
   }
+
+  // One effect, parsed exactly as an action's `effects` line (numeric
+  // expressions allowed on the right-hand side, e.g. `+= ?AMOUNT`).
+  parseSingleEffect(source) {
+    const tokens = new Lexer(source).tokenize();
+    const parser = new DSLParser(tokens, this.predicateSchema, { entityNames: this.entityNames });
+    const op = parser.parseStateOperation();
+    parser.expect('EOF');
+    return op;
+  }
 }

@@ -40,6 +40,7 @@ A pending `request` carries the decision's `binding`, `stageNames`, `strategy`, 
 | `GET` | `/entities` | | `{ entities }`: entity names by type |
 | `POST` | `/query` | `{ text, scopedTo? }` | `{ vars, count, rows }` for a query in the RUE DSL, optionally against one entity's private store |
 | `POST` | `/assert` | `{ text }` | Asserts one fact (for example `energy(carol) = 1`) into the live session; returns `{ facts }` |
+| `POST` | `/external` | `{ actionType, roles?, effects?, text?, source?, ref?, data? }` | Registers an [external action](actions.md#external-actions): something that happened outside RUE, recorded as an occurrence with its effects applied and attributed. Refused while a tick is in progress; returns `{ occurrence, tick }` |
 | `POST` | `/delete` | `{ owner?, name, args, negated? }` | Hard-deletes one fact; returns `{ facts }` |
 
 ### Text templates

@@ -430,6 +430,58 @@ A runnable example is in `examples/action-occurrence.js`.
 
 ---
 
+## External actions
+
+An **external action** is something that happened outside RUE, registered as if it had been an action. The application calling RUE (a game, a simulation, a sensor feed, a work environment) reports it, and RUE records it. Nothing is declared beforehand: the kind, the roles and the state changes are whatever the caller says happened. RUE never ranks an external action, never offers it on a menu, and assumes nothing about how it came about. Someone may have chosen it, or nothing did.
+
+```javascript
+const { occurrence, tick, record } = engine.performExternal({
+  actionType: 'delivered',
+  roles:   { CARRIER: 'van3', TO: 'depot', COUNT: 12 },
+  effects: [
+    'stock(?TO) += ?COUNT',
+    'late(?occ)',
+  ],
+  text:    '?CARRIER delivered ?COUNT to ?TO',
+  source:  'warehouse',
+  ref:     'shipment-41',
+  data:    { scanned: '2026-11-05T09:14' },
+});
+// occurrence === 'occ7'
+```
+
+Once it's registered, it looks just like an internal action that has `record(?occ)` as its first effect:
+
+- An `occurrence` entity is minted from the same counter `record()` uses, with `actionType(occ7, "delivered")` and one `role(occ7, NAME, value)` fact per role. Rules and queries read it like any other occurrence.
+- The effects are applied at the current tick.
+- One [ActionRecord](action-records.md) goes in the action log, with `occurrence` set and `utilityBreakdown: null`. Its `external` field is `{ source, ref, data }`, and its `choice` is `null`, because nothing in RUE selected it. Every fact the effects change carries action-effect provenance to that record, so `explain` traces a fact back to the external action and where it was reported from.
+- A kind seen for the first time is registered as an `action` entity, as authored actions are, so that a query like `actionType(?o, ?k)` can bind it.
+
+| Field | Required | What it is |
+|---|---|---|
+| `actionType` | yes | Any non-empty string |
+| `roles` | no | Role name → value. A string that names an entity binds to that entity; other strings, numbers and booleans are kept as literals |
+| `effects` | no | An array of effects in the same syntax as an action's `effects` lines: assert, `not` (retract), `= N`, `+= N`, `-= N`, owner-prefixed private-store writes, and numeric expressions on the right-hand side. `?occ` is the new occurrence; `?NAME` is any role |
+| `text` | no | The action's content: a readable description, with `?NAME` placeholders filled from the roles |
+| `source`, `ref` | no | Where it came from: a system name, and that system's own reference for it |
+| `data` | no | Any JSON the caller wants kept with it. RUE stores it as given and never reads it |
+
+Any other field is an error, so a misspelled field is caught.
+
+### Validation
+
+The predicate schema is the contract. Everything is checked before anything changes; if one effect is wrong, the call throws and the world is untouched.
+
+- Every effect uses a declared predicate, with the declared number of arguments.
+- Boolean predicates are asserted or retracted; numeric predicates are set or adjusted. Entity creation and removal are not available to external actions.
+- Each argument fits its declared type. If the type has registered entities, the value must be one of them. `?occ` fits only `occurrence` slots. A type with no registered entities is open, the way `role`'s value slot is.
+- A variable is `?occ` or one of the roles. An owner prefix names an entity with a private store.
+- The role names `occ` and `this_action` are reserved.
+
+Effects apply at once: they aren't queued to tick end, and no ruleset runs because of them. Rules react on the next pass that runs them, for example the next phase of a [tick plan](actiongraph-tickplan.md). The Play API serves this as `POST /play/:scenario/external` ([server API](server-api.md)), and refuses it while a tick is paused at a choice.
+
+---
+
 ## Loading actionsets
 
 Declare named actionsets in `project.config.json` under your scenario:

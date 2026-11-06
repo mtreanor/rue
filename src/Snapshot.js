@@ -100,6 +100,8 @@ export function restore(engine, snapshot) {
     utilityBreakdown: a.utilityBreakdown,
     planRecord:       a.planId !== null ? { id: a.planId } : null,
     choice:           a.choice ?? null,
+    occurrence:       a.occurrence ?? null,
+    external:         a.external ?? null,
   }));
 
   world.planLog = snapshot.planLog.map(p => ({
@@ -248,6 +250,8 @@ function serializeActionRecord(ar) {
     utilityBreakdown: ar.utilityBreakdown ?? null,
     planId:           ar.planRecord?.id ?? null,
     choice:           ar.choice ?? null,
+    occurrence:       ar.occurrence ?? null,
+    external:         ar.external ?? null,
   };
 }
 

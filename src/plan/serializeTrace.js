@@ -344,7 +344,8 @@ function describeProvenance(provenance) {
     };
   }
   if (provenance.type === 'action-effect') {
-    return { kind: 'action', name: provenance.actionRecord?.action?.name ?? null, choice: provenance.actionRecord?.choice ?? null };
+    const record = provenance.actionRecord;
+    return { kind: record?.external ? 'external' : 'action', name: record?.action?.name ?? null, choice: record?.choice ?? null, external: record?.external ?? null };
   }
   if (provenance.type === 'derived-fact') {
     return { kind: 'derived', name: provenance.defineRule?.name ?? null };
