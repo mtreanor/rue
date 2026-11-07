@@ -62,10 +62,19 @@ export class NumericStateQueryHandler extends QueryHandler {
 
   // Returns true when the stored value actually changed (clamping can absorb the
   // entire delta). ForwardChainer convergence depends on this signal.
+  //
+  // A set to the value this store already holds is not an event: it leaves the
+  // history alone, so a fixpoint rule that re-sets a value every pass or every
+  // tick doesn't pile up identical entries. The first set is always recorded,
+  // even when it matches the default, since it marks the value as given.
   setValue(name, args, value, evaluationContext = null, provenance = null) {
     const current   = this.getValue(name, args, evaluationContext);
     const factStore = evaluationContext?.getActiveFactStore?.() ?? this.factStore;
     const clamped   = this.schema.clamp(name, value);
+    const existing  = this._records.get(factStore)?.get(this._recordKey(name, args));
+    if (existing && existing.events.length > 0 && existing.currentValue() === clamped) {
+      return false;
+    }
     factStore.retract(Fact.withValue(name, args, null));
     factStore.assert(Fact.withValue(name, args, clamped));
     const record = this._getOrCreateRecord(name, args, factStore);

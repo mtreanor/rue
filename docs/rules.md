@@ -85,6 +85,8 @@ The typical pattern of boolean LHS / numeric-only RHS is safe by construction: n
 
 For once-per-tick accumulator semantics, use `World.applyOnce`, which runs a single pass.
 
+A set (`=`) is safe to re-run: setting a value to what it already holds changes nothing and adds nothing to its history, so a fixpoint ruleset that re-derives values every tick (translating external actions into standard predicates, say) leaves one history entry per real change. Only the first set of a value is recorded even when it equals the default, since it marks the value as given.
+
 ---
 
 ## Loading rulesets
