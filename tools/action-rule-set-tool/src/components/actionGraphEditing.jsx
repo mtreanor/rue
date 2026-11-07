@@ -332,7 +332,9 @@ export function SelectionStrategyEditor({ value, allowInherit = false, roleOptio
 // Each hook is two stacked rows — type + move/remove controls, then the
 // type-specific fields — so every field gets the panel's full width instead of
 // several controls squeezed onto one line.
-export function HooksEditor({ label, hooks, onChange, rulesets, jsHooks = [], allowSwapRoles = true, roleOptions = [], onGoToRuleset }) {
+// allowFresh: show a "fresh" checkbox on ruleset entries (priming rules), which
+// clears the ephemerals the ruleset writes before it runs.
+export function HooksEditor({ label, hooks, onChange, rulesets, jsHooks = [], allowSwapRoles = true, allowFresh = false, roleOptions = [], onGoToRuleset }) {
   function add() { onChange([...hooks, { type: 'ruleset-single', name: '' }]); }
 
   function update(i, patch) {
@@ -421,6 +423,14 @@ export function HooksEditor({ label, hooks, onChange, rulesets, jsHooks = [], al
                 />
               )}
             </div>
+          )}
+          {allowFresh && (h.type === 'ruleset-single' || h.type === 'ruleset-fixpoint') && (
+            <label className="hook-fresh"
+              title="Clear the ephemeral numerics this ruleset writes before it runs, so priming recomputes from the current facts instead of adding to earlier runs this tick (other stages, or earlier loop invocations of this one)">
+              <input type="checkbox" checked={h.fresh === true}
+                onChange={e => update(i, { fresh: e.target.checked ? true : undefined })} />
+              fresh: clear the ephemerals it writes first
+            </label>
           )}
         </div>
       ))}
@@ -543,7 +553,7 @@ export function StagePanel({ stageName, stage, actionGraphData, onUpdate, onRena
       </div>
       <div className="detail-fields">
 
-        <HooksEditor label="Priming rules" hooks={stage.primingRules ?? []} onChange={v => onUpdate({ primingRules: v })} rulesets={rulesets} jsHooks={jsHooks} allowSwapRoles={false} onGoToRuleset={onGoToRuleset} />
+        <HooksEditor label="Priming rules" hooks={stage.primingRules ?? []} onChange={v => onUpdate({ primingRules: v })} rulesets={rulesets} jsHooks={jsHooks} allowSwapRoles={false} allowFresh onGoToRuleset={onGoToRuleset} />
 
         <div className="detail-field">
           <span>Actionset</span>

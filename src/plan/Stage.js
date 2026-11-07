@@ -29,6 +29,9 @@ export class Stage {
     // Almost always 'ruleset-single' (accumulating += rules); 'ruleset-fixpoint'
     // is available for the rare case priming needs a settled boolean derivation
     // first, but a fixpoint entry here still can't safely carry a +=/-= effect.
+    // `fresh: true` on an entry clears the ephemerals its rules write before it
+    // runs, so priming recomputes each time instead of adding to earlier runs
+    // this tick (other stages, or earlier loop invocations of this one).
     this.primingRules      = primingRules;
     this.actionset         = actionset;
     this.salienceFloor     = salienceFloor;

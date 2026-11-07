@@ -707,9 +707,18 @@ export class Engine {
 
   advanceTick(amount = 1) {
     this.world.advanceTick(amount);
+    this.clearEphemerals();
+    return this;
+  }
+
+  // Clears ephemeral predicates — every one, or only those named — from the
+  // world store, every private store, and their numeric histories, as a tick
+  // boundary does. Non-ephemeral names are ignored.
+  clearEphemerals(names = null) {
     const numericHandler = this.world.queryHandlers.getHandler('numeric');
     for (const [name, def] of this.schema.definitions) {
       if (!def.annotations?.ephemeral) continue;
+      if (names && !names.has(name)) continue;
       this.world.factStore.retractAll(name);
       if (numericHandler) numericHandler.clearRecords(name);
       for (const store of this.world.privateStores.values()) {
@@ -717,6 +726,20 @@ export class Engine {
       }
     }
     return this;
+  }
+
+  // The ephemeral predicates a ruleset's rules write to (their effects'
+  // predicate names). A fresh ruleset run clears exactly these first.
+  ephemeralsWrittenBy(rulesetName) {
+    const rules = this.rulesets.get(rulesetName);
+    if (!rules) throw new Error(`No ruleset named "${rulesetName}"`);
+    const names = new Set();
+    for (const rule of rules) {
+      for (const effect of (Array.isArray(rule.effects) ? rule.effects : [])) {
+        if (effect?.name && this.schema.getDefinition(effect.name)?.annotations?.ephemeral) names.add(effect.name);
+      }
+    }
+    return names;
   }
 
   assert(text) {

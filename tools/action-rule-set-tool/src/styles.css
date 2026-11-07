@@ -812,6 +812,7 @@ input.dsl-input-highlighted {
 .hook-name-row { display: flex; gap: 4px; }
 .hook-name-row select { flex: 1; font-size: 12px; min-width: 0; }
 .hook-requires { width: 110px; font-size: 12px; flex-shrink: 0; }
+.hook-fresh { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--dim); margin-top: 3px; cursor: pointer; }
 .hook-swap-pair { display: flex; align-items: center; gap: 6px; }
 
 /* "Open in Rules"/"Open in Actions" — jumps from a ruleset/actionset

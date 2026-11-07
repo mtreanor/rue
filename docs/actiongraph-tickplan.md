@@ -42,7 +42,7 @@ new Stage({
 
 | Field | Purpose |
 |-------|---------|
-| `primingRules` | An ordered array of `{ type: 'ruleset-single' \| 'ruleset-fixpoint', name }` — same shape as `preHooks`/`postHooks` — run just before this stage scores its actionset. Almost always `'ruleset-single'`: typically `+=` accumulation into ephemeral numerics that the actions then read as utility. Unlike `postHooks` rulesets, `'ruleset-single'` does **not** loop to fixpoint. |
+| `primingRules` | An ordered array of `{ type: 'ruleset-single' \| 'ruleset-fixpoint', name, fresh? }` — same shape as `preHooks`/`postHooks` — run just before this stage scores its actionset. Almost always `'ruleset-single'`: typically `+=` accumulation into ephemeral numerics that the actions then read as utility. Unlike `postHooks` rulesets, `'ruleset-single'` does **not** loop to fixpoint. `fresh: true` clears the ephemerals the ruleset writes before it runs (see [Fresh priming](#fresh-priming)). |
 | `actionset` | The named actionset to score for this stage. |
 | `salienceFloor` | Candidates scoring below this are discarded. Defaults to `0`. |
 | `selectionStrategy` | How winners are picked from the scored candidates — see [Selection strategies](#selection-strategies). Falls back to the actionGraph's strategy, then `highestUtility`. |
@@ -236,6 +236,27 @@ Note the two ways a stage runs rules, both using the same two mechanisms:
 
 - **`primingRules` on the `Stage`** — almost always `'ruleset-single'` entries, run **once**, for priming utility (e.g. `score(?X) += …` into ephemeral numerics). A `'ruleset-fixpoint'` entry here is possible but still can't safely carry a `+=`/`-=` effect, since it isn't scoped to this stage's binding either.
 - **Hooks** (`preHooks` / `postHooks`) — either mechanism, by `type`. `'ruleset-fixpoint'` is the common case, for settling world state; `'ruleset-single'` is available when a hook ruleset needs `+=`/`-=` accumulation scoped to the current binding instead.
+
+### Fresh priming
+
+Ephemeral numerics reset only when the tick advances. A stage primes once per
+loop invocation, and every stage that shares a priming ruleset primes again, so
+`+=` priming adds up: an agent judging three occurrences gets its impulses
+primed three times over. A priming entry with `fresh: true` first clears the
+**ephemeral numerics its ruleset writes** (its rules' effect predicates
+annotated `ephemeral`), then runs. Each invocation's scores are then computed
+from the current facts, including what earlier stages and invocations changed
+this tick:
+
+```json
+"primingRules": [{ "type": "ruleset-single", "name": "social-priming", "fresh": true }]
+```
+
+Other ephemerals are untouched. Since priming is scoped to the invocation's
+binding, a fresh run may leave other agents' values cleared until their own
+invocation primes them; each invocation still scores against freshly computed
+values. `fresh` works on any ruleset hook, but priming is what it's for. The
+authoring tool shows it as a checkbox on each priming ruleset of a stage.
 
 ### Binding scope and `requires`
 

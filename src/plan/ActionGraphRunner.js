@@ -365,17 +365,28 @@ export class ActionGraphRunner {
         return null;
       }
       const startingBinding = this._pick(binding, hook.requires);
+      this._freshen(hook);
       const applications = hook.type === 'ruleset-fixpoint'
         ? this.engine.runRulesetFixpoint(hook.name, { startingBinding })
         : this.engine.runRulesetSingle(hook.name, { startingBinding });
       recorder.hookRan(scope, hook, { skipped: false, applications });
       return null;
     }
+    this._freshen(hook);
     const applications = hook.type === 'ruleset-fixpoint'
       ? this.engine.runRulesetFixpoint(hook.name)
       : this.engine.runRulesetSingle(hook.name, { startingBinding: this._toPartial(binding) });
     recorder.hookRan(scope, hook, { skipped: false, applications });
     return null;
+  }
+
+  // A ruleset hook with `fresh: true` first clears the ephemeral numerics its
+  // rules write. Ephemerals otherwise reset only when the tick advances, and a
+  // stage's priming runs once per loop invocation (and every stage runs its
+  // own), so `+=` priming would add up across them; fresh priming recomputes
+  // from the current facts each time instead. Mostly for primingRules.
+  _freshen(hook) {
+    if (hook.fresh === true) this.engine.clearEphemerals(this.engine.ephemeralsWrittenBy(hook.name));
   }
 
   // Builds a partial-binding object containing only the named variables,
