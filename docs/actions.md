@@ -271,6 +271,26 @@ content text: "?SELF offers to help ?Y"
 
 `TextContentItem.render(binding)` substitutes uppercase variable references (e.g. `?SELF`, `?Y`) with their bound values. Entity objects render as their `.name` string. Unbound variable placeholders are left unchanged. Access the item via `action.content` — returns `null` when absent.
 
+An occurrence's text is its action's content rendered with the binding it fired with (an external action's is the `text` it was registered with): `engine.occurrenceText(occ)`, or `{text[N]}` in a predicate's [text template](schema.md#tostring).
+
+---
+
+## Reasons
+
+Why a scored candidate is attractive, as text: `engine.reasonsFor(candidate, { template = 'briefing' })`. Its utility reads numeric predicates; the rules that set them (typically a stage's priming rules) recorded their premises as concrete facts; those facts, rendered with their predicates' text templates, are the reasons. The text is authored and deterministic, never generated.
+
+Each reason is `{ text, direction, rule, fact }`. `direction` is `for` when the rule pushed the utility up (raised a predicate the utility adds, or lowered one it subtracts or divides by a negative) and `against` when it pushed it down. Each text appears once per direction. Nothing about the ranking is in the text: no utility, no value of the numeric read, no rule weight (a fact's own value appears only if its template shows it).
+
+```rue
+rule "dislike makes hostile"
+  ?SELF.likes(?SELF, ?B) < 5
+  => hostile(?SELF, ?B) += 3
+```
+
+With `likes` templated as `You like {args[1]} {value} out of 10.`, an action whose utility is `hostile(?SELF, ?X)` has, for `?X = bob`, the reason `for: You like bob 2 out of 10.`
+
+Left out: premises that aren't a fact (`not p(...)`, explicit negations, expression comparisons), facts whose predicate has no template of that name, and values no rule set (given values, action effects). A candidate with nothing behind its utility has no reasons. The Play server adds `reasons` to every candidate it serves (see [Server API](server-api.md)).
+
 ---
 
 ## `effects`

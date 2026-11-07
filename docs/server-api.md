@@ -25,12 +25,12 @@ Everything is under `/api/play/:scenario`, where `:scenario` is a key in `projec
 | `POST` | `/start` | `{ planName?, controlled? }` | The new session's info. Replaces any existing session. `controlled` is `{ agents: [], stages: [] }`: which selection points pause for an outside choice (an empty list means no constraint on that dimension; omit `controlled` to let the engine choose everything) |
 | `POST` | `/step` | | Runs one tick: `{ status: 'tick-complete', tick, trace }`, or `{ status: 'awaiting-choice', request }` when a controlled selection pauses it |
 | `POST` | `/choose` | `{ indexes, chooser? }` | Answers the pending choice with indexes into `request.candidates` (`[]` means no winner executes). `chooser` is `{ kind: 'player' \| 'agent', id?, note? }` and is recorded on each winner's [ActionRecord choice](action-records.md#choice); it defaults to `{ kind: 'player' }`. Responds like `/step` |
-| `POST` | `/config` | `{ controlled }` | Changes which selections are controlled, mid-session |
+| `POST` | `/config` | `{ controlled?, reasonTemplate? }` | Changes which selections are controlled, mid-session, and the text template candidates' `reasons` are rendered with (default `briefing`). A body with only `reasonTemplate` leaves control as it is |
 | `POST` | `/plan` | `{ plan }` | Replaces which actionGraphs and rulesets the next tick runs (`null` resets to the scenario's tick plan) |
 | `GET` | `/trace/:tick` | | `{ trace }` for an earlier tick |
 | `POST` | `/reset` | | Discards the session |
 
-A pending `request` carries the decision's `binding`, `stageNames`, `strategy`, and `candidates`. Each candidate has `index`, `actionName`, `label`, `score`, `belowFloor`, `isDefault` (what the selection strategy would pick), and its utility `breakdown`.
+A pending `request` carries the decision's `binding`, `stageNames`, `strategy`, and `candidates`. Each candidate has `index`, `actionName`, `label`, `score`, `belowFloor`, `isDefault` (what the selection strategy would pick), its utility `breakdown`, and `reasons`: why it's attractive, as text rendered from the facts behind its utility, each `{ text, direction, rule, fact }` (see [Reasons](actions.md#reasons)).
 
 ### Reading and changing state
 

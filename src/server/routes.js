@@ -60,10 +60,14 @@ router.post('/play/:scenario/choose', h(async (req, res) => {
   res.json(await getPlaySession(req.params.scenario).choose(req.body.indexes, req.body.chooser));
 }));
 
-// Update which selections the player answers, mid-session.
+// Update which selections the player answers, mid-session, and the text
+// template served candidates' reasons are rendered with.
 router.post('/play/:scenario/config', h((req, res) => {
   const session = getPlaySession(req.params.scenario);
-  session.setControlled(req.body?.controlled);
+  // `reasonTemplate` alone leaves control as it is; otherwise `controlled` is
+  // set as it always was (an absent one clears it).
+  if (req.body?.reasonTemplate !== undefined) session.setReasonTemplate(req.body.reasonTemplate);
+  if (req.body?.reasonTemplate === undefined || req.body?.controlled !== undefined) session.setControlled(req.body?.controlled);
   res.json(session.info());
 }));
 

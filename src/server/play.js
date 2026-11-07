@@ -122,6 +122,7 @@ class PlaySession {
 
     this.traces     = [];        // serialized TickTraces, index = tick - 1
     this.controlled = { agents: [], stages: [] };
+    this.reasonTemplate = 'briefing';
     this.pending    = null;      // { request (raw), resolve } while suspended
     this.tickPromise = null;
     this.pauseSignal = deferred();
@@ -141,6 +142,7 @@ class PlaySession {
       tick:       this.engine.world.tickTracker.currentTick,
       traceCount: this.traces.length,
       controlled: this.controlled,
+      reasonTemplate: this.reasonTemplate,
       pending:    this.pending ? this._serializeRequest(this.pending.request) : null,
       stale:      this.stale,
       agents:     this.loop.entityNames(),
@@ -172,6 +174,12 @@ class PlaySession {
         [...this.engine.world.entityRegistry.entries()].map(([type, list]) => [type, list.map(e => e?.name ?? e).sort()])
       ),
     };
+  }
+
+  // The text template a served candidate's reasons are rendered with.
+  setReasonTemplate(name) {
+    if (typeof name !== 'string' || name === '') throw new Error('reasonTemplate must be a template name');
+    this.reasonTemplate = name;
   }
 
   setControlled({ agents = [], stages = [] } = {}) {
@@ -386,10 +394,15 @@ class PlaySession {
       // you're choosing among carries the identical breakdown (rule sources,
       // numeric history, provenance leaves) as one you're reviewing after the
       // fact. Only `index`/`isDefault` are choice-specific additions.
+      // `reasons`: why each candidate is attractive, as text rendered from the
+      // facts behind its utility (src/plan/reasons.js), for a chooser that
+      // shouldn't see the ranking itself.
       candidates: request.candidates.map((c, index) => ({
         index,
         ...serializeCandidate(c, historyRegistry),
         isDefault: request.defaultWinners.includes(c),
+        reasons:   this.engine.reasonsFor(c, { template: this.reasonTemplate })
+          .map(({ text, direction, rule, fact }) => ({ text, direction, rule, fact })),
       })),
       histories: Object.fromEntries(historyRegistry),
     };

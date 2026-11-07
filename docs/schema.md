@@ -80,10 +80,11 @@ A template can use:
 | Placeholder | Fills in |
 |-------------|----------|
 | `{args[N]}` | The fact's Nth argument (counting from 0), as an entity name |
+| `{text[N]}` | The text of the occurrence in the Nth argument: its action's rendered content, or an external action's text (see [`content`](actions.md#content)). An argument that isn't an occurrence with text renders as its entity name |
 | `{value}` | The fact's value: the number for a numeric fact; `true`, or `false` for an explicitly negated boolean (`-pred(...)`) |
 | `{tier}` | The name of the tier a numeric value falls in (empty when it falls in none) |
 
-Anything else in braces, including an `{args[N]}` past the predicate's last argument, is left in the text exactly as written. Only the shape of `toString` is checked at load: it must be an object whose values are strings.
+Anything else in braces, including an `{args[N]}` or `{text[N]}` past the predicate's last argument, is left in the text exactly as written. Only the shape of `toString` is checked at load: it must be an object whose values are strings.
 
 Rendering, from code or over HTTP:
 

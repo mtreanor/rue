@@ -4,6 +4,7 @@ import { World } from './World.js';
 import { Binding } from './Binding.js';
 import { LogicalVariable } from './LogicalVariable.js';
 import { PredicateSchema } from './PredicateSchema.js';
+import { reasonsFor } from './plan/reasons.js';
 import { renderTemplate } from './TextTemplate.js';
 import { RuleParser } from './loader/RuleParser.js';
 import { RuleLoader } from './loader/RuleLoader.js';
@@ -589,10 +590,31 @@ export class Engine {
     if (template === undefined) return null;
     const numeric = fact.value !== null && fact.value !== undefined;
     return renderTemplate(template, {
-      args:  fact.args ?? [],
-      value: numeric ? fact.value : !fact.negated,
-      tier:  numeric ? this.schema.tierFor(fact.name, fact.value) ?? '' : '',
+      args:   fact.args ?? [],
+      value:  numeric ? fact.value : !fact.negated,
+      tier:   numeric ? this.schema.tierFor(fact.name, fact.value) ?? '' : '',
+      textOf: name => this.occurrenceText(name),
     });
+  }
+
+  // The text of an occurrence: its action's rendered content (for an external
+  // action, the text it was registered with), or null when `occurrence` names
+  // no recorded occurrence or its action has no content.
+  occurrenceText(occurrence) {
+    const name = occurrence?.name ?? occurrence;
+    for (let i = this.world.actionLog.length - 1; i >= 0; i--) {
+      const record = this.world.actionLog[i];
+      if ((record.occurrence?.name ?? record.occurrence) !== name) continue;
+      return record.action.content ? record.action.content.render(record.binding) : null;
+    }
+    return null;
+  }
+
+  // Why a scored candidate is attractive, as text: the facts behind its
+  // utility, rendered with each predicate's `templateName` text template. See
+  // src/plan/reasons.js and docs/actions.md#reasons.
+  reasonsFor(candidate, { template = 'briefing' } = {}) {
+    return reasonsFor(this, candidate, template);
   }
 
   // Renders every currently active fact in one store — the world store, or an
