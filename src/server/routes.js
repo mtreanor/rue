@@ -136,8 +136,8 @@ router.get('/play/:scenario/templates', h((req, res) => {
   res.json({ predicates: getPlaySession(req.params.scenario).templates() });
 }));
 router.post('/play/:scenario/render', h((req, res) => {
-  if (!req.body?.template) throw new Error('render expects { template, owner? }');
-  res.json({ rendered: getPlaySession(req.params.scenario).renderFacts(req.body.template, req.body.owner ?? null) });
+  if (!req.body?.template) throw new Error('render expects { template, owner?, skipDefaults? }');
+  res.json({ rendered: getPlaySession(req.params.scenario).renderFacts(req.body.template, req.body.owner ?? null, req.body.skipDefaults === true) });
 }));
 router.post('/play/:scenario/assert', h((req, res) => {
   res.json({ facts: getPlaySession(req.params.scenario).assertFact(req.body.text) });

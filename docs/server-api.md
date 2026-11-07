@@ -50,7 +50,7 @@ Predicates can declare named text templates (their `toString`; see [Schema](sche
 | Method | Path | Body | Returns |
 |--------|------|------|---------|
 | `GET` | `/templates` | | `{ predicates }`: `{ predicateName: { args, templates } }` for every predicate that declares templates |
-| `POST` | `/render` | `{ template, owner? }` | `{ rendered }`: each active fact in the world store (or `owner`'s private store) whose predicate has that template, as `{ name, args, value, negated, text }` |
+| `POST` | `/render` | `{ template, owner?, skipDefaults? }` | `{ rendered }`: each active fact in the world store (or `owner`'s private store) whose predicate has that template, in the order asserted, as `{ name, args, value, negated, text }`. `skipDefaults` leaves out numeric facts at their predicate's default |
 
 ### Provenance
 

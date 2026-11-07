@@ -619,9 +619,11 @@ export class Engine {
 
   // Renders every currently active fact in one store — the world store, or an
   // entity's private store when `owner` is given — whose predicate has a text
-  // template named `templateName`. Facts without that template are skipped.
-  // Returns [{ name, args, value, negated, text }].
-  renderFacts(templateName, { owner = null } = {}) {
+  // template named `templateName`. Facts without that template are skipped, and
+  // with `skipDefaults` so are numeric facts at their predicate's default (an
+  // untouched or returned-to-neutral value). In the order the facts were
+  // asserted. Returns [{ name, args, value, negated, text }].
+  renderFacts(templateName, { owner = null, skipDefaults = false } = {}) {
     const store = owner === null ? this.world.factStore : this.world.getPrivateStore(owner);
     if (!store) return [];
     const rendered = [];
@@ -633,6 +635,7 @@ export class Engine {
         value:   record.fact.value ?? null,
         negated: !!record.fact.negated,
       };
+      if (skipDefaults && fact.value !== null && fact.value === this.schema.getDefault(fact.name)) continue;
       const text = this.renderFact(fact, templateName);
       if (text !== null) rendered.push({ ...fact, text });
     }

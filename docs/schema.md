@@ -94,6 +94,7 @@ engine.renderFact({ name: 'warmth', args: ['alice', 'bob'], value: 9 }, 'briefin
 
 engine.renderFacts('briefing');                      // every active world fact with a "briefing" template
 engine.renderFacts('briefing', { owner: 'alice' });  // the same, from alice's private store
+engine.renderFacts('briefing', { skipDefaults: true }); // leaving out numeric facts at their default
 // [{ name, args, value, negated, text }, ...]
 ```
 

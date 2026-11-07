@@ -366,7 +366,7 @@ class PlaySession {
   }
   deleteFact(fact)          { return deleteFactForEngine(this.engine, fact); }
   whyFact(fact)             { return whyFactForEngine(this.engine, fact); }
-  renderFacts(template, owner) { return this.engine.renderFacts(template, { owner }); }
+  renderFacts(template, owner, skipDefaults = false) { return this.engine.renderFacts(template, { owner, skipDefaults }); }
   templates()               { return templatesForEngine(this.engine); }
   explainFact(fact)         { return explainFactForEngine(this.engine, fact); }
 

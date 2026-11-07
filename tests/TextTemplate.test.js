@@ -85,6 +85,19 @@ describe('Engine.renderFacts', () => {
     assert.deepEqual(engine.renderFacts('briefing', { owner: 'nobody' }), []);
   });
 
+  it('leaves out numeric facts at their default with skipDefaults', () => {
+    const engine = makeEngine();
+    const neutral = engine.schema.getDefault('warmth');
+    engine.assert('warmth(alice, bob) = 9');
+    engine.assert(`warmth(bob, alice) = ${neutral}`);
+    engine.assert('-trusts(bob, alice)');
+    assert.equal(engine.renderFacts('briefing').length, 3);
+    assert.deepEqual(engine.renderFacts('briefing', { skipDefaults: true }).map(r => r.text), [
+      'alice has close feelings of warmth toward bob',
+      'bob trusts alice: false',
+    ]);
+  });
+
   it('returns null for one fact whose predicate has no template by that name', () => {
     const engine = makeEngine();
     assert.equal(engine.renderFact({ name: 'tired', args: ['alice'] }, 'briefing'), null);
