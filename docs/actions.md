@@ -412,6 +412,19 @@ action "give"
 
 Actions without `record()` produce no occurrence — it's opt-in per action definition.
 
+### Private occurrences: `record(?var) for ?A, ?B`
+
+By default the occurrence's `actionType` and `role` facts go in the world store, so anything that queries the world can see that it happened and who took part. When only some entities know it happened (a whisper, a private deal), name them:
+
+```rue
+action "whisper"
+  roles: ?SELF: agent, ?Y: agent
+  effects
+    record(?occ) for ?SELF, ?Y
+```
+
+The `actionType` and `role` facts then go in each named entity's private store, and nowhere else. Each must have a private store. Query them with an owner prefix (`?SELF.role(?o, SELF, ?X)`); give `actionType` and `role` `privateFallback: "world-first"` so the same premise also finds occurrences recorded in the world. The occurrence entity itself, its text and its action log record are the same either way.
+
 ### Schema setup
 
 Declare the vocabulary so query variables get typed:
@@ -482,6 +495,7 @@ Once it's registered, it looks just like an internal action that has `record(?oc
 | `actionType` | yes | Any non-empty string |
 | `roles` | no | Role name → value. A string that names an entity binds to that entity; other strings, numbers and booleans are kept as literals |
 | `effects` | no | An array of effects in the same syntax as an action's `effects` lines: assert, `not` (retract), `= N`, `+= N`, `-= N`, owner-prefixed private-store writes, and numeric expressions on the right-hand side. `?occ` is the new occurrence; `?NAME` is any role |
+| `knownBy` | no | Entity names whose private stores get the occurrence's `actionType` and `role` facts, instead of the world (as `record(?occ) for ...`) |
 | `text` | no | The action's content: a readable description, with `?NAME` placeholders filled from the roles |
 | `source`, `ref` | no | Where it came from: a system name, and that system's own reference for it |
 | `data` | no | Any JSON the caller wants kept with it. RUE stores it as given and never reads it |

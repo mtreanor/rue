@@ -713,12 +713,20 @@ export class DSLParser {
       return { type: 'remove-entity', entityType, nameArg };
     }
 
-    // 'record(?var)' — mint occurrence with auto-asserted action vocabulary
+    // 'record(?var)' — mint occurrence with auto-asserted action vocabulary.
+    // 'record(?var) for ?A, ?B' records that vocabulary in those entities'
+    // private stores instead of the world: only they know it happened.
     if (this.check('IDENT', 'record')) {
       this.advance();
       this.expect('LPAREN');
       const bindVar = this.parseArg();
       this.expect('RPAREN');
+      if (this.check('IDENT', 'for')) {
+        this.advance();
+        const knownBy = [this.parseArg()];
+        while (this.check('COMMA')) { this.advance(); knownBy.push(this.parseArg()); }
+        return { type: 'record', bindVar, knownBy };
+      }
       return { type: 'record', bindVar };
     }
 

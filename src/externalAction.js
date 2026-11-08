@@ -20,14 +20,14 @@ const RESERVED_ROLES = new Set([OCC, THIS_ACTION]);
 const ROLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const BOOLEAN_OPS = new Set(['assert', 'retract']);
 const NUMERIC_OPS = new Set(['set-numeric', 'adjust-numeric']);
-const FIELDS = new Set(['actionType', 'roles', 'effects', 'text', 'source', 'ref', 'data']);
+const FIELDS = new Set(['actionType', 'roles', 'effects', 'text', 'source', 'ref', 'data', 'knownBy']);
 
 export function performExternal(engine, spec = {}) {
   const unknown = Object.keys(spec ?? {}).filter(key => !FIELDS.has(key));
   if (unknown.length > 0) {
     throw new Error(`Unknown external action field(s): ${unknown.join(', ')} (expected ${[...FIELDS].join(', ')})`);
   }
-  const { actionType, roles = {}, effects = [], text = null, source = null, ref = null, data = null } = spec ?? {};
+  const { actionType, roles = {}, effects = [], text = null, source = null, ref = null, data = null, knownBy = null } = spec ?? {};
   const { world, schema } = engine;
 
   if (typeof actionType !== 'string' || actionType.trim() === '') {
@@ -42,6 +42,17 @@ export function performExternal(engine, spec = {}) {
   if (text !== null && typeof text !== 'string') throw new Error('External action text must be a string');
   if (source !== null && typeof source !== 'string') throw new Error('External action source must be a string');
   if (ref !== null && typeof ref !== 'string') throw new Error('External action ref must be a string');
+
+  // knownBy: the entities that know it happened. Its actionType and role facts
+  // go in their private stores instead of the world.
+  if (knownBy !== null) {
+    if (!Array.isArray(knownBy) || knownBy.some(name => typeof name !== 'string')) {
+      throw new Error('External action knownBy must be an array of entity names');
+    }
+    for (const name of knownBy) {
+      if (!world.hasPrivateStore(name)) throw new Error(`External action knownBy: ${name} has no private store`);
+    }
+  }
 
   // Roles → binding. A string naming a registered entity binds to that entity;
   // any other string, number or boolean binds as a literal.
@@ -73,7 +84,7 @@ export function performExternal(engine, spec = {}) {
 
   const action = new Action(actionType, {
     roles:   roleDecls,
-    effects: [new StateOperation('record', null, [], { bindVar: new LogicalVariable(OCC) }), ...operations],
+    effects: [new StateOperation('record', null, [], { bindVar: new LogicalVariable(OCC), knownBy: knownBy ?? [] }), ...operations],
     content: text !== null ? new TextContentItem(text) : null,
   });
   action.external = true;

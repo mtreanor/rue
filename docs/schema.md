@@ -84,7 +84,23 @@ A template can use:
 | `{value}` | The fact's value: the number for a numeric fact; `true`, or `false` for an explicitly negated boolean (`-pred(...)`) |
 | `{tier}` | The name of the tier a numeric value falls in (empty when it falls in none) |
 
-Anything else in braces, including an `{args[N]}` or `{text[N]}` past the predicate's last argument, is left in the text exactly as written. Only the shape of `toString` is checked at load: it must be an object whose values are strings.
+| `{abs}` | The absolute value of a numeric fact's value |
+
+**Sign forms.** A template can instead be an object of forms chosen by the sign of a numeric fact's value, so the wording carries the direction and the number needs no sign:
+
+```json
+"change": {
+  "type": "numeric", "args": ["occurrence", "agent", "quantity"],
+  "toString": {
+    "reason": { "positive": "\"{text[0]}\" saved {args[1]} {abs} {args[2]}.",
+                "negative": "\"{text[0]}\" cost {args[1]} {abs} {args[2]}." }
+  }
+}
+```
+
+`positive` and `negative` are required; `zero` is optional and falls back to `positive`, as does a non-numeric fact. (The authoring tool's predicate editor edits string templates only.)
+
+Anything else in braces, including an `{args[N]}` or `{text[N]}` past the predicate's last argument, is left in the text exactly as written. Only the shape of `toString` is checked at load: it must be an object whose values are strings or sign forms.
 
 Rendering, from code or over HTTP:
 

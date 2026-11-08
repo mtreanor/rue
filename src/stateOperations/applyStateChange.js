@@ -207,14 +207,18 @@ function applyRecord(operation, binding, world, action, provenance) {
   const occId = `occ${world.occurrenceSeq}`;
   world.addEntity('occurrence', { name: occId });
 
-  world.factStore.assert(new Fact('actionType', occId, action.name), 1.0, provenance);
+  // Where the occurrence's vocabulary goes: the world, or, with `for`, the
+  // private stores of the entities that know it happened (and only theirs).
+  const stores = recordStores(operation, binding, world);
+
+  for (const store of stores) store.assert(new Fact('actionType', occId, action.name), 1.0, provenance);
 
   for (const roleRef of action.roles ?? []) {
     const roleName = roleNameOf(roleRef);
     const resolved = binding.resolve(new LogicalVariable(roleName));
     if (resolved === undefined) continue;
     const value = toFactArg(resolved);
-    world.factStore.assert(new Fact('role', occId, roleName, value), 1.0, provenance);
+    for (const store of stores) store.assert(new Fact('role', occId, roleName, value), 1.0, provenance);
   }
 
   // The ActionRecord names the occurrence it minted, and its binding includes
@@ -227,6 +231,21 @@ function applyRecord(operation, binding, world, action, provenance) {
   }
 
   return occId;
+}
+
+function recordStores(operation, binding, world) {
+  const knownBy = operation.knownBy ?? [];
+  if (knownBy.length === 0) return [world.factStore];
+  const names = [...new Set(knownBy.map(arg => {
+    const resolved = arg instanceof LogicalVariable ? binding.resolve(arg) : arg;
+    if (resolved === undefined) throw new Error(`record() for ${arg.name ? '?' + arg.name : arg}: unbound`);
+    return toFactArg(resolved);
+  }))];
+  return names.map(name => {
+    const store = world.getPrivateStore(name);
+    if (!store) throw new Error(`record() for ${name}: ${name} has no private store`);
+    return store;
+  });
 }
 
 function roleNameOf(roleRef) {

@@ -55,7 +55,7 @@ describe('PredicateSchema text templates', () => {
   it('rejects a toString that is not an object of strings', () => {
     const make = (toString) => new PredicateSchema({ predicates: { p: { type: 'boolean', args: [], toString } } });
     assert.throws(() => make('nope'), /toString must be an object/);
-    assert.throws(() => make({ briefing: 3 }), /template "briefing" must be a string/);
+    assert.throws(() => make({ briefing: 3 }), /template "briefing" must be a string/);  // or sign forms
   });
 });
 
@@ -102,5 +102,28 @@ describe('Engine.renderFacts', () => {
     const engine = makeEngine();
     assert.equal(engine.renderFact({ name: 'tired', args: ['alice'] }, 'briefing'), null);
     assert.equal(engine.renderFact({ name: 'trusts', args: ['alice', 'bob'] }, 'briefing'), 'alice trusts bob: true');
+  });
+});
+
+describe('sign forms', () => {
+  const forms = { positive: 'saved {args[0]} {abs} hours', negative: 'cost {args[0]} {abs} hours', zero: 'changed nothing for {args[0]}' };
+
+  it('choose their wording by the value\'s sign, with {abs} unsigned', () => {
+    assert.equal(renderTemplate(forms, { args: ['bob'], value: 1 }), 'saved bob 1 hours');
+    assert.equal(renderTemplate(forms, { args: ['carol'], value: -2 }), 'cost carol 2 hours');
+    assert.equal(renderTemplate(forms, { args: ['dave'], value: 0 }), 'changed nothing for dave');
+  });
+
+  it('fall back to positive for zero without a zero form, and for non-numeric values', () => {
+    const { zero, ...noZero } = forms;
+    assert.equal(renderTemplate(noZero, { args: ['dave'], value: 0 }), 'saved dave 0 hours');
+    assert.equal(renderTemplate(noZero, { args: ['dave'], value: true }), 'saved dave true hours');
+  });
+
+  it('are checked at load', () => {
+    const make = (template) => new PredicateSchema({ predicates: { p: { type: 'numeric', args: [], toString: { reason: template } } } });
+    assert.doesNotThrow(() => make({ positive: 'a', negative: 'b' }));
+    assert.throws(() => make({ positive: 'a' }), /sign forms/);
+    assert.throws(() => make({ positive: 'a', negative: 'b', sideways: 'c' }), /sign forms/);
   });
 });

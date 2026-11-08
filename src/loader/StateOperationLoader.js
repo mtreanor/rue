@@ -27,7 +27,9 @@ export class StateOperationLoader {
         ? new LogicalVariable(data.bindVar.slice(1))
         : null;
       if (!bindVar) throw new Error('record() requires a variable argument, e.g. record(?occ)');
-      return new StateOperation('record', null, [], { bindVar });
+      const knownBy = (data.knownBy ?? []).map(arg =>
+        typeof arg === 'string' && arg.startsWith('?') ? new LogicalVariable(arg.slice(1)) : arg);
+      return new StateOperation('record', null, [], { bindVar, knownBy });
     }
 
     if (this.predicateSchema && !this.predicateSchema.hasDefinition(data.name)) {

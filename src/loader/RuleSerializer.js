@@ -152,7 +152,9 @@ export class RuleSerializer {
       return `remove entity(${effect.entityType}, ${this.serializeArg(effect.nameArg)})`;
     }
     if (effect.type === 'record') {
-      return `record(${this.serializeArg(effect.bindVar)})`;
+      const knownBy = effect.knownBy ?? [];
+      return `record(${this.serializeArg(effect.bindVar)})`
+        + (knownBy.length ? ` for ${knownBy.map(a => this.serializeArg(a)).join(', ')}` : '');
     }
 
     const owner = this.ownerPrefix(effect);

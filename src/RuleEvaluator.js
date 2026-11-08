@@ -331,7 +331,22 @@ export class RuleEvaluator {
     const store   = evaluationContext.getActiveFactStore();
     const clauses = [];
 
-    for (const { predicate } of predicateEntries) {
+    for (const entry of predicateEntries) {
+      // An owner-prefixed clause (`?SELF.role(?o, SELF, ?x)`) takes its values
+      // from the owner's private store, plus the world's (a candidate the
+      // store doesn't hold may still hold through privateFallback; extra
+      // candidates are checked at evaluation, missing ones are lost). With the
+      // owner not yet bound, the clause can't say which store, so it offers
+      // nothing here, as before.
+      let predicate = entry.predicate;
+      let stores = [store];
+      if (predicate instanceof PrivatePredicate) {
+        const ownerName = predicate.resolveOwnerName(startingBinding);
+        const privateStore = ownerName != null ? evaluationContext.privateStores?.get(ownerName) : null;
+        if (!privateStore) continue;
+        predicate = predicate.innerPredicate;
+        stores = [privateStore, store];
+      }
       if (!predicate.name || !predicate.args) continue;
       // A symmetric predicate (schema "symmetric": true) is stored in only
       // one direction; the positional match below has no awareness of the
@@ -343,8 +358,9 @@ export class RuleEvaluator {
       );
       if (argIndex < 0) continue;
 
-      const records = this.candidateRecordsForClause(predicate, argIndex, store, startingBinding, evaluationContext);
-      clauses.push({ predicate, argIndex, records });
+      const records = stores.flatMap(s =>
+        this.candidateRecordsForClause(predicate, argIndex, s, startingBinding, evaluationContext));
+      clauses.push({ predicate, argIndex, records, private: stores.length > 1 });
     }
     if (clauses.length === 0) return [];
 

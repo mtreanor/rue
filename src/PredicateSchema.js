@@ -1,3 +1,4 @@
+import { SIGN_FORMS } from './TextTemplate.js';
 const PRIVATE_FALLBACKS = new Set(['world-first', 'default-first']);
 
 export class PredicateSchema {
@@ -19,8 +20,15 @@ export class PredicateSchema {
         throw new Error(`Predicate "${name}": toString must be an object of named template strings`);
       }
       for (const [key, template] of Object.entries(templates)) {
-        if (typeof template !== 'string') {
-          throw new Error(`Predicate "${name}": toString template "${key}" must be a string`);
+        if (typeof template === 'string') continue;
+        const forms = template !== null && typeof template === 'object' && !Array.isArray(template)
+          ? Object.entries(template) : null;
+        const ok = forms && forms.length > 0
+          && forms.every(([form, text]) => SIGN_FORMS.includes(form) && typeof text === 'string')
+          && typeof template.positive === 'string' && typeof template.negative === 'string';
+        if (!ok) {
+          throw new Error(`Predicate "${name}": toString template "${key}" must be a string, or sign forms `
+            + `{ "positive": "...", "negative": "...", "zero"?: "..." }`);
         }
       }
     }
